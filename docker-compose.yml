@@ -1,0 +1,93 @@
+# Local development stack for the Veltacore platform.
+# Frontend dev server runs on the host (cd frontend && npm run dev) and
+# proxies /api to the backend container.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: veltacore
+      POSTGRES_USER: veltacore
+      POSTGRES_PASSWORD: veltacore
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veltacore"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  # LDAP directory that Keycloak federates for SSO identity.
+  ldap:
+    image: bitnami/openldap:2.6
+    environment:
+      LDAP_ROOT: dc=finspot,dc=in
+      LDAP_ADMIN_USERNAME: admin
+      LDAP_ADMIN_PASSWORD: admin
+      # Seed users (Keycloak maps these into the realm via user federation).
+      LDAP_USERS: priya,marcus,siva,rajkumar,vic
+      LDAP_PASSWORDS: priya,marcus,siva,rajkumar,vic
+      LDAP_USER_DC: users
+    ports: ["1389:1389"]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    # --import-realm loads deploy/keycloak/veltacore-realm.json, which defines
+    # the API client, PBAC roles/groups, and the LDAP user-federation provider
+    # pointed at the ldap service above.
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes: ["./deploy/keycloak:/opt/keycloak/data/import:ro"]
+    depends_on: [ldap]
+    ports: ["8080:8080"]
+
+  opa:
+    image: openpolicyagent/opa:latest
+    command: ["run", "--server", "--addr", ":8181", "/policy"]
+    volumes: ["./backend/policy:/policy:ro"]
+    ports: ["8181:8181"]
+
+  api:
+    build: ./backend
+    # Clean-start mode: demo data is only seeded when SEED_DEMO=1 (default here
+    # for a runnable demo). Set SEED_DEMO=0 for a clean multi-tenant deployment.
+    command: >
+      sh -c "python manage.py migrate &&
+             { [ \"$${SEED_DEMO:-1}\" = \"1\" ] && python manage.py seed_demo || echo 'SEED_DEMO=0 — starting clean, no demo data'; } &&
+             gunicorn config.asgi:application -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000"
+    environment: &django_env
+      DJANGO_DEBUG: "1"
+      SEED_DEMO: "1"
+      POSTGRES_DB: veltacore
+      POSTGRES_USER: veltacore
+      POSTGRES_PASSWORD: veltacore
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "0"
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      OPA_URL: http://opa:8181/v1/data/veltacore/authz/allow
+      OPA_FAIL_OPEN: "1"
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    build: ./backend
+    command: celery -A config worker -l info -Q celery,eod_batch
+    environment: *django_env
+    depends_on: [api, redis]
+
+  beat:
+    build: ./backend
+    command: celery -A config beat -l info
+    environment: *django_env
+    depends_on: [worker]
+
+volumes:
+  pgdata:

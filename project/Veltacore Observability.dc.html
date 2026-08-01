@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; background:#f4f6f8; }
+    ::selection { background: #24c1a0; color: #fff; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #d6dbe1; border-radius: 8px; }
+    a { color: #1d7dfa; text-decoration: none; }
+    a:hover { color: #135fc7; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    @keyframes flowdash { to { stroke-dashoffset: -24; } }
+  </style>
+</helmet>
+
+<div style="display:flex;min-height:100vh;background:#f4f6f8;color:#151b26;font-size:13px;line-height:1.45;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width:228px;flex-shrink:0;background:#0b1220;color:#c7cedb;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;">
+    <div style="padding:16px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1a2332;">
+      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#24c1a0,#189c81);color:#04120e;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;">V</div>
+      <div>
+        <div style="font-weight:700;font-size:13.5px;color:#fff;">Veltacore</div>
+        <div style="font-size:10.5px;color:#7c8aa3;">Observability</div>
+      </div>
+    </div>
+
+    <div style="padding:12px 16px;border-bottom:1px solid #1a2332;">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:0.6px;color:#5b6a85;margin-bottom:6px;">CLIENT / REGION</div>
+      <div style="display:flex;align-items:center;gap:7px;background:#111a2c;border:1px solid #1e2a40;border-radius:7px;padding:7px 9px;color:#dbe1ec;cursor:pointer;">
+        <i class="fa-solid fa-building" style="font-size:11px;color:#7c8aa3;"></i>
+        <span style="flex:1;font-size:11.5px;font-weight:500;">Veltacore Technologies</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;margin-top:5px;color:#8895ac;font-size:11px;">
+        <i class="fa-solid fa-location-dot" style="font-size:10px;"></i>
+        <span>Bangalore DC</span>
+      </div>
+    </div>
+
+    <nav style="flex:1;overflow-y:auto;overflow-x:hidden;padding:8px;">
+      <sc-for list="{{ navGroups }}" as="grp" hint-placeholder-count="4">
+        <div style="margin-bottom:2px;">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:0.6px;color:#4c5a76;padding:12px 12px 5px;">{{ grp.label }}</div>
+          <sc-for list="{{ grp.items }}" as="it" hint-placeholder-count="3">
+            <div onClick="{{ it.onClick }}" style="{{ it.rowStyle }}" style-hover="{{ it.hoverStyle }}">
+              <i class="{{ it.icon }}" style="width:15px;text-align:center;font-size:12px;color:{{ it.iconColor }};"></i>
+              <span style="flex:1;font-size:12px;font-weight:{{ it.fontWeight }};">{{ it.label }}</span>
+              <sc-if value="{{ it.badge }}" hint-placeholder-val="{{ false }}">
+                <span style="{{ it.badgeStyle }}">{{ it.badge }}</span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="padding:12px 16px;border-top:1px solid #1a2332;display:flex;align-items:center;gap:9px;">
+      <div style="width:28px;height:28px;border-radius:50%;background:#1e2a40;color:#c7cedb;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">RS</div>
+      <div style="flex:1;">
+        <div style="font-size:11.5px;font-weight:600;color:#e5e9f0;">R. Sharma</div>
+        <div style="font-size:10px;color:#6b7990;">NOC Engineer</div>
+      </div>
+      <i class="fa-solid fa-gear" style="color:#6b7990;font-size:12px;cursor:pointer;"></i>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0;height:100vh;overflow-y:auto;">
+
+    <!-- TOP BAR -->
+    <header style="height:56px;flex-shrink:0;background:#ffffff;border-bottom:1px solid #e6e9ee;display:flex;align-items:center;gap:14px;padding:0 20px;position:sticky;top:0;z-index:5;">
+      <div style="font-size:14.5px;font-weight:700;color:#151b26;">{{ pageTitle }}</div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:8px;background:#f4f6f8;border:1px solid #e6e9ee;border-radius:8px;padding:7px 11px;width:260px;">
+        <i class="fa-solid fa-magnifying-glass" style="font-size:11px;color:#9aa4b5;"></i>
+        <input placeholder="Search assets, alerts, hosts…" style="border:none;background:none;outline:none;font-size:12px;flex:1;font-family:Inter,sans-serif;color:#151b26;" />
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;background:#eafaf5;color:#0f8a6f;border-radius:7px;padding:6px 10px;font-size:11.5px;font-weight:600;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#16a34a;display:inline-block;"></span>
+        All systems nominal
+      </div>
+      <div style="position:relative;">
+        <i class="fa-solid fa-bell" style="font-size:14px;color:#5b6577;cursor:pointer;"></i>
+        <span style="position:absolute;top:-5px;right:-6px;background:#dc2626;color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;min-width:14px;text-align:center;">{{ openAlertCount }}</span>
+      </div>
+    </header>
+
+    <main style="flex:1;padding:22px 24px;">
+      <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <!-- KPI cards -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;">
+            <sc-for list="{{ kpiCards }}" as="kpi" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(20,30,50,0.03);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                  <span style="font-size:11.5px;font-weight:600;color:#6b7688;">{{ kpi.label }}</span>
+                  <i class="{{ kpi.icon }}" style="color:{{ kpi.color }};font-size:13px;"></i>
+                </div>
+                <div class="mono" style="font-size:26px;font-weight:700;color:#151b26;">{{ kpi.value }}</div>
+                <div style="font-size:11px;color:#8a94a6;margin-top:2px;">{{ kpi.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px;">
+            <!-- App health hero -->
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:18px 20px;box-shadow:0 1px 2px rgba(20,30,50,0.03);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <div style="font-size:13px;font-weight:700;color:#151b26;">{{ heroAppName }} · RUM Latency (p95)</div>
+                <span style="background:#fef3e2;color:#b7791f;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:6px;">ELEVATED</span>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
+                <span class="mono" style="font-size:22px;font-weight:700;color:#151b26;">{{ heroAppLatency }}ms</span>
+                <span style="font-size:11.5px;color:#8a94a6;">p95 · error rate {{ heroAppErr }}%</span>
+              </div>
+              <svg viewBox="0 0 280 56" width="100%" height="70" preserveAspectRatio="none">
+                <path d="{{ latencyPath }}" fill="none" stroke="#f59e0b" stroke-width="2"></path>
+              </svg>
+              <div style="font-size:11px;font-weight:600;color:#6b7688;margin:10px 0 4px;">Throughput (req/s)</div>
+              <svg viewBox="0 0 280 56" width="100%" height="52" preserveAspectRatio="none">
+                <path d="{{ throughputPath }}" fill="none" stroke="#24c1a0" stroke-width="2"></path>
+              </svg>
+            </div>
+
+            <!-- Top alerts -->
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(20,30,50,0.03);display:flex;flex-direction:column;">
+              <div style="font-size:13px;font-weight:700;color:#151b26;margin-bottom:10px;">Top Active Alerts</div>
+              <sc-for list="{{ topAlertRows }}" as="al" hint-placeholder-count="4">
+                <div onClick="{{ () => openAssetDetail(al.assetId) }}" style="display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid #f1f3f6;cursor:pointer;">
+                  <span style="width:7px;height:7px;border-radius:50%;background:{{ al.dotColor }};margin-top:5px;flex-shrink:0;"></span>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:12px;color:#151b26;font-weight:500;">{{ al.title }}</div>
+                    <div style="font-size:10.5px;color:#9aa4b5;margin-top:1px;">{{ al.time }}</div>
+                  </div>
+                  <span style="background:{{ al.badgeBg }};color:{{ al.badgeColor }};font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:5px;text-transform:uppercase;">{{ al.severity }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <!-- Service list -->
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(20,30,50,0.03);">
+              <div style="font-size:13px;font-weight:700;color:#151b26;margin-bottom:10px;">Application Services</div>
+              <sc-for list="{{ topServices }}" as="sv" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f1f3f6;">
+                  <span class="mono" style="font-size:12px;color:#151b26;font-weight:500;width:170px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;">{{ sv.name }}</span>
+                  <div style="flex:1;height:5px;background:#f1f3f6;border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;background:#24c1a0;width:{{ sv.barWidth }};"></div>
+                  </div>
+                  <span class="mono" style="font-size:11px;color:#8a94a6;width:56px;text-align:right;">{{ sv.rps }}rps</span>
+                  <span class="mono" style="font-size:11px;color:{{ sv.errColor }};width:42px;text-align:right;font-weight:600;">{{ sv.errPct }}%</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- Rack summary -->
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(20,30,50,0.03);">
+              <div style="font-size:13px;font-weight:700;color:#151b26;margin-bottom:10px;">Bangalore DC · Rack Health</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <sc-for list="{{ regionRackRows }}" as="rk" hint-placeholder-count="8">
+                  <div style="background:{{ rk.bg }};border-radius:8px;padding:10px;text-align:center;">
+                    <div class="mono" style="font-size:10.5px;font-weight:700;color:{{ rk.color }};">{{ rk.rack }}</div>
+                    <div style="font-size:10px;color:#6b7688;margin-top:3px;">{{ rk.count }} devices</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isInventory }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:6px;">
+            <sc-for list="{{ invChips }}" as="chip" hint-placeholder-count="6">
+              <div onClick="{{ chip.onClick }}" style="{{ chip.style }}">{{ chip.label }}</div>
+            </sc-for>
+          </div>
+          <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;box-shadow:0 1px 2px rgba(20,30,50,0.03);overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #eef0f3;">
+              <div style="font-size:13px;font-weight:700;color:#151b26;">{{ invCount }} assets</div>
+              <div style="flex:1;"></div>
+              <input value="{{ invSearchVal }}" onChange="{{ onInvSearch }}" placeholder="Filter by name…" style="border:1px solid #e6e9ee;border-radius:7px;padding:6px 10px;font-size:12px;outline:none;font-family:Inter,sans-serif;width:220px;" />
+            </div>
+            <div style="display:grid;grid-template-columns:28px 1.6fr 1.2fr 1fr 1fr 0.8fr 0.8fr 0.7fr;gap:0;padding:9px 16px;font-size:10.5px;font-weight:700;color:#9aa4b5;letter-spacing:0.3px;border-bottom:1px solid #eef0f3;">
+              <span></span><span>NAME</span><span>TYPE</span><span>RACK</span><span>IP</span><span>CPU</span><span>AVAIL.</span><span>ALERTS</span>
+            </div>
+            <div style="max-height:560px;overflow-y:auto;">
+              <sc-for list="{{ invRows }}" as="row" hint-placeholder-count="10">
+                <div onClick="{{ row.onClick }}" style="display:grid;grid-template-columns:28px 1.6fr 1.2fr 1fr 1fr 0.8fr 0.8fr 0.7fr;gap:0;align-items:center;padding:10px 16px;border-bottom:1px solid #f4f5f7;cursor:pointer;" style-hover="background:#fafbfc;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:{{ row.statusColor }};"></span>
+                  <span style="font-size:12.5px;font-weight:600;color:#151b26;" class="mono">{{ row.name }}</span>
+                  <span style="font-size:11.5px;color:#5b6577;">{{ row.typeLabel }}</span>
+                  <span style="font-size:11px;color:#8a94a6;" class="mono">{{ row.rack }}</span>
+                  <span style="font-size:11px;color:#8a94a6;" class="mono">{{ row.ip }}</span>
+                  <span style="font-size:11.5px;color:#5b6577;" class="mono">{{ row.cpu }}</span>
+                  <span style="font-size:11.5px;color:#5b6577;" class="mono">{{ row.availability }}</span>
+                  <sc-if value="{{ row.alertsCount }}" hint-placeholder-val="{{ false }}">
+                    <span style="background:{{ row.statusBg }};color:{{ row.statusColor }};font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;width:fit-content;">{{ row.alertsCount }}</span>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isTopology }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <div onClick="{{ onTopoMap }}" style="{{ topoMapBtnStyle }}">Topology Map</div>
+            <div onClick="{{ onTopoRack }}" style="{{ topoRackBtnStyle }}">Rack View</div>
+          </div>
+
+          <sc-if value="{{ topoTabMap }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:24px;overflow-x:auto;">
+              <div style="font-size:13px;font-weight:700;color:#151b26;margin-bottom:4px;">Firewall → Switch → Server → VM → Application</div>
+              <div style="font-size:11.5px;color:#8a94a6;margin-bottom:18px;">Live device-to-device connectivity · Bangalore DC. Highlighted path shows the Veltacore ITSM API request flow.</div>
+              <div style="position:relative;width:{{ topoSvgW }}px;height:{{ topoSvgH }}px;">
+                <svg width="{{ topoSvgW }}" height="{{ topoSvgH }}" style="position:absolute;top:0;left:0;overflow:visible;">
+                  <sc-for list="{{ topoEdges }}" as="e" hint-placeholder-count="10">
+                    <path d="{{ e.d }}" fill="none" stroke="{{ e.color }}" stroke-width="{{ e.width }}" stroke-dasharray="{{ e.dash }}" style="{{ e.animStyle }}"></path>
+                  </sc-for>
+                </svg>
+                <sc-for list="{{ topoNodes }}" as="n" hint-placeholder-count="16">
+                  <div onClick="{{ n.onClick }}" style="position:absolute;left:{{ n.x }}px;top:{{ n.y }}px;width:{{ n.w }}px;height:{{ n.h }}px;background:#fff;border:1.5px solid {{ n.color }};border-radius:9px;display:flex;align-items:center;gap:9px;padding:0 12px;cursor:pointer;box-shadow:0 1px 3px rgba(20,30,50,0.06);">
+                    <div style="width:26px;height:26px;border-radius:7px;background:{{ n.bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                      <i class="{{ n.icon }}" style="font-size:11px;color:{{ n.color }};"></i>
+                    </div>
+                    <span class="mono" style="font-size:11px;font-weight:600;color:#151b26;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ n.name }}</span>
+                    <span style="width:7px;height:7px;border-radius:50%;background:{{ n.color }};flex-shrink:0;"></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ topoTabRack }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+              <sc-for list="{{ rackList }}" as="rk" hint-placeholder-count="6">
+                <div style="background:#1a2332;border-radius:12px;padding:12px;">
+                  <div class="mono" style="color:#c7cedb;font-size:11px;font-weight:700;margin-bottom:8px;padding:0 4px;">{{ rk.rack }}</div>
+                  <div style="display:flex;flex-direction:column;gap:5px;">
+                    <sc-for list="{{ rk.devices }}" as="d" hint-placeholder-count="4">
+                      <div style="display:flex;align-items:center;gap:8px;background:#0f1726;border-left:3px solid {{ d.color }};border-radius:5px;padding:7px 10px;">
+                        <i class="{{ d.icon }}" style="font-size:10px;color:{{ d.color }};"></i>
+                        <span class="mono" style="font-size:10.5px;color:#dbe1ec;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ d.name }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isAlerts }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <sc-for list="{{ alertsTabBtns }}" as="b" hint-placeholder-count="4">
+              <div onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ alertsTabActive }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;">
+              <sc-for list="{{ activeAlertRows }}" as="al" hint-placeholder-count="8">
+                <div onClick="{{ al.onClick }}" style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid #f4f5f7;cursor:pointer;">
+                  <span style="background:{{ al.bg }};color:{{ al.color }};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;width:60px;text-align:center;">{{ al.severity }}</span>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:500;color:#151b26;">{{ al.title }}</div>
+                    <div style="font-size:11px;color:#9aa4b5;margin-top:1px;">{{ al.asset }} · {{ al.time }}</div>
+                  </div>
+                  <span style="font-size:11px;font-weight:600;color:#8a94a6;text-transform:capitalize;">{{ al.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ alertsTabConditions }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;">
+              <sc-for list="{{ conditionRows }}" as="c" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid #f4f5f7;">
+                  <i class="fa-solid fa-sliders" style="color:#8a94a6;font-size:12px;"></i>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:600;color:#151b26;">{{ c.name }}</div>
+                    <div style="font-size:11px;color:#9aa4b5;margin-top:1px;">{{ c.scope }}</div>
+                  </div>
+                  <span style="background:{{ c.bg }};color:{{ c.color }};font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;">{{ c.severity }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ alertsTabGrouping }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ groupRows }}" as="g" hint-placeholder-count="3">
+                <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:14px;">
+                  <div style="width:34px;height:34px;border-radius:8px;background:#fef3e2;display:flex;align-items:center;justify-content:center;color:#b7791f;font-weight:700;font-size:13px;">{{ g.count }}</div>
+                  <div>
+                    <div style="font-size:13px;font-weight:600;color:#151b26;">{{ g.name }}</div>
+                    <div style="font-size:11px;color:#9aa4b5;margin-top:1px;">{{ g.assets }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ alertsTabAutomation }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ automationRows }}" as="f" hint-placeholder-count="3">
+                <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;">
+                  <span style="background:#eaf1fe;color:#2563eb;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:6px;">WHEN</span>
+                  <span style="font-size:12.5px;color:#151b26;flex:1;">{{ f.when }}</span>
+                  <i class="fa-solid fa-arrow-right" style="color:#c3c9d3;font-size:11px;"></i>
+                  <span style="background:#eafaf5;color:#0f8a6f;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:6px;">THEN</span>
+                  <span style="font-size:12.5px;color:#151b26;flex:1;">{{ f.then }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;gap:16px;">
+            <div style="width:130px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;">
+              <sc-for list="{{ logLevelChips }}" as="lv" hint-placeholder-count="5">
+                <div onClick="{{ lv.onClick }}" style="{{ lv.style }}">{{ lv.label }}</div>
+              </sc-for>
+            </div>
+            <div style="flex:1;">
+              <input value="{{ logSearchVal }}" onChange="{{ onLogSearch }}" placeholder="Search log messages or source…" style="border:1px solid #e6e9ee;border-radius:7px;padding:8px 12px;font-size:12px;outline:none;font-family:Inter,sans-serif;width:100%;margin-bottom:10px;box-sizing:border-box;" />
+              <div style="background:#0b1220;border-radius:12px;padding:12px 16px;max-height:600px;overflow-y:auto;">
+                <sc-for list="{{ logRows }}" as="lg" hint-placeholder-count="20">
+                  <div class="mono" style="font-size:11.5px;color:#c7cedb;padding:4px 0;display:flex;gap:12px;border-bottom:1px solid #131c2c;">
+                    <span style="color:#5b6a85;flex-shrink:0;">{{ lg.time }}</span>
+                    <span style="color:{{ lg.levelColor }};font-weight:700;width:44px;flex-shrink:0;">{{ lg.level }}</span>
+                    <span style="color:#8fa3c7;flex-shrink:0;width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ lg.source }}</span>
+                    <span>{{ lg.message }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isApm }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+            <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 18px;font-size:10.5px;font-weight:700;color:#9aa4b5;border-bottom:1px solid #eef0f3;">
+              <span>SERVICE</span><span>THROUGHPUT</span><span>ERROR RATE</span><span>LATENCY (p95)</span>
+            </div>
+            <sc-for list="{{ apmServiceRows }}" as="sv" hint-placeholder-count="6">
+              <div onClick="{{ sv.onClick }}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;align-items:center;padding:12px 18px;border-bottom:1px solid #f4f5f7;cursor:pointer;">
+                <span class="mono" style="font-size:12.5px;font-weight:600;color:#151b26;">{{ sv.name }}</span>
+                <span class="mono" style="font-size:12px;color:#5b6577;">{{ sv.rps }} rps</span>
+                <span class="mono" style="font-size:12px;font-weight:600;color:{{ sv.errColor }};">{{ sv.errPct }}%</span>
+                <span class="mono" style="font-size:12px;color:#5b6577;">{{ sv.p95 }}ms</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:18px;">
+            <div style="font-size:13px;font-weight:700;color:#151b26;margin-bottom:4px;">Trace waterfall · Veltacore ITSM API</div>
+            <div style="font-size:11px;color:#9aa4b5;margin-bottom:14px;">Request span breakdown, 340ms total</div>
+            <sc-for list="{{ spanRows }}" as="sp" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
+                <span class="mono" style="font-size:11px;color:#5b6577;width:220px;flex-shrink:0;padding-left:{{ sp.indent }}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ sp.name }}</span>
+                <div style="flex:1;position:relative;height:16px;background:#f4f6f8;border-radius:3px;">
+                  <div style="position:absolute;left:{{ sp.left }};width:{{ sp.width }};height:100%;background:{{ sp.color }};border-radius:3px;"></div>
+                </div>
+                <span class="mono" style="font-size:10.5px;color:#8a94a6;width:44px;text-align:right;flex-shrink:0;">{{ sp.dur }}ms</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isReports }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;">
+            <sc-for list="{{ reportCards }}" as="rp" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:18px;">
+                <i class="{{ rp.icon }}" style="color:#24c1a0;font-size:16px;"></i>
+                <div style="font-size:13px;font-weight:700;color:#151b26;margin-top:12px;">{{ rp.title }}</div>
+                <div style="font-size:11px;color:#8a94a6;margin-top:3px;margin-bottom:14px;">{{ rp.sub }}</div>
+                <div class="mono" style="font-size:22px;font-weight:700;color:#151b26;">{{ rp.stat }}</div>
+                <div style="font-size:10.5px;color:#8a94a6;">{{ rp.statLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:20px;">
+            <div style="font-size:13px;font-weight:700;color:#151b26;margin-bottom:14px;">Fleet Composition</div>
+            <sc-for list="{{ typeBreakdown }}" as="tb" hint-placeholder-count="8">
+              <div style="display:flex;align-items:center;gap:12px;padding:6px 0;">
+                <span style="font-size:12px;color:#151b26;width:180px;flex-shrink:0;">{{ tb.label }}</span>
+                <div style="flex:1;height:8px;background:#f1f3f6;border-radius:4px;overflow:hidden;">
+                  <div style="height:100%;background:#24c1a0;width:{{ tb.pct }}%;"></div>
+                </div>
+                <span class="mono" style="font-size:11.5px;color:#8a94a6;width:50px;text-align:right;">{{ tb.count }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <sc-for list="{{ settingsTabBtns }}" as="b" hint-placeholder-count="3">
+              <div onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ settingsTabExporters }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;">
+              <sc-for list="{{ exporterRows }}" as="e" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f4f5f7;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:{{ e.color }};"></span>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:600;color:#151b26;">{{ e.name }}</div>
+                    <div style="font-size:11px;color:#9aa4b5;margin-top:1px;">{{ e.type }} · {{ e.targets }} targets</div>
+                  </div>
+                  <span style="background:{{ e.bg }};color:{{ e.color }};font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:capitalize;">{{ e.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ settingsTabIntegrations }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+              <sc-for list="{{ integrationCards }}" as="ic" hint-placeholder-count="5">
+                <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px;">
+                  <i class="{{ ic.icon }}" style="font-size:16px;color:#5b6577;"></i>
+                  <div style="font-size:13px;font-weight:700;color:#151b26;margin-top:10px;">{{ ic.name }}</div>
+                  <div style="font-size:11px;color:#8a94a6;margin-top:2px;margin-bottom:12px;">{{ ic.desc }}</div>
+                  <span style="background:{{ ic.badgeBg }};color:{{ ic.badgeColor }};font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:6px;">{{ ic.badgeText }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ settingsTabUsers }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;">
+              <sc-for list="{{ userRows }}" as="u" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #f4f5f7;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:#f1f3f6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#5b6577;">{{ u.name }}</div>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:600;color:#151b26;">{{ u.name }}</div>
+                    <div style="font-size:11px;color:#9aa4b5;margin-top:1px;">{{ u.email }}</div>
+                  </div>
+                  <span style="font-size:11.5px;color:#5b6577;font-weight:600;">{{ u.role }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div onClick="{{ backToInventory }}" style="display:flex;align-items:center;gap:6px;color:#5b6577;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:12px;">
+            <i class="fa-solid fa-arrow-left" style="font-size:10px;"></i> Back to Asset Inventory
+          </div>
+
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+            <div style="width:44px;height:44px;border-radius:10px;background:{{ detailStatusBg }};display:flex;align-items:center;justify-content:center;">
+              <i class="{{ detailIcon }}" style="color:{{ detailStatusColor }};font-size:18px;"></i>
+            </div>
+            <div style="flex:1;">
+              <div class="mono" style="font-size:17px;font-weight:700;color:#151b26;">{{ detailAsset.name }}</div>
+              <div style="font-size:11.5px;color:#8a94a6;">{{ detailTypeLabel }} · {{ detailAsset.rack }} · {{ detailAsset.ip }}</div>
+            </div>
+            <span style="background:{{ detailStatusBg }};color:{{ detailStatusColor }};font-size:11px;font-weight:700;padding:5px 12px;border-radius:7px;text-transform:uppercase;">{{ detailAsset.status }}</span>
+          </div>
+
+          <div style="display:flex;gap:20px;border-bottom:1px solid #e6e9ee;margin-bottom:18px;overflow-x:auto;">
+            <sc-for list="{{ detailTabs }}" as="tab" hint-placeholder-count="8">
+              <div onClick="{{ tab.onClick }}" style="{{ tab.style }}">{{ tab.label }}</div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ isTabOverview }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+              <sc-for list="{{ metricCards }}" as="m" hint-placeholder-count="6">
+                <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:14px 16px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <span style="font-size:11px;font-weight:600;color:#6b7688;">{{ m.label }}</span>
+                    <i class="{{ m.icon }}" style="font-size:11px;color:#9aa4b5;"></i>
+                  </div>
+                  <div class="mono" style="font-size:20px;font-weight:700;color:#151b26;">{{ m.value }}</div>
+                  <div style="font-size:10.5px;color:#8a94a6;margin-top:2px;">{{ m.sub }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabAvailability }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:20px;">
+              <div style="font-size:13px;font-weight:700;margin-bottom:12px;">30-Day Availability: {{ detailAsset.availability }}%</div>
+              <div style="display:grid;grid-template-columns:repeat(30,1fr);gap:3px;">
+                <sc-for list="{{ metricCards }}" as="m" hint-placeholder-count="30">
+                  <div style="height:28px;border-radius:3px;background:#16a34a;"></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabPerformance }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              <sc-for list="{{ metricCards }}" as="m" hint-placeholder-count="6">
+                <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:16px;">
+                  <div style="font-size:11.5px;font-weight:600;color:#6b7688;margin-bottom:6px;">{{ m.label }}</div>
+                  <div class="mono" style="font-size:22px;font-weight:700;color:#151b26;">{{ m.value }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabInterfaces }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;">
+              <div style="display:grid;grid-template-columns:20px 1fr 1fr 1fr 1fr 0.8fr;padding:10px 16px;font-size:10.5px;font-weight:700;color:#9aa4b5;border-bottom:1px solid #eef0f3;">
+                <span></span><span>INTERFACE</span><span>RX</span><span>TX</span><span>UTIL</span><span>ERRORS</span>
+              </div>
+              <sc-for list="{{ ifaceRows }}" as="ifc" hint-placeholder-count="8">
+                <div style="display:grid;grid-template-columns:20px 1fr 1fr 1fr 1fr 0.8fr;align-items:center;padding:9px 16px;border-bottom:1px solid #f4f5f7;">
+                  <span style="width:7px;height:7px;border-radius:50%;background:{{ ifc.dotColor }};"></span>
+                  <span class="mono" style="font-size:12px;">{{ ifc.name }}</span>
+                  <span class="mono" style="font-size:11.5px;color:#5b6577;">{{ ifc.rxMbps }} Mbps</span>
+                  <span class="mono" style="font-size:11.5px;color:#5b6577;">{{ ifc.txMbps }} Mbps</span>
+                  <span class="mono" style="font-size:11.5px;color:#5b6577;">{{ ifc.util }}%</span>
+                  <span class="mono" style="font-size:11.5px;font-weight:600;color:{{ ifc.errColor }};">{{ ifc.errors }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabPorts }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:20px;">
+              <div style="font-size:13px;font-weight:700;margin-bottom:14px;">{{ detailAsset.portsTotal }} ports · {{ detailAsset.portsUp }} up · {{ detailAsset.portsDown }} down</div>
+              <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;">
+                <sc-for list="{{ ifaceRows }}" as="ifc" hint-placeholder-count="12">
+                  <div style="aspect-ratio:1;border-radius:6px;background:{{ ifc.dotColor }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;" class="mono">{{ ifc.name }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabHardware }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div><div style="font-size:11px;color:#8a94a6;font-weight:600;">Vendor / Model</div><div class="mono" style="font-size:13px;margin-top:3px;">{{ detailAsset.vendor }} {{ detailAsset.model }}</div></div>
+              <div><div style="font-size:11px;color:#8a94a6;font-weight:600;">Serial Number</div><div class="mono" style="font-size:13px;margin-top:3px;">{{ detailAsset.serial }}</div></div>
+              <div><div style="font-size:11px;color:#8a94a6;font-weight:600;">Firmware</div><div class="mono" style="font-size:13px;margin-top:3px;">{{ detailAsset.firmware }}</div></div>
+              <div><div style="font-size:11px;color:#8a94a6;font-weight:600;">Uptime</div><div class="mono" style="font-size:13px;margin-top:3px;">{{ detailAsset.uptimeDays }} days</div></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabAlerts }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;overflow:hidden;">
+              <sc-for list="{{ assetAlertRows }}" as="al" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f4f5f7;">
+                  <span style="background:{{ al.bg }};color:{{ al.color }};font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:6px;text-transform:uppercase;">{{ al.severity }}</span>
+                  <span style="font-size:12.5px;flex:1;">{{ al.title }}</span>
+                  <span style="font-size:11px;color:#9aa4b5;">{{ al.time }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabLogs }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#0b1220;border-radius:12px;padding:14px 16px;max-height:480px;overflow-y:auto;">
+              <sc-for list="{{ assetLogRows }}" as="lg" hint-placeholder-count="12">
+                <div class="mono" style="font-size:11.5px;color:#c7cedb;padding:3px 0;display:flex;gap:10px;">
+                  <span style="color:#5b6a85;">{{ lg.time }}</span>
+                  <span style="color:{{ lg.levelColor }};font-weight:700;width:44px;">{{ lg.level }}</span>
+                  <span>{{ lg.message }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabEvents }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:20px;color:#8a94a6;font-size:12.5px;">
+              No configuration or lifecycle events recorded for this asset in the last 30 days.
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabConfiguration }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#0b1220;border-radius:12px;padding:16px 20px;">
+              <sc-for list="{{ configLines }}" as="ln" hint-placeholder-count="6">
+                <div class="mono" style="font-size:12px;color:#9be6d3;padding:3px 0;">{{ ln }}</div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isTabTopology }}" hint-placeholder-val="{{ false }}">
+            <div style="background:#fff;border:1px solid #e6e9ee;border-radius:12px;padding:20px;color:#8a94a6;font-size:12.5px;">
+              See Network Topology in the sidebar for this asset's connectivity map.
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+// ===== seeded rng + helpers =====
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function rand(rng, min, max) { return min + rng() * (max - min); }
+function randInt(rng, min, max) { return Math.floor(rand(rng, min, max + 1)); }
+function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
+function r1(n) { return Math.round(n * 10) / 10; }
+function r0(n) { return Math.round(n); }
+
+const TYPE_META = {
+  firewall: { label: 'Firewall', icon: 'fa-solid fa-shield-halved', category: 'network' },
+  switch: { label: 'Switch', icon: 'fa-solid fa-network-wired', category: 'network' },
+  router: { label: 'Router', icon: 'fa-solid fa-tower-broadcast', category: 'network' },
+  'load-balancer': { label: 'Load Balancer', icon: 'fa-solid fa-scale-balanced', category: 'network' },
+  'physical-server': { label: 'Physical Server', icon: 'fa-solid fa-server', category: 'compute' },
+  'linux-server': { label: 'Linux Server', icon: 'fa-brands fa-linux', category: 'compute' },
+  'windows-server': { label: 'Windows Server', icon: 'fa-brands fa-windows', category: 'compute' },
+  vm: { label: 'Virtual Machine', icon: 'fa-solid fa-cube', category: 'compute' },
+  idrac: { label: 'iDRAC / iLO', icon: 'fa-solid fa-microchip', category: 'mgmt' },
+  storage: { label: 'Storage', icon: 'fa-solid fa-database', category: 'storage' },
+  database: { label: 'Database', icon: 'fa-solid fa-table-cells', category: 'data' },
+  'k8s-node': { label: 'Kubernetes Node', icon: 'fa-solid fa-dharmachakra', category: 'compute' },
+  'application-service': { label: 'Application Service', icon: 'fa-solid fa-layer-group', category: 'app' },
+};
+
+const STATUS_COLOR = {
+  healthy: '#16a34a', warning: '#f59e0b', critical: '#dc2626', info: '#2563eb', offline: '#94a3b8',
+};
+const STATUS_BG = {
+  healthy: '#eafaf1', warning: '#fef3e2', critical: '#fdeaea', info: '#eaf1fe', offline: '#f1f3f6',
+};
+function statusColor(s) { return STATUS_COLOR[s] || '#94a3b8'; }
+function statusBg(s) { return STATUS_BG[s] || '#f1f3f6'; }
+
+function deriveStatus(cpu, availability, packetLoss) {
+  if (availability < 97.5 || packetLoss > 2 || cpu > 96) return 'critical';
+  if (availability < 99.7 || packetLoss > 1.2 || cpu > 90) return 'warning';
+  return 'healthy';
+}
+
+function baseCommon(rng, vendor, model) {
+  return {
+    ip: `10.${randInt(rng, 10, 50)}.${randInt(rng, 0, 30)}.${randInt(rng, 2, 250)}`,
+    vendor, model,
+    serial: `${vendor.slice(0,3).toUpperCase()}${randInt(rng, 100000, 999999)}`,
+    firmware: `${randInt(rng,1,6)}.${randInt(rng,0,9)}.${randInt(rng,0,9)}`,
+    uptimeDays: randInt(rng, 3, 420),
+    availability: r1(rand(rng, 99.5, 100)),
+    pingMs: r1(rand(rng, 0.2, 4.5)),
+    packetLoss: r1(rand(rng, 0, 0.15)),
+  };
+}
+
+function networkMetrics(rng, portCount) {
+  const ifaces = [];
+  const upCount = randInt(rng, Math.floor(portCount*0.5), portCount);
+  for (let i = 1; i <= Math.min(portCount, 12); i++) {
+    const up = i <= upCount;
+    ifaces.push({
+      name: `Gi1/0/${i}`,
+      status: up ? 'up' : 'down',
+      rxMbps: up ? r1(rand(rng, 5, 850)) : 0,
+      txMbps: up ? r1(rand(rng, 5, 850)) : 0,
+      util: up ? r0(rand(rng, 3, 92)) : 0,
+      errors: up ? randInt(rng, 0, 12) : 0,
+    });
+  }
+  return {
+    cpu: r0(rand(rng, 8, 55)), mem: r0(rand(rng, 20, 60)), temp: r0(rand(rng, 32, 52)),
+    portsTotal: portCount, portsUp: upCount, portsDown: portCount - upCount,
+    interfaces: ifaces,
+  };
+}
+function computeMetrics(rng, hasDisk) {
+  return {
+    cpu: r0(rand(rng, 8, 88)), mem: r0(rand(rng, 22, 90)),
+    disk: hasDisk ? r0(rand(rng, 15, 88)) : undefined,
+    temp: r0(rand(rng, 30, 58)),
+  };
+}
+
+function generateFleet() {
+  const rng = mulberry32(1337);
+  const assets = [];
+  function add(o) {
+    const t = TYPE_META[o.type];
+    o.category = t.category;
+    o.status = o.forceStatus || deriveStatus(o.cpu ?? 0, o.availability, o.packetLoss ?? 0);
+    o.alertsCount = o.status === 'critical' ? randInt(rng,1,3) : o.status === 'warning' ? randInt(rng,0,2) : 0;
+    o.id = o.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    assets.push(o);
+  }
+
+  // Firewalls
+  ['FW-BLR-EDGE-01', 'FW-BLR-EDGE-02'].forEach((name, i) => {
+    add({ name, type: 'firewall', rack: 'RACK-EDGE-01', ...baseCommon(rng, 'Fortinet', 'FortiGate 600E'),
+      ...networkMetrics(rng, 24), forceStatus: i === 0 ? 'healthy' : 'healthy' });
+  });
+  // Routers
+  ['RTR-BLR-CORE-01', 'RTR-BLR-CORE-02'].forEach((name) => {
+    add({ name, type: 'router', rack: 'RACK-CORE-01', ...baseCommon(rng, 'Cisco', 'ASR 1001-X'),
+      ...networkMetrics(rng, 16) });
+  });
+  // Load balancers
+  ['LB-BLR-APP-01', 'LB-BLR-APP-02'].forEach((name) => {
+    add({ name, type: 'load-balancer', rack: 'RACK-APP-01', ...baseCommon(rng, 'F5', 'BIG-IP i4800'),
+      ...networkMetrics(rng, 16) });
+  });
+  // Switches - TOR x8 + core x2
+  for (let i = 1; i <= 8; i++) {
+    const name = `SW-BLR-TOR-${String(i+5).padStart(2,'0')}`;
+    const m = networkMetrics(rng, 48);
+    const isHero = name === 'SW-BLR-TOR-13';
+    if (isHero) { m.interfaces[11].status='up'; m.interfaces[11].errors = 184; m.interfaces[11].util = 97; }
+    add({ name, type: 'switch', rack: `RACK-TOR-${String(i).padStart(2,'0')}`, ...baseCommon(rng, 'Cisco', 'Catalyst 9300'),
+      ...m, availability: isHero ? 98.4 : undefined, forceStatus: isHero ? 'warning' : undefined,
+      availability: isHero ? 98.4 : r1(rand(rng,97,100)) });
+  }
+  ['SW-BLR-CORE-01', 'SW-BLR-CORE-02'].forEach((name) => {
+    add({ name, type: 'switch', rack: 'RACK-CORE-01', ...baseCommon(rng, 'Arista', '7050X3'), ...networkMetrics(rng, 32) });
+  });
+  // Physical servers
+  for (let i = 1; i <= 4; i++) {
+    const name = `PHY-BLR-APP-${String(i).padStart(2,'0')}`;
+    add({ name, type: 'physical-server', rack: `RACK-APP-0${Math.ceil(i/2)}`, ...baseCommon(rng, 'Dell', 'PowerEdge R750'),
+      ...computeMetrics(rng, true), forceStatus: i===1 ? 'healthy' : undefined });
+  }
+  // iDRACs, one per physical server
+  for (let i = 1; i <= 4; i++) {
+    add({ name: `IDRAC-BLR-APP-${String(i).padStart(2,'0')}`, type: 'idrac', rack: `RACK-APP-0${Math.ceil(i/2)}`,
+      ...baseCommon(rng, 'Dell', 'iDRAC9'), cpu: 0, temp: r0(rand(rng,35,55)),
+      fan: pick(rng,['nominal','nominal','nominal','degraded']), psu: 'redundant', powerW: randInt(rng,180,420) });
+  }
+  // Linux servers
+  const linuxNames = ['LNX-BLR-WEB-01','LNX-BLR-WEB-02','LNX-BLR-WEB-03','LNX-BLR-BATCH-01','LNX-BLR-CACHE-01','LNX-BLR-CACHE-02','LNX-BLR-MQ-01','LNX-BLR-MQ-02'];
+  linuxNames.forEach((name) => {
+    add({ name, type: 'linux-server', rack: 'RACK-APP-02', ...baseCommon(rng, 'Dell', 'PowerEdge R650'), ...computeMetrics(rng, true) });
+  });
+  // Windows servers
+  ['WIN-BLR-AD-01','WIN-BLR-AD-02','WIN-BLR-FILE-01','WIN-BLR-PRINT-01'].forEach((name) => {
+    add({ name, type: 'windows-server', rack: 'RACK-APP-03', ...baseCommon(rng, 'HPE', 'ProLiant DL380'), ...computeMetrics(rng, true) });
+  });
+  // VMs
+  const vmNames = ['VM-ITSM-API-01','VM-ITSM-API-02','VM-ITSM-WORKER-01','VM-PORTAL-WEB-01','VM-PORTAL-WEB-02','VM-AUTH-SVC-01','VM-REPORT-ENGINE-01','VM-CMDB-SYNC-01','VM-NOTIFY-SVC-01','VM-BILLING-SVC-01'];
+  vmNames.forEach((name) => {
+    const isHero = name === 'VM-ITSM-API-01';
+    add({ name, type: 'vm', rack: 'RACK-VIRT-01', host: isHero ? 'PHY-BLR-APP-01' : pick(rng,['PHY-BLR-APP-01','PHY-BLR-APP-02','PHY-BLR-APP-03']),
+      ...baseCommon(rng, 'VMware', 'vSphere 8 VM'), ...computeMetrics(rng, true),
+      forceStatus: isHero ? 'warning' : undefined, cpu: isHero ? 91 : undefined });
+  });
+  // Storage
+  ['STOR-BLR-SAN-01','STOR-BLR-SAN-02','STOR-BLR-NAS-01'].forEach((name) => {
+    add({ name, type: 'storage', rack: 'RACK-STOR-01', ...baseCommon(rng, 'NetApp', 'FAS8300'),
+      cpu: 0, capacityTB: 96, usedTB: r1(rand(rng,40,88)), iops: randInt(rng,2000,18000), latencyMs: r1(rand(rng,0.4,3.2)) });
+  });
+  // Databases
+  ['DB-BLR-ITSM-PG-01','DB-BLR-CMDB-PG-01','DB-BLR-ANALYTICS-PG-01'].forEach((name) => {
+    add({ name, type: 'database', rack: 'RACK-DB-01', ...baseCommon(rng, 'PostgreSQL', 'v15.4'),
+      ...computeMetrics(rng, true), connections: randInt(rng,40,320), qps: randInt(rng,200,4200), replicationLagMs: r1(rand(rng,0,180)) });
+  });
+  // K8s nodes
+  for (let i = 1; i <= 6; i++) {
+    add({ name: `K8S-BLR-NODE-${String(i).padStart(2,'0')}`, type: 'k8s-node', rack: 'RACK-K8S-01',
+      ...baseCommon(rng, 'Dell', 'PowerEdge R650'), ...computeMetrics(rng, true),
+      pods: randInt(rng, 12, 48), cluster: 'itsm-prod-blr' });
+  }
+  // Application services
+  const apps = [
+    { name: 'Veltacore ITSM API', lat: 340, err: 2.1, hero: true },
+    { name: 'Veltacore Portal Web', lat: 120, err: 0.3 },
+    { name: 'Auth Service', lat: 60, err: 0.1 },
+    { name: 'CMDB Sync Service', lat: 210, err: 0.4 },
+    { name: 'Notification Service', lat: 90, err: 0.2 },
+    { name: 'Billing Service', lat: 150, err: 0.6 },
+  ];
+  apps.forEach((a) => {
+    add({ name: a.name, type: 'application-service', rack: '—', ...baseCommon(rng, 'Internal', 'Node.js 20 / Spring Boot'),
+      cpu: r0(rand(rng,15,60)), mem: r0(rand(rng,25,70)),
+      latencyP50: r1(a.lat*0.6), latencyP95: r1(a.lat), latencyP99: r1(a.lat*1.6),
+      errorRate: a.err, throughputRps: randInt(rng,80,1400), apdex: r1(rand(rng,0.86,0.99)),
+      forceStatus: a.hero ? 'warning' : undefined });
+  });
+
+  return assets;
+}
+
+function generateAlerts(assets) {
+  const rng = mulberry32(77);
+  const alerts = [];
+  const templates = [
+    { sev: 'critical', text: (a) => `CPU sustained above 90% on ${a.name}` },
+    { sev: 'warning', text: (a) => `Interface errors climbing on ${a.name}` },
+    { sev: 'warning', text: (a) => `Latency (p95) breach on ${a.name}` },
+    { sev: 'critical', text: (a) => `Availability dropped below SLA on ${a.name}` },
+    { sev: 'info', text: (a) => `Firmware update available for ${a.name}` },
+    { sev: 'warning', text: (a) => `Disk utilization above 85% on ${a.name}` },
+  ];
+  const flagged = assets.filter(a => a.status !== 'healthy');
+  flagged.forEach((a, i) => {
+    const t = a.status === 'critical' ? templates.filter(x=>x.sev==='critical')[0] : templates.filter(x=>x.sev==='warning')[randInt(rng,0,2)];
+    alerts.push({
+      id: `alert-${i}`, severity: a.status === 'critical' ? 'critical' : 'warning',
+      title: t.text(a), asset: a.name, assetId: a.id, time: `${randInt(rng,2,58)}m ago`,
+      status: pick(rng, ['open','open','acknowledged']),
+    });
+  });
+  // a few extra info-level
+  ['Scheduled maintenance window starting for RACK-CORE-01', 'New integration connected: ServiceNow CMDB', 'Certificate renewal completed for FW-BLR-EDGE-01'].forEach((text, i) => {
+    alerts.push({ id: `info-${i}`, severity: 'info', title: text, asset: '—', assetId: null, time: `${randInt(rng,1,6)}h ago`, status: 'open' });
+  });
+  return alerts;
+}
+
+function generateLogs(assets) {
+  const rng = mulberry32(555);
+  const levels = ['info','info','info','warn','error','debug'];
+  const sources = assets.slice(0, 30);
+  const msgs = {
+    info: ['Health check passed', 'Config sync completed', 'Session established', 'Scheduled backup completed', 'Heartbeat OK'],
+    warn: ['Retry attempt for upstream request', 'Queue depth above threshold', 'Slow query detected (>500ms)', 'Interface flapping detected'],
+    error: ['Connection timeout to upstream', 'Failed health check — retrying', 'TLS handshake failed', 'Out of memory warning triggered'],
+    debug: ['Cache miss, fetching from origin', 'Trace context propagated', 'Config reloaded from CMDB'],
+  };
+  const rows = [];
+  for (let i = 0; i < 140; i++) {
+    const lvl = pick(rng, levels);
+    const src = pick(rng, sources);
+    rows.push({
+      id: `log-${i}`, level: lvl, source: src.name, sourceId: src.id,
+      message: pick(rng, msgs[lvl]), time: new Date(Date.now() - randInt(rng, 5, 50000) * 1000).toISOString().slice(11,19),
+    });
+  }
+  rows.sort((a,b) => b.time.localeCompare(a.time));
+  return rows;
+}
+
+function generateTraces() {
+  return {
+    services: [
+      { name: 'Veltacore ITSM API', rps: 842, errPct: 2.1, p95: 340 },
+      { name: 'Auth Service', rps: 1120, errPct: 0.1, p95: 60 },
+      { name: 'CMDB Sync Service', rps: 210, errPct: 0.4, p95: 210 },
+      { name: 'Veltacore Portal Web', rps: 960, errPct: 0.3, p95: 120 },
+      { name: 'Notification Service', rps: 300, errPct: 0.2, p95: 90 },
+      { name: 'Billing Service', rps: 140, errPct: 0.6, p95: 150 },
+    ],
+    spans: [
+      { name: 'API Gateway', start: 0, dur: 340, depth: 0 },
+      { name: 'Auth Service · verify()', start: 8, dur: 42, depth: 1 },
+      { name: 'Veltacore ITSM API · handler', start: 55, dur: 260, depth: 1 },
+      { name: 'Postgres · SELECT incidents', start: 70, dur: 145, depth: 2 },
+      { name: 'Redis · GET session', start: 225, dur: 12, depth: 2 },
+      { name: 'CMDB Sync Service · lookup()', start: 245, dur: 55, depth: 2 },
+    ],
+  };
+}
+
+function fmtPct(n) { return n === undefined ? '—' : `${n}%`; }
+
+class Component extends DCLogic {
+  state = {
+    screen: 'overview',
+    tick: 0,
+  };
+
+  constructor(props) {
+    super(props);
+    this.assets = generateFleet();
+    this.alerts = generateAlerts(this.assets);
+    this.logs = generateLogs(this.assets);
+    this.traces = generateTraces();
+  }
+
+  componentDidMount() {
+    this._timer = setInterval(() => {
+      this.setState(s => ({ tick: s.tick + 1 }));
+    }, 3000);
+  }
+  componentWillUnmount() { clearInterval(this._timer); }
+
+  go(screen, extra) { this.setState(Object.assign({ screen }, extra || {})); }
+
+  buildNav() {
+    const s = this.state.screen;
+    const item = (label, icon, screen, badge) => ({
+      label, icon, badge,
+      onClick: () => this.go(screen),
+      fontWeight: s === screen ? 700 : 500,
+      iconColor: s === screen ? '#24c1a0' : '#8895ac',
+      badgeStyle: 'background:#dc2626;color:#fff;font-size:9.5px;font-weight:700;border-radius:8px;padding:1px 6px;',
+      rowStyle: `display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:7px;cursor:pointer;margin-bottom:1px;background:${s===screen?'#132434':'transparent'};color:${s===screen?'#ffffff':'#c7cedb'};`,
+      hoverStyle: `background:${s===screen?'#132434':'#131c2c'};`,
+    });
+    return [
+      { label: 'MONITORING', items: [
+        item('Overview', 'fa-solid fa-gauge-high', 'overview'),
+        item('APM & Traces', 'fa-solid fa-diagram-project', 'apm'),
+        { ...item('Applications Catalog', 'fa-solid fa-layer-group', 'apps'), onClick: () => this.go('apps', { invFilter: 'application-service' }) },
+        item('Logs', 'fa-solid fa-align-left', 'logs'),
+      ]},
+      { label: 'ALERTING', items: [
+        { ...item('Alert Conditions', 'fa-solid fa-bell', 'alerts'), onClick: () => this.go('alerts', { alertsTab: 'conditions' }) },
+        { ...item('Alert Grouping', 'fa-solid fa-object-group', 'alertgrouping'), onClick: () => this.go('alertgrouping', { alertsTab: 'grouping' }) },
+      ]},
+      { label: 'INFRASTRUCTURE', items: [
+        { ...item('Entity Map', 'fa-solid fa-share-nodes', 'topology'), onClick: () => this.go('topology', { topoTab: 'map' }) },
+        { ...item('Asset Inventory', 'fa-solid fa-boxes-stacked', 'inventory'), onClick: () => this.go('inventory', { invFilter: 'all' }) },
+        { ...item('Network Topology', 'fa-solid fa-diagram-successor', 'topology'), onClick: () => this.go('topology', { topoTab: 'map' }) },
+        { ...item('Virtual Machines', 'fa-solid fa-cube', 'vms'), onClick: () => this.go('vms', { invFilter: 'vm' }) },
+        { ...item('Datacenter Rack', 'fa-solid fa-server', 'rack'), onClick: () => this.go('topology', { topoTab: 'rack' }) },
+        { ...item('Exporters', 'fa-solid fa-plug', 'settings'), onClick: () => this.go('settings', { settingsTab: 'exporters' }) },
+      ]},
+      { label: 'PLATFORM', items: [
+        item('Reports', 'fa-solid fa-chart-column', 'reports'),
+        { ...item('Flow Designer', 'fa-solid fa-route', 'flow'), onClick: () => this.go('flow', { alertsTab: 'automation' }) },
+        { ...item('Integrations', 'fa-solid fa-puzzle-piece', 'settings'), onClick: () => this.go('settings', { settingsTab: 'integrations' }) },
+        { ...item('Settings', 'fa-solid fa-gear', 'settings'), onClick: () => this.go('settings', { settingsTab: 'users' }) },
+      ]},
+    ];
+  }
+
+  buildOverview() {
+    const assets = this.assets;
+    const byStatus = { healthy: 0, warning: 0, critical: 0, offline: 0 };
+    assets.forEach(a => byStatus[a.status] = (byStatus[a.status]||0) + 1);
+    const avgAvail = r1(assets.reduce((s,a)=>s+(a.availability||100),0)/assets.length);
+    const apps = assets.filter(a => a.type === 'application-service');
+    const heroApp = apps.find(a => a.name === 'Veltacore ITSM API');
+    const topAlerts = this.alerts.filter(a=>a.severity!=='info').slice(0,5);
+    const rng = mulberry32(this.state.tick + 9);
+    const sparkline = (base, n=20) => Array.from({length:n},(_,i)=>r1(base + Math.sin(i/2)*base*0.08 + rand(rng,-base*0.05,base*0.05)));
+    return {
+      kpiCards: [
+        { label: 'Fleet Availability', value: `${avgAvail}%`, sub: `${assets.length} assets monitored`, color: '#16a34a', icon: 'fa-solid fa-signal' },
+        { label: 'Healthy', value: byStatus.healthy, sub: 'assets nominal', color: '#16a34a', icon: 'fa-solid fa-circle-check' },
+        { label: 'Warning', value: byStatus.warning, sub: 'need attention', color: '#f59e0b', icon: 'fa-solid fa-triangle-exclamation' },
+        { label: 'Critical', value: byStatus.critical, sub: 'active incidents', color: '#dc2626', icon: 'fa-solid fa-circle-exclamation' },
+      ],
+      heroAppName: heroApp ? heroApp.name : '—',
+      heroAppLatency: heroApp ? heroApp.latencyP95 : 0,
+      heroAppErr: heroApp ? heroApp.errorRate : 0,
+      latencySpark: sparkline(heroApp ? heroApp.latencyP95 : 100).map((v,i,arr)=>({ x: i, y: v })),
+      latencyPath: this.sparkPath(sparkline(heroApp ? heroApp.latencyP95 : 100)),
+      throughputPath: this.sparkPath(sparkline(heroApp ? heroApp.throughputRps : 400)),
+      topAlertRows: topAlerts.map(a => ({
+        ...a,
+        dotColor: statusColor(a.severity === 'critical' ? 'critical' : 'warning'),
+        badgeBg: statusBg(a.severity === 'critical' ? 'critical' : 'warning'),
+        badgeColor: statusColor(a.severity === 'critical' ? 'critical' : 'warning'),
+      })),
+      openAssetDetail: (id) => { this.setState({ screen: 'inventory', selectedAssetId: id }); },
+      topServices: this.traces.services.map(sv => ({
+        ...sv, barWidth: `${Math.min(100, sv.rps/14)}%`,
+        errColor: sv.errPct > 1 ? '#dc2626' : sv.errPct > 0.4 ? '#f59e0b' : '#16a34a',
+      })),
+      regionRackRows: this.buildRackSummary(),
+    };
+  }
+
+  sparkPath(values) {
+    const w = 280, h = 56;
+    const max = Math.max(...values), min = Math.min(...values);
+    const range = (max - min) || 1;
+    const pts = values.map((v,i) => {
+      const x = (i/(values.length-1)) * w;
+      const y = h - ((v-min)/range) * (h-8) - 4;
+      return `${r1(x)},${r1(y)}`;
+    });
+    return `M${pts.join(' L')}`;
+  }
+
+  buildRackSummary() {
+    const racks = {};
+    this.assets.forEach(a => {
+      if (a.rack === '—') return;
+      racks[a.rack] = racks[a.rack] || { rack: a.rack, count: 0, worst: 'healthy' };
+      racks[a.rack].count++;
+      if (a.status === 'critical') racks[a.rack].worst = 'critical';
+      else if (a.status === 'warning' && racks[a.rack].worst !== 'critical') racks[a.rack].worst = 'warning';
+    });
+    return Object.values(racks).slice(0,8).map(r => ({
+      ...r, color: statusColor(r.worst), bg: statusBg(r.worst),
+    }));
+  }
+
+  setInvFilter(f) { this.setState({ invFilter: f }); }
+  setInvSearch(v) { this.setState({ invSearch: v }); }
+  openAsset(id) { this.setState({ screen: 'detail', selectedAssetId: id, detailTab: 'overview' }); }
+
+  buildInventory() {
+    const filter = this.state.invFilter || 'all';
+    const search = (this.state.invSearch || '').toLowerCase();
+    let rows = this.assets;
+    if (filter !== 'all') rows = rows.filter(a => a.type === filter);
+    if (search) rows = rows.filter(a => a.name.toLowerCase().includes(search));
+    const typeCounts = {};
+    this.assets.forEach(a => typeCounts[a.type] = (typeCounts[a.type]||0)+1);
+    const chips = [{ key: 'all', label: `All (${this.assets.length})` }]
+      .concat(Object.keys(TYPE_META).map(k => ({ key: k, label: `${TYPE_META[k].label} (${typeCounts[k]||0})` })));
+    return {
+      invChips: chips.map(c => ({
+        ...c,
+        style: `padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid ${filter===c.key?'#24c1a0':'#e6e9ee'};background:${filter===c.key?'#eafaf5':'#fff'};color:${filter===c.key?'#0f8a6f':'#5b6577'};white-space:nowrap;`,
+        onClick: () => this.setInvFilter(c.key),
+      })),
+      invRows: rows.map(a => ({
+        id: a.id, name: a.name, typeLabel: TYPE_META[a.type].label, icon: TYPE_META[a.type].icon,
+        rack: a.rack, ip: a.ip, status: a.status,
+        statusColor: statusColor(a.status), statusBg: statusBg(a.status),
+        cpu: fmtPct(a.cpu), mem: fmtPct(a.mem), availability: a.availability ? `${a.availability}%` : '—',
+        alertsCount: a.alertsCount,
+        onClick: () => this.openAsset(a.id),
+      })),
+      invCount: rows.length,
+      invSearchVal: this.state.invSearch || '',
+      onInvSearch: (e) => this.setInvSearch(e.target.value),
+    };
+  }
+
+  setDetailTab(t) { this.setState({ detailTab: t }); }
+
+  buildDetail() {
+    const asset = this.assets.find(a => a.id === this.state.selectedAssetId) || this.assets[0];
+    if (!asset) return {};
+    const isNetwork = asset.category === 'network';
+    const isCompute = asset.category === 'compute';
+    const tabs = ['overview','availability','performance'];
+    if (isNetwork) tabs.push('interfaces','ports');
+    tabs.push('hardware','alerts','logs','events','configuration','topology');
+    const activeTab = this.state.detailTab || 'overview';
+    const assetAlerts = this.alerts.filter(a => a.assetId === asset.id);
+    const assetLogs = this.logs.filter(l => l.sourceId === asset.id).slice(0, 25);
+    return {
+      detailAsset: asset,
+      detailIcon: TYPE_META[asset.type].icon,
+      detailTypeLabel: TYPE_META[asset.type].label,
+      detailStatusColor: statusColor(asset.status),
+      detailStatusBg: statusBg(asset.status),
+      detailTabs: tabs.map(t => ({
+        key: t, label: t.charAt(0).toUpperCase()+t.slice(1),
+        style: `padding:9px 4px;font-size:12px;font-weight:${activeTab===t?700:500};color:${activeTab===t?'#151b26':'#8a94a6'};border-bottom:2px solid ${activeTab===t?'#24c1a0':'transparent'};cursor:pointer;white-space:nowrap;`,
+        onClick: () => this.setDetailTab(t),
+      })),
+      isTabOverview: activeTab === 'overview',
+      isTabAvailability: activeTab === 'availability',
+      isTabPerformance: activeTab === 'performance',
+      isTabInterfaces: activeTab === 'interfaces',
+      isTabPorts: activeTab === 'ports',
+      isTabHardware: activeTab === 'hardware',
+      isTabAlerts: activeTab === 'alerts',
+      isTabLogs: activeTab === 'logs',
+      isTabEvents: activeTab === 'events',
+      isTabConfiguration: activeTab === 'configuration',
+      isTabTopology: activeTab === 'topology',
+      isNetworkAsset: isNetwork,
+      isComputeAsset: isCompute,
+      metricCards: this.buildMetricCards(asset),
+      ifaceRows: (asset.interfaces||[]).map(i => ({
+        ...i, dotColor: i.status==='up' ? '#16a34a' : '#94a3b8',
+        errColor: i.errors > 50 ? '#dc2626' : i.errors > 5 ? '#f59e0b' : '#8a94a6',
+      })),
+      assetAlertRows: assetAlerts.map(a => ({ ...a, color: statusColor(a.severity), bg: statusBg(a.severity) })),
+      assetLogRows: assetLogs.map(l => ({ ...l, levelColor: l.level==='error'?'#dc2626':l.level==='warn'?'#f59e0b':l.level==='debug'?'#8a94a6':'#2563eb' })),
+      backToInventory: () => this.setState({ screen: 'inventory' }),
+      configLines: [
+        `hostname ${asset.name}`,
+        `management-ip ${asset.ip}`,
+        `vendor ${asset.vendor} ${asset.model}`,
+        `firmware ${asset.firmware}`,
+        `monitored-by veltacore-agent v3.2`,
+        `poll-interval 30s`,
+      ],
+    };
+  }
+
+  buildMetricCards(a) {
+    const cards = [];
+    const push = (label, value, sub, icon) => cards.push({ label, value, sub, icon });
+    push('Availability', a.availability ? `${a.availability}%` : '—', 'last 30 days', 'fa-solid fa-signal');
+    if (a.cpu !== undefined) push('CPU', `${a.cpu}%`, 'utilization', 'fa-solid fa-microchip');
+    if (a.mem !== undefined) push('Memory', `${a.mem}%`, 'utilization', 'fa-solid fa-memory');
+    if (a.disk !== undefined) push('Disk', `${a.disk}%`, 'utilization', 'fa-solid fa-hard-drive');
+    if (a.temp !== undefined) push('Temperature', `${a.temp}°C`, 'chassis', 'fa-solid fa-temperature-half');
+    if (a.pingMs !== undefined) push('Ping Latency', `${a.pingMs}ms`, 'avg', 'fa-solid fa-tower-cell');
+    if (a.packetLoss !== undefined) push('Packet Loss', `${a.packetLoss}%`, '5 min avg', 'fa-solid fa-triangle-exclamation');
+    if (a.latencyP95 !== undefined) push('Latency (p95)', `${a.latencyP95}ms`, `p50 ${a.latencyP50}ms`, 'fa-solid fa-stopwatch');
+    if (a.errorRate !== undefined) push('Error Rate', `${a.errorRate}%`, `${a.throughputRps} rps`, 'fa-solid fa-bug');
+    if (a.iops !== undefined) push('IOPS', a.iops, `${a.latencyMs}ms latency`, 'fa-solid fa-gauge');
+    if (a.connections !== undefined) push('Connections', a.connections, `${a.qps} qps`, 'fa-solid fa-plug');
+    if (a.pods !== undefined) push('Pods', a.pods, a.cluster, 'fa-solid fa-cubes');
+    if (a.powerW !== undefined) push('Power Draw', `${a.powerW}W`, `fan: ${a.fan}`, 'fa-solid fa-bolt');
+    return cards;
+  }
+
+  setTopoTab(t) { this.setState({ topoTab: t }); }
+
+  buildTopology() {
+    const cols = [
+      { key: 'firewall', label: 'FIREWALL', assets: this.assets.filter(a => a.type === 'firewall') },
+      { key: 'switch', label: 'SWITCH', assets: this.assets.filter(a => ['SW-BLR-CORE-01','SW-BLR-CORE-02','SW-BLR-TOR-13','SW-BLR-TOR-06'].includes(a.name)) },
+      { key: 'server', label: 'PHYSICAL SERVER', assets: this.assets.filter(a => a.type === 'physical-server') },
+      { key: 'vm', label: 'VIRTUAL MACHINE', assets: this.assets.filter(a => ['VM-ITSM-API-01','VM-ITSM-API-02','VM-ITSM-WORKER-01','VM-AUTH-SVC-01'].includes(a.name)) },
+      { key: 'app', label: 'APPLICATION', assets: this.assets.filter(a => a.type === 'application-service').slice(0,4) },
+    ];
+    const colW = 216, gapX = 40, nodeH = 58, gapY = 18, topPad = 10;
+    const nodes = [];
+    const byName = {};
+    cols.forEach((col, ci) => {
+      col.assets.forEach((a, ri) => {
+        const n = {
+          id: a.id, name: a.name, status: a.status,
+          x: ci * (colW + gapX), y: topPad + ri * (nodeH + gapY),
+          w: colW, h: nodeH,
+          color: statusColor(a.status), bg: statusBg(a.status), icon: TYPE_META[a.type].icon,
+          onClick: () => this.setState({ screen: 'detail', selectedAssetId: a.id, detailTab: 'overview' }),
+        };
+        nodes.push(n); byName[a.name] = n;
+      });
+    });
+    const heroChain = [
+      ['FW-BLR-EDGE-01','SW-BLR-TOR-13'], ['SW-BLR-TOR-13','PHY-BLR-APP-01'],
+      ['PHY-BLR-APP-01','VM-ITSM-API-01'], ['VM-ITSM-API-01','Veltacore ITSM API'],
+    ];
+    const heroSet = new Set(heroChain.flat());
+    const edges = [];
+    function edge(fromName, toName, hero) {
+      const f = byName[fromName], t = byName[toName];
+      if (!f || !t) return;
+      const x1 = f.x + f.w, y1 = f.y + f.h/2, x2 = t.x, y2 = t.y + t.h/2;
+      const mx = (x1+x2)/2;
+      const color = hero ? (f.status==='warning'||t.status==='warning'?'#f59e0b':'#24c1a0') : '#dbe1ea';
+      edges.push({
+        d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, hero, color,
+        width: hero ? 2.5 : 1.2,
+        dash: hero ? '6 6' : '0',
+        animStyle: hero ? 'animation: flowdash 0.8s linear infinite;' : '',
+      });
+    }
+    heroChain.forEach(([a,b]) => edge(a,b,true));
+    // context edges: link each non-hero node to a node in the next column
+    for (let ci = 0; ci < cols.length - 1; ci++) {
+      cols[ci].assets.forEach((a) => {
+        if (heroSet.has(a.name)) return;
+        const nextCol = cols[ci+1].assets.filter(x => !heroSet.has(x.name));
+        if (nextCol.length) edge(a.name, pick(mulberry32(a.name.length+ci), nextCol).name, false);
+      });
+    }
+    const maxRows = Math.max(...cols.map(c => c.assets.length), 1);
+    const svgH = topPad*2 + maxRows*(nodeH+gapY);
+    const svgW = cols.length*(colW+gapX);
+    const rackGroups = {};
+    this.assets.forEach(a => { if (a.rack !== '—') { rackGroups[a.rack] = rackGroups[a.rack] || []; rackGroups[a.rack].push(a); } });
+    return {
+      topoColLabels: cols.map(c => ({ label: c.label, x: c.key })),
+      topoNodes: nodes, topoEdges: edges, topoSvgW: svgW, topoSvgH: svgH,
+      topoTabMap: (this.state.topoTab || 'map') === 'map',
+      topoTabRack: this.state.topoTab === 'rack',
+      onTopoMap: () => this.setTopoTab('map'), onTopoRack: () => this.setTopoTab('rack'),
+      topoMapBtnStyle: `padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${(this.state.topoTab||'map')==='map'?'#24c1a0':'#e6e9ee'};background:${(this.state.topoTab||'map')==='map'?'#eafaf5':'#fff'};color:${(this.state.topoTab||'map')==='map'?'#0f8a6f':'#5b6577'};`,
+      topoRackBtnStyle: `padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${this.state.topoTab==='rack'?'#24c1a0':'#e6e9ee'};background:${this.state.topoTab==='rack'?'#eafaf5':'#fff'};color:${this.state.topoTab==='rack'?'#0f8a6f':'#5b6577'};`,
+      rackList: Object.keys(rackGroups).slice(0,6).map(rk => ({
+        rack: rk,
+        devices: rackGroups[rk].map(a => ({ name: a.name, color: statusColor(a.status), bg: statusBg(a.status), icon: TYPE_META[a.type].icon })),
+      })),
+    };
+  }
+
+  setAlertsTab(t) { this.setState({ alertsTab: t }); }
+
+  buildAlertsScreen() {
+    const tab = this.state.alertsTab || 'active';
+    const rows = this.alerts.filter(a => a.severity !== 'info' || tab === 'active');
+    const conditions = [
+      { name: 'CPU > 90% for 5 minutes', scope: 'All compute assets', severity: 'critical' },
+      { name: 'Availability < 99% (rolling 1h)', scope: 'All monitored assets', severity: 'warning' },
+      { name: 'Interface error rate > 50/min', scope: 'Network devices', severity: 'warning' },
+      { name: 'p95 latency > 300ms', scope: 'Application services', severity: 'warning' },
+      { name: 'Packet loss > 2%', scope: 'Network devices', severity: 'critical' },
+      { name: 'Disk utilization > 85%', scope: 'Storage, compute', severity: 'warning' },
+    ];
+    const groups = [
+      { name: 'SW-BLR-TOR-13 · interface degradation', count: 3, assets: 'SW-BLR-TOR-13, PHY-BLR-APP-01' },
+      { name: 'Veltacore ITSM API · latency breach', count: 4, assets: 'VM-ITSM-API-01, Veltacore ITSM API' },
+      { name: 'Core network · elevated latency', count: 2, assets: 'RTR-BLR-CORE-01, RTR-BLR-CORE-02' },
+    ];
+    const automation = [
+      { when: 'Severity = critical AND scope = network', then: 'Page on-call NOC engineer via PagerDuty' },
+      { when: 'Alert = "Interface errors climbing"', then: 'Auto-create ServiceNow incident, priority P3' },
+      { when: 'Alert group size > 3 within 10 min', then: 'Merge into single incident, notify #noc-alerts' },
+    ];
+    return {
+      alertsTabActive: tab === 'active', alertsTabConditions: tab === 'conditions', alertsTabGrouping: tab === 'grouping', alertsTabAutomation: tab === 'automation',
+      alertsTabBtns: ['active','conditions','grouping','automation'].map(k => ({
+        key: k, label: k.charAt(0).toUpperCase()+k.slice(1),
+        style: `padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:${tab===k?'#151b26':'#fff'};color:${tab===k?'#fff':'#5b6577'};border:1px solid ${tab===k?'#151b26':'#e6e9ee'};`,
+        onClick: () => this.setAlertsTab(k),
+      })),
+      activeAlertRows: rows.map(a => ({
+        ...a, color: statusColor(a.severity), bg: statusBg(a.severity),
+        onClick: () => a.assetId && this.setState({ screen: 'detail', selectedAssetId: a.assetId, detailTab: 'alerts' }),
+      })),
+      conditionRows: conditions.map(c => ({ ...c, color: statusColor(c.severity), bg: statusBg(c.severity) })),
+      groupRows: groups,
+      automationRows: automation,
+    };
+  }
+
+  buildLogsScreen() {
+    const q = (this.state.logSearch || '').toLowerCase();
+    let rows = this.logs;
+    if (q) rows = rows.filter(l => l.message.toLowerCase().includes(q) || l.source.toLowerCase().includes(q));
+    const levelFilter = this.state.logLevel || 'all';
+    if (levelFilter !== 'all') rows = rows.filter(l => l.level === levelFilter);
+    return {
+      logRows: rows.slice(0, 100).map(l => ({ ...l, levelColor: l.level==='error'?'#dc2626':l.level==='warn'?'#f59e0b':l.level==='debug'?'#8a94a6':'#2563eb' })),
+      logSearchVal: this.state.logSearch || '',
+      onLogSearch: (e) => this.setState({ logSearch: e.target.value }),
+      logLevelChips: ['all','info','warn','error','debug'].map(l => ({
+        key: l, label: l.toUpperCase(),
+        style: `padding:6px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${levelFilter===l?'#24c1a0':'#26324a'};background:${levelFilter===l?'#123b31':'transparent'};color:${levelFilter===l?'#5be8c4':'#8895ac'};`,
+        onClick: () => this.setState({ logLevel: l }),
+      })),
+    };
+  }
+
+  buildApmScreen() {
+    const spanColors = ['#24c1a0','#2563eb','#7c5cff','#f59e0b','#dc2626','#0ea5e9'];
+    return {
+      apmServiceRows: this.traces.services.map((sv,i) => ({
+        ...sv, errColor: sv.errPct>1?'#dc2626':sv.errPct>0.4?'#f59e0b':'#16a34a',
+        onClick: () => { const asset = this.assets.find(a=>a.name===sv.name); if (asset) this.setState({ screen:'detail', selectedAssetId: asset.id, detailTab:'overview' }); },
+      })),
+      spanRows: this.traces.spans.map((sp,i) => ({
+        ...sp, left: `${sp.start/3.4}px`, width: `${Math.max(sp.dur/3.4,3)}px`, color: spanColors[i % spanColors.length], indent: sp.depth*20,
+      })),
+    };
+  }
+
+  buildReportsScreen() {
+    const assets = this.assets;
+    const byType = {};
+    assets.forEach(a => { byType[a.type] = (byType[a.type]||0)+1; });
+    return {
+      reportCards: [
+        { title: 'Monthly SLA Summary', sub: 'Availability across all monitored assets', icon: 'fa-solid fa-file-shield', stat: '99.4%', statLabel: 'avg availability' },
+        { title: 'Capacity Planning', sub: 'CPU / memory / disk trend, last 30 days', icon: 'fa-solid fa-chart-line', stat: '68%', statLabel: 'peak fleet CPU' },
+        { title: 'Incident Summary', sub: 'Alerts opened, resolved, MTTR', icon: 'fa-solid fa-clipboard-list', stat: `${this.alerts.length}`, statLabel: 'alerts this month' },
+        { title: 'Change & Config Audit', sub: 'Firmware, config drift, patch status', icon: 'fa-solid fa-file-pen', stat: '3', statLabel: 'pending updates' },
+      ],
+      typeBreakdown: Object.keys(byType).map(k => ({ label: TYPE_META[k].label, count: byType[k], pct: Math.round(byType[k]/assets.length*100) })).sort((a,b)=>b.count-a.count),
+    };
+  }
+
+  buildSettingsScreen() {
+    const tab = this.state.settingsTab || 'exporters';
+    const exporters = [
+      { name: 'SNMP Poller — Network', type: 'SNMP v2c', targets: 22, status: 'healthy' },
+      { name: 'WMI Collector — Windows', type: 'WMI', targets: 4, status: 'healthy' },
+      { name: 'Node Exporter — Linux', type: 'Prometheus', targets: 8, status: 'healthy' },
+      { name: 'vCenter Collector', type: 'VMware API', targets: 10, status: 'warning' },
+      { name: 'iDRAC Redfish Collector', type: 'Redfish', targets: 4, status: 'healthy' },
+    ];
+    const integrations = [
+      { name: 'ServiceNow', desc: 'Incident + CMDB sync', icon: 'fa-solid fa-ticket', connected: true },
+      { name: 'PagerDuty', desc: 'On-call paging & escalation', icon: 'fa-solid fa-phone-volume', connected: true },
+      { name: 'Slack', desc: '#noc-alerts notifications', icon: 'fa-brands fa-slack', connected: true },
+      { name: 'Jira', desc: 'Change ticket linking', icon: 'fa-brands fa-jira', connected: false },
+      { name: 'Grafana', desc: 'Custom dashboard export', icon: 'fa-solid fa-chart-area', connected: false },
+    ];
+    const users = [
+      { name: 'R. Sharma', role: 'NOC Engineer', email: 'r.sharma@veltacore.com' },
+      { name: 'A. Iyer', role: 'Infra Lead', email: 'a.iyer@veltacore.com' },
+      { name: 'K. Verma', role: 'Read-only Auditor', email: 'k.verma@veltacore.com' },
+    ];
+    return {
+      settingsTabExporters: tab === 'exporters', settingsTabIntegrations: tab === 'integrations', settingsTabUsers: tab === 'users',
+      settingsTabBtns: ['exporters','integrations','users'].map(k => ({
+        key: k, label: k.charAt(0).toUpperCase()+k.slice(1),
+        style: `padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:${tab===k?'#151b26':'#fff'};color:${tab===k?'#fff':'#5b6577'};border:1px solid ${tab===k?'#151b26':'#e6e9ee'};`,
+        onClick: () => this.setState({ settingsTab: k }),
+      })),
+      exporterRows: exporters.map(e => ({ ...e, color: statusColor(e.status), bg: statusBg(e.status) })),
+      integrationCards: integrations.map(i => ({ ...i, badgeText: i.connected ? 'Connected' : 'Connect', badgeBg: i.connected?'#eafaf5':'#f4f6f8', badgeColor: i.connected?'#0f8a6f':'#5b6577' })),
+      userRows: users,
+    };
+  }
+
+  renderVals() {
+    const openAlertCount = this.alerts.filter(a => a.status !== 'resolved' && a.severity !== 'info').length;
+    const titles = { overview: 'Overview', inventory: 'Asset Inventory', apps: 'Applications Catalog', vms: 'Virtual Machines', detail: this.state.selectedAssetId ? (this.assets.find(a=>a.id===this.state.selectedAssetId)||{}).name : 'Asset', topology: 'Network Topology', rack: 'Datacenter Rack', alerts: 'Alert Dashboard', alertgrouping: 'Alert Dashboard', logs: 'Logs', apm: 'APM & Traces', reports: 'Reports', flow: 'Flow Designer', settings: 'Settings' };
+    return {
+      navGroups: this.buildNav(),
+      pageTitle: titles[this.state.screen] || 'Overview',
+      openAlertCount,
+      isOverview: this.state.screen === 'overview',
+      isInventory: this.state.screen === 'inventory' || this.state.screen === 'apps' || this.state.screen === 'vms',
+      isDetail: this.state.screen === 'detail',
+      isTopology: this.state.screen === 'topology' || this.state.screen === 'rack',
+      isAlerts: this.state.screen === 'alerts' || this.state.screen === 'alertgrouping' || this.state.screen === 'flow',
+      isLogs: this.state.screen === 'logs',
+      isApm: this.state.screen === 'apm',
+      isReports: this.state.screen === 'reports',
+      isSettings: this.state.screen === 'settings',
+      ...this.buildOverview(),
+      ...this.buildInventory(),
+      ...this.buildDetail(),
+      ...this.buildTopology(),
+      ...this.buildAlertsScreen(),
+      ...this.buildLogsScreen(),
+      ...this.buildApmScreen(),
+      ...this.buildReportsScreen(),
+      ...this.buildSettingsScreen(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

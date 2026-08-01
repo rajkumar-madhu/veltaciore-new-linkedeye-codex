@@ -1,0 +1,83 @@
+{
+  "realm": "veltacore",
+  "enabled": true,
+  "displayName": "Argus-LinkedEye Monitoring",
+  "sslRequired": "external",
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Full platform administrator" },
+      { "name": "infra-admin", "description": "Infrastructure & monitoring admin" },
+      { "name": "noc-engineer", "description": "NOC — read all, act on alerts/incidents" },
+      { "name": "service-desk-agent", "description": "ITSM record create/update" },
+      { "name": "viewer", "description": "Read-only" }
+    ]
+  },
+  "groups": [
+    { "name": "admin", "realmRoles": ["admin"] },
+    { "name": "infra-admin", "realmRoles": ["infra-admin"] },
+    { "name": "noc-engineer", "realmRoles": ["noc-engineer"] },
+    { "name": "service-desk-agent", "realmRoles": ["service-desk-agent"] },
+    { "name": "viewer", "realmRoles": ["viewer"] }
+  ],
+  "clients": [
+    {
+      "clientId": "veltacore-api",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "secret": "veltacore-api-secret",
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "full.path": "false",
+            "claim.name": "groups",
+            "access.token.claim": "true",
+            "id.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "realm_access.roles",
+            "access.token.claim": "true",
+            "multivalued": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "name": "finspot-ldap",
+        "providerId": "ldap",
+        "config": {
+          "enabled": ["true"],
+          "priority": ["0"],
+          "importEnabled": ["true"],
+          "editMode": ["READ_ONLY"],
+          "syncRegistrations": ["false"],
+          "vendor": ["other"],
+          "connectionUrl": ["ldap://ldap:1389"],
+          "usersDn": ["ou=users,dc=finspot,dc=in"],
+          "bindDn": ["cn=admin,dc=finspot,dc=in"],
+          "bindCredential": ["admin"],
+          "usernameLDAPAttribute": ["uid"],
+          "rdnLDAPAttribute": ["uid"],
+          "uuidLDAPAttribute": ["entryUUID"],
+          "userObjectClasses": ["inetOrgPerson, organizationalPerson"],
+          "searchScope": ["1"]
+        }
+      }
+    ]
+  }
+}

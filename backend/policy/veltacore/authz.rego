@@ -1,0 +1,110 @@
+# Veltacore PBAC policy.
+# Input: { path, method, user, groups, tenant, resource: { assignee, owner, tenant } }
+# Decision: data.veltacore.authz.allow (boolean)
+#
+# Authorization is evaluated at three levels, most specific last:
+#   1. Group / role capability  (RBAC)   — what a role may do
+#   2. Tenant guard              (isolation) — cross-tenant writes need admin
+#   3. Personal / ownership      (ABAC)   — a user may always act on their own work
+package veltacore.authz
+
+import rego.v1
+
+default allow := false
+
+read_methods := {"GET", "HEAD", "OPTIONS"}
+write_methods := {"POST", "PATCH", "PUT", "DELETE"}
+
+allow if {
+    grant
+    not deny_cross_tenant
+}
+
+# ── Group capabilities ───────────────────────────────────────────────────────
+# admin: everything
+grant if {
+    "admin" in input.groups
+}
+
+# infra-admin: full infra + monitoring, read everything else
+grant if {
+    "infra-admin" in input.groups
+    startswith(input.path, "/api/infra/")
+}
+
+grant if {
+    "infra-admin" in input.groups
+    input.method in read_methods
+}
+
+# noc-engineer: read all; ack/update alerts and incidents
+grant if {
+    "noc-engineer" in input.groups
+    input.method in read_methods
+}
+
+grant if {
+    "noc-engineer" in input.groups
+    input.method in {"POST", "PATCH"}
+    regex.match(`^/api/(infra/alerts|incidents)/`, input.path)
+}
+
+# service-desk-agent: read all; create/update ITSM records
+grant if {
+    "service-desk-agent" in input.groups
+    input.method in read_methods
+}
+
+grant if {
+    "service-desk-agent" in input.groups
+    input.method in {"POST", "PATCH", "PUT"}
+    regex.match(`^/api/(incidents|problems|changes|cmdb|knowledge)/`, input.path)
+}
+
+# viewer: read-only
+grant if {
+    "viewer" in input.groups
+    input.method in read_methods
+}
+
+# ── Personal / ownership level (ABAC) ────────────────────────────────────────
+# Any authenticated user may act on a record they personally own or are
+# assigned to — the "personal level" scope — even without a broad role grant.
+grant if {
+    input.user != ""
+    input.method in write_methods
+    input.resource.assignee == input.user
+}
+
+grant if {
+    input.user != ""
+    input.method in write_methods
+    input.resource.owner == input.user
+}
+
+# Every authenticated user may create and read their own work items.
+grant if {
+    input.user != ""
+    input.method == "POST"
+    regex.match(`^/api/(incidents|problems|changes)/records/`, input.path)
+}
+
+# Convenience: expose the effective level in the decision document for debugging.
+level := "role" if grant_by_role
+level := "personal" if {
+    not grant_by_role
+    grant
+}
+
+grant_by_role if {
+    some g in {"admin", "infra-admin", "noc-engineer", "service-desk-agent", "viewer"}
+    g in input.groups
+}
+
+# ── Tenant guard ─────────────────────────────────────────────────────────────
+# Cross-tenant writes (no X-Tenant-ID header) require admin.
+deny_cross_tenant if {
+    not input.tenant
+    not "admin" in input.groups
+    not input.method in read_methods
+}

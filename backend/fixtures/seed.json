@@ -1,0 +1,3645 @@
+{
+  "ORG": {
+    "name": "Finspot Technology Solutions",
+    "slug": "finspot",
+    "plan": "Enterprise Plus",
+    "seatsUsed": 1247,
+    "seatsTotal": 2000,
+    "founder": "Rajkumar Madhu",
+    "contact": "rk.madhu2026@gmail.com",
+    "phone": "+91 9176772077"
+  },
+  "TENANTS": [
+    {
+      "id": "fyers",
+      "name": "Fyers",
+      "parent": "finspot",
+      "code": "FY",
+      "color": "amber",
+      "users": 412,
+      "incidents": 23,
+      "sev1": 1,
+      "health": 94,
+      "mttr": 18,
+      "spend": 48200,
+      "plan": "Enterprise"
+    },
+    {
+      "id": "flattrade",
+      "name": "FlatTrade",
+      "parent": "finspot",
+      "code": "FT",
+      "color": "teal",
+      "users": 286,
+      "incidents": 14,
+      "sev1": 0,
+      "health": 98,
+      "mttr": 12,
+      "spend": 32100,
+      "plan": "Enterprise"
+    },
+    {
+      "id": "indmoney",
+      "name": "IndMoney",
+      "parent": "finspot",
+      "code": "IM",
+      "color": "pink",
+      "users": 198,
+      "incidents": 31,
+      "sev1": 2,
+      "health": 82,
+      "mttr": 42,
+      "spend": 28900,
+      "plan": "Business"
+    },
+    {
+      "id": "lemonn",
+      "name": "Lemonn",
+      "parent": "finspot",
+      "code": "LM",
+      "color": "purple",
+      "users": 94,
+      "incidents": 9,
+      "sev1": 0,
+      "health": 96,
+      "mttr": 22,
+      "spend": 14600,
+      "plan": "Business"
+    },
+    {
+      "id": "neo-broking",
+      "name": "Neo Broking",
+      "parent": "finspot",
+      "code": "NB",
+      "color": "slate",
+      "users": 38,
+      "incidents": 4,
+      "sev1": 0,
+      "health": 99,
+      "mttr": 8,
+      "spend": 6400,
+      "plan": "Growth"
+    },
+    {
+      "id": "betafront",
+      "name": "BetaFront",
+      "parent": "finspot",
+      "code": "BF",
+      "color": "green",
+      "users": 219,
+      "incidents": 18,
+      "sev1": 1,
+      "health": 88,
+      "mttr": 31,
+      "spend": 22800,
+      "plan": "Business"
+    }
+  ],
+  "USERS": [
+    {
+      "id": "u1",
+      "name": "Priya Raghunathan",
+      "email": "priya.r@finspot.in",
+      "role": "Incident Commander",
+      "team": "SRE Platform",
+      "color": "amber",
+      "status": "online",
+      "last": "now"
+    },
+    {
+      "id": "u2",
+      "name": "Marcus Okafor",
+      "email": "marcus.o@finspot.in",
+      "role": "Admin",
+      "team": "Platform",
+      "color": "purple",
+      "status": "online",
+      "last": "2m"
+    },
+    {
+      "id": "u3",
+      "name": "Yuki Tanaka",
+      "email": "yuki.t@finspot.in",
+      "role": "Responder",
+      "team": "Networking",
+      "color": "teal",
+      "status": "online",
+      "last": "now"
+    },
+    {
+      "id": "u4",
+      "name": "Elena Kowalski",
+      "email": "elena.k@finspot.in",
+      "role": "Responder",
+      "team": "Database",
+      "color": "pink",
+      "status": "away",
+      "last": "14m"
+    },
+    {
+      "id": "u5",
+      "name": "Devon Hassan",
+      "email": "devon.h@finspot.in",
+      "role": "Manager",
+      "team": "SRE Platform",
+      "color": "green",
+      "status": "online",
+      "last": "5m"
+    },
+    {
+      "id": "u6",
+      "name": "Sasha Volkov",
+      "email": "sasha.v@finspot.in",
+      "role": "Viewer",
+      "team": "Finance Ops",
+      "color": "slate",
+      "status": "offline",
+      "last": "1d"
+    },
+    {
+      "id": "u7",
+      "name": "Jamal Washington",
+      "email": "jamal.w@finspot.in",
+      "role": "Responder",
+      "team": "Security",
+      "color": "slate",
+      "status": "online",
+      "last": "1m"
+    },
+    {
+      "id": "u8",
+      "name": "Noor Rahimi",
+      "email": "noor.r@finspot.in",
+      "role": "Admin",
+      "team": "Platform",
+      "color": "amber",
+      "status": "online",
+      "last": "now"
+    }
+  ],
+  "INCIDENTS": [
+    {
+      "id": "INC-48291",
+      "sev": 1,
+      "title": "Payment gateway timeouts \u2014 Stripe connection pool exhausted",
+      "service": "checkout-api",
+      "tenant": "fyers",
+      "assignee": "u1",
+      "status": "active",
+      "age": "14m",
+      "sla": 0.32,
+      "sloBurn": 8.4,
+      "impacted": "12,400 users"
+    },
+    {
+      "id": "INC-48290",
+      "sev": 2,
+      "title": "Elevated 5xx on inventory-service, us-east-1 AZ-b",
+      "service": "inventory",
+      "tenant": "indmoney",
+      "assignee": "u3",
+      "status": "active",
+      "age": "42m",
+      "sla": 0.68,
+      "sloBurn": 3.2,
+      "impacted": "3 regions"
+    },
+    {
+      "id": "INC-48289",
+      "sev": 3,
+      "title": "Slow queries against analytics_events warehouse",
+      "service": "warehouse",
+      "tenant": "fyers",
+      "assignee": "u4",
+      "status": "mitigating",
+      "age": "1h 12m",
+      "sla": 0.85,
+      "sloBurn": 1.1,
+      "impacted": "internal dashboards"
+    },
+    {
+      "id": "INC-48288",
+      "sev": 2,
+      "title": "Auth service CPU saturation during peak window",
+      "service": "auth-svc",
+      "tenant": "flattrade",
+      "assignee": "u5",
+      "status": "active",
+      "age": "2h 4m",
+      "sla": 0.45,
+      "sloBurn": 4.8,
+      "impacted": "all tenants"
+    },
+    {
+      "id": "INC-48286",
+      "sev": 4,
+      "title": "Flaky CI runs on deployment pipeline #darwin",
+      "service": "ci-pipeline",
+      "tenant": "neo-broking",
+      "assignee": "u2",
+      "status": "investigating",
+      "age": "3h 18m",
+      "sla": 0.92,
+      "sloBurn": 0.4,
+      "impacted": "internal"
+    },
+    {
+      "id": "INC-48282",
+      "sev": 3,
+      "title": "Queue backlog on notifications-worker exceeding threshold",
+      "service": "notifications",
+      "tenant": "indmoney",
+      "assignee": "u7",
+      "status": "mitigating",
+      "age": "4h 52m",
+      "sla": 0.71,
+      "sloBurn": 1.8,
+      "impacted": "email delivery delayed"
+    },
+    {
+      "id": "INC-48279",
+      "sev": 1,
+      "title": "Kubernetes control plane unreachable \u2014 cluster prod-west",
+      "service": "k8s-control",
+      "tenant": "betafront",
+      "assignee": "u8",
+      "status": "active",
+      "age": "6m",
+      "sla": 0.18,
+      "sloBurn": 12.2,
+      "impacted": "deployment blocked"
+    },
+    {
+      "id": "INC-48276",
+      "sev": 4,
+      "title": "Certificate expiring in 7 days on api.lemonn.com",
+      "service": "edge",
+      "tenant": "lemonn",
+      "assignee": null,
+      "status": "open",
+      "age": "12h",
+      "sla": 0.95,
+      "sloBurn": 0,
+      "impacted": "proactive"
+    }
+  ],
+  "SERVICES": [
+    {
+      "name": "checkout-api",
+      "status": "degraded",
+      "uptime": 98.4,
+      "p95": "420ms",
+      "err": 2.1,
+      "deps": 6
+    },
+    {
+      "name": "auth-svc",
+      "status": "healthy",
+      "uptime": 99.95,
+      "p95": "82ms",
+      "err": 0.04,
+      "deps": 4
+    },
+    {
+      "name": "inventory",
+      "status": "degraded",
+      "uptime": 99.1,
+      "p95": "1.2s",
+      "err": 0.8,
+      "deps": 9
+    },
+    {
+      "name": "notifications",
+      "status": "healthy",
+      "uptime": 99.8,
+      "p95": "210ms",
+      "err": 0.12,
+      "deps": 3
+    },
+    {
+      "name": "warehouse",
+      "status": "healthy",
+      "uptime": 99.99,
+      "p95": "4.1s",
+      "err": 0,
+      "deps": 11
+    },
+    {
+      "name": "edge",
+      "status": "healthy",
+      "uptime": 100,
+      "p95": "24ms",
+      "err": 0,
+      "deps": 2
+    },
+    {
+      "name": "k8s-control",
+      "status": "down",
+      "uptime": 97.2,
+      "p95": "\u2014",
+      "err": 100,
+      "deps": 0
+    },
+    {
+      "name": "payments-primary",
+      "status": "degraded",
+      "uptime": 99.2,
+      "p95": "2.4s",
+      "err": 1.4,
+      "deps": 2
+    }
+  ],
+  "INTEGRATIONS": [
+    {
+      "name": "Prometheus",
+      "icon": "fa-solid fa-fire-flame-curved",
+      "category": "Observability",
+      "connected": true,
+      "meta": "Metric ingest \u00b7 18.6k/s"
+    },
+    {
+      "name": "Grafana",
+      "icon": "fa-solid fa-chart-line",
+      "category": "Observability",
+      "connected": true,
+      "meta": "12 dashboards embedded"
+    },
+    {
+      "name": "Grafana Loki",
+      "icon": "fa-solid fa-layer-group",
+      "category": "Observability",
+      "connected": true,
+      "meta": "Logs \u00b7 2.8B/day"
+    },
+    {
+      "name": "OpenTelemetry",
+      "icon": "fa-solid fa-share-nodes",
+      "category": "Observability",
+      "connected": true,
+      "meta": "Traces \u00b7 412M spans/day"
+    },
+    {
+      "name": "Datadog",
+      "icon": "fa-solid fa-dog",
+      "category": "Observability",
+      "connected": true,
+      "meta": "Bidirectional sync"
+    },
+    {
+      "name": "New Relic",
+      "icon": "fa-solid fa-square",
+      "category": "Observability",
+      "connected": false,
+      "meta": "NRQL & APM bridge"
+    },
+    {
+      "name": "Dynatrace",
+      "icon": "fa-solid fa-circle-dot",
+      "category": "Observability",
+      "connected": false,
+      "meta": "Smartscape topology"
+    },
+    {
+      "name": "Elastic / ELK",
+      "icon": "fa-solid fa-magnifying-glass",
+      "category": "Observability",
+      "connected": true,
+      "meta": "Search backend"
+    },
+    {
+      "name": "Splunk",
+      "icon": "fa-solid fa-database",
+      "category": "Observability",
+      "connected": false,
+      "meta": "Log forwarder available"
+    },
+    {
+      "name": "PagerDuty",
+      "icon": "fa-solid fa-bell",
+      "category": "On-call",
+      "connected": true,
+      "meta": "3 services \u00b7 8 schedules"
+    },
+    {
+      "name": "Opsgenie",
+      "icon": "fa-solid fa-headset",
+      "category": "On-call",
+      "connected": false,
+      "meta": "Atlassian on-call"
+    },
+    {
+      "name": "VictorOps / Splunk On-Call",
+      "icon": "fa-solid fa-walkie-talkie",
+      "category": "On-call",
+      "connected": false,
+      "meta": "Routing rules"
+    },
+    {
+      "name": "Notify",
+      "icon": "fa-solid fa-paper-plane",
+      "category": "On-call",
+      "connected": true,
+      "meta": "SMS + voice fallback"
+    },
+    {
+      "name": "Twilio",
+      "icon": "fa-solid fa-phone",
+      "category": "On-call",
+      "connected": true,
+      "meta": "SMS / voice provider"
+    },
+    {
+      "name": "StackStorm",
+      "icon": "fa-solid fa-bolt",
+      "category": "Automation",
+      "connected": true,
+      "meta": "Event-driven workflows"
+    },
+    {
+      "name": "Rundeck",
+      "icon": "fa-solid fa-rocket",
+      "category": "Automation",
+      "connected": false,
+      "meta": "Job scheduler"
+    },
+    {
+      "name": "Ansible Tower",
+      "icon": "fa-solid fa-tower-broadcast",
+      "category": "Automation",
+      "connected": true,
+      "meta": "Config management"
+    },
+    {
+      "name": "Terraform Cloud",
+      "icon": "fa-solid fa-cube",
+      "category": "Automation",
+      "connected": true,
+      "meta": "Infra as code"
+    },
+    {
+      "name": "Jenkins",
+      "icon": "fa-brands fa-jenkins",
+      "category": "Automation",
+      "connected": true,
+      "meta": "CI/CD pipelines"
+    },
+    {
+      "name": "GitHub Actions",
+      "icon": "fa-brands fa-github",
+      "category": "Automation",
+      "connected": true,
+      "meta": "Deploy events"
+    },
+    {
+      "name": "ServiceNow",
+      "icon": "fa-solid fa-building",
+      "category": "ITSM",
+      "connected": true,
+      "meta": "Bi-di incident sync"
+    },
+    {
+      "name": "Jira Service Mgmt",
+      "icon": "fa-brands fa-jira",
+      "category": "ITSM",
+      "connected": true,
+      "meta": "Tickets \u00b7 changes"
+    },
+    {
+      "name": "BMC Remedy",
+      "icon": "fa-solid fa-life-ring",
+      "category": "ITSM",
+      "connected": false,
+      "meta": "Legacy ITSM bridge"
+    },
+    {
+      "name": "Freshservice",
+      "icon": "fa-solid fa-headset",
+      "category": "ITSM",
+      "connected": false,
+      "meta": "SaaS service desk"
+    },
+    {
+      "name": "Slack",
+      "icon": "fa-brands fa-slack",
+      "category": "Comms",
+      "connected": true,
+      "meta": "5 channels \u00b7 slash cmds"
+    },
+    {
+      "name": "Microsoft Teams",
+      "icon": "fa-brands fa-microsoft",
+      "category": "Comms",
+      "connected": true,
+      "meta": "War-room bridge"
+    },
+    {
+      "name": "Zoom",
+      "icon": "fa-solid fa-video",
+      "category": "Comms",
+      "connected": true,
+      "meta": "Auto-create bridge"
+    },
+    {
+      "name": "Webex",
+      "icon": "fa-solid fa-comments",
+      "category": "Comms",
+      "connected": false,
+      "meta": "Cisco Webex bridge"
+    },
+    {
+      "name": "Discord",
+      "icon": "fa-brands fa-discord",
+      "category": "Comms",
+      "connected": false,
+      "meta": "Community alerts"
+    },
+    {
+      "name": "Email (SMTP)",
+      "icon": "fa-solid fa-envelope",
+      "category": "Comms",
+      "connected": true,
+      "meta": "Outbound only"
+    },
+    {
+      "name": "GitHub",
+      "icon": "fa-brands fa-github",
+      "category": "SCM",
+      "connected": true,
+      "meta": "Repo events \u00b7 PRs"
+    },
+    {
+      "name": "GitLab",
+      "icon": "fa-brands fa-gitlab",
+      "category": "SCM",
+      "connected": false,
+      "meta": "Self-hosted available"
+    },
+    {
+      "name": "Bitbucket",
+      "icon": "fa-brands fa-bitbucket",
+      "category": "SCM",
+      "connected": false,
+      "meta": "Atlassian repos"
+    },
+    {
+      "name": "AWS",
+      "icon": "fa-brands fa-aws",
+      "category": "Cloud",
+      "connected": true,
+      "meta": "CloudWatch \u00b7 12 accounts"
+    },
+    {
+      "name": "Azure",
+      "icon": "fa-brands fa-microsoft",
+      "category": "Cloud",
+      "connected": false,
+      "meta": "Monitor + Resource Graph"
+    },
+    {
+      "name": "GCP",
+      "icon": "fa-brands fa-google",
+      "category": "Cloud",
+      "connected": false,
+      "meta": "Cloud Monitoring"
+    },
+    {
+      "name": "Kubernetes",
+      "icon": "fa-solid fa-dharmachakra",
+      "category": "Cloud",
+      "connected": true,
+      "meta": "8 clusters \u00b7 2,156 pods"
+    },
+    {
+      "name": "Okta",
+      "icon": "fa-solid fa-key",
+      "category": "Identity",
+      "connected": true,
+      "meta": "SAML \u00b7 SCIM"
+    },
+    {
+      "name": "Azure AD",
+      "icon": "fa-brands fa-windows",
+      "category": "Identity",
+      "connected": false,
+      "meta": "Entra ID SSO"
+    },
+    {
+      "name": "1Password",
+      "icon": "fa-solid fa-lock",
+      "category": "Identity",
+      "connected": false,
+      "meta": "Secrets vault"
+    },
+    {
+      "name": "HashiCorp Vault",
+      "icon": "fa-solid fa-vault",
+      "category": "Identity",
+      "connected": true,
+      "meta": "Secrets \u00b7 PKI"
+    },
+    {
+      "name": "CrowdStrike",
+      "icon": "fa-solid fa-shield-virus",
+      "category": "Identity",
+      "connected": false,
+      "meta": "EDR signal feed"
+    },
+    {
+      "name": "Salesforce",
+      "icon": "fa-solid fa-cloud",
+      "category": "Business",
+      "connected": false,
+      "meta": "Customer impact link"
+    },
+    {
+      "name": "HubSpot",
+      "icon": "fa-brands fa-hubspot",
+      "category": "Business",
+      "connected": false,
+      "meta": "Customer comms"
+    },
+    {
+      "name": "Statuspage",
+      "icon": "fa-solid fa-signal",
+      "category": "Business",
+      "connected": true,
+      "meta": "Public + private pages"
+    }
+  ],
+  "SITES": [
+    {
+      "id": "dc-blr-1",
+      "name": "Bangalore DC-1",
+      "region": "APAC",
+      "devices": 412,
+      "health": 96
+    },
+    {
+      "id": "dc-fra-1",
+      "name": "Frankfurt DC-1",
+      "region": "EMEA",
+      "devices": 287,
+      "health": 91
+    },
+    {
+      "id": "dc-nyc-1",
+      "name": "New York DC-1",
+      "region": "AMER",
+      "devices": 318,
+      "health": 98
+    },
+    {
+      "id": "br-mum",
+      "name": "Mumbai Branch",
+      "region": "APAC",
+      "devices": 46,
+      "health": 100
+    },
+    {
+      "id": "br-sgp",
+      "name": "Singapore Branch",
+      "region": "APAC",
+      "devices": 38,
+      "health": 88
+    }
+  ],
+  "DEVICE_KINDS": [
+    {
+      "id": "firewall",
+      "label": "Firewalls",
+      "icon": "fa-shield-halved",
+      "color": "#dc2626"
+    },
+    {
+      "id": "switch",
+      "label": "Switches",
+      "icon": "fa-network-wired",
+      "color": "#7c3aed"
+    },
+    {
+      "id": "router",
+      "label": "Routers",
+      "icon": "fa-route",
+      "color": "#0ea5e9"
+    },
+    {
+      "id": "loadbal",
+      "label": "Load balancers",
+      "icon": "fa-scale-balanced",
+      "color": "#0891b2"
+    },
+    {
+      "id": "phys-srv",
+      "label": "Physical servers",
+      "icon": "fa-server",
+      "color": "#475569"
+    },
+    {
+      "id": "win-srv",
+      "label": "Windows servers",
+      "icon": "fa-windows",
+      "color": "#2563eb",
+      "iconBrand": true
+    },
+    {
+      "id": "linux-srv",
+      "label": "Linux servers",
+      "icon": "fa-linux",
+      "color": "#f59e0b",
+      "iconBrand": true
+    },
+    {
+      "id": "vm",
+      "label": "VMs",
+      "icon": "fa-cube",
+      "color": "#10b981"
+    },
+    {
+      "id": "hypervisor",
+      "label": "Hypervisors",
+      "icon": "fa-layer-group",
+      "color": "#6366f1"
+    },
+    {
+      "id": "storage",
+      "label": "Storage / SAN",
+      "icon": "fa-database",
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "ups",
+      "label": "UPS / Power",
+      "icon": "fa-plug-circle-bolt",
+      "color": "#eab308"
+    },
+    {
+      "id": "exporter",
+      "label": "Exporters",
+      "icon": "fa-tower-broadcast",
+      "color": "#14b8a6"
+    }
+  ],
+  "DEVICE_COUNTS": {
+    "firewall": 24,
+    "switch": 186,
+    "router": 32,
+    "loadbal": 18,
+    "phys-srv": 142,
+    "win-srv": 98,
+    "linux-srv": 214,
+    "vm": 612,
+    "hypervisor": 28,
+    "storage": 16,
+    "ups": 22,
+    "exporter": 187
+  },
+  "DEVICES": [
+    {
+      "id": "FW-BLR-CORE-01",
+      "kind": "firewall",
+      "model": "Palo Alto PA-5450",
+      "site": "dc-blr-1",
+      "ip": "10.10.0.1",
+      "os": "PAN-OS 11.1.3",
+      "uptime": "187d 4h",
+      "cpu": 34,
+      "mem": 58,
+      "status": "ok",
+      "role": "Perimeter",
+      "iface": "48 / 48 up",
+      "throughput": "12.4 Gbps",
+      "sessions": "1.2M",
+      "lastSeen": "12s ago",
+      "agent": "snmp+netflow"
+    },
+    {
+      "id": "FW-BLR-DMZ-02",
+      "kind": "firewall",
+      "model": "Fortinet FortiGate 600F",
+      "site": "dc-blr-1",
+      "ip": "10.10.0.2",
+      "os": "FortiOS 7.4.2",
+      "uptime": "92d 11h",
+      "cpu": 71,
+      "mem": 82,
+      "status": "warn",
+      "role": "DMZ",
+      "iface": "16 / 16 up",
+      "throughput": "8.1 Gbps",
+      "sessions": "640K",
+      "lastSeen": "8s ago",
+      "agent": "snmp+syslog"
+    },
+    {
+      "id": "FW-FRA-CORE-01",
+      "kind": "firewall",
+      "model": "Cisco Firepower 4145",
+      "site": "dc-fra-1",
+      "ip": "10.20.0.1",
+      "os": "FTD 7.4.1",
+      "uptime": "61d 2h",
+      "cpu": 42,
+      "mem": 64,
+      "status": "ok",
+      "role": "Perimeter",
+      "iface": "32 / 32 up",
+      "throughput": "9.8 Gbps",
+      "sessions": "880K",
+      "lastSeen": "6s ago",
+      "agent": "snmp+netflow"
+    },
+    {
+      "id": "FW-NYC-CORE-01",
+      "kind": "firewall",
+      "model": "Palo Alto PA-3260",
+      "site": "dc-nyc-1",
+      "ip": "10.30.0.1",
+      "os": "PAN-OS 11.0.4",
+      "uptime": "412d 9h",
+      "cpu": 28,
+      "mem": 51,
+      "status": "ok",
+      "role": "Perimeter",
+      "iface": "24 / 24 up",
+      "throughput": "6.2 Gbps",
+      "sessions": "412K",
+      "lastSeen": "4s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "SW-BLR-CORE-01",
+      "kind": "switch",
+      "model": "Cisco Catalyst 9500-48Y4C",
+      "site": "dc-blr-1",
+      "ip": "10.10.1.10",
+      "os": "IOS-XE 17.12",
+      "uptime": "203d 2h",
+      "cpu": 22,
+      "mem": 41,
+      "status": "ok",
+      "role": "Core",
+      "iface": "48 / 52 up",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "3s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "SW-BLR-CORE-02",
+      "kind": "switch",
+      "model": "Cisco Catalyst 9500-48Y4C",
+      "site": "dc-blr-1",
+      "ip": "10.10.1.11",
+      "os": "IOS-XE 17.12",
+      "uptime": "203d 2h",
+      "cpu": 24,
+      "mem": 43,
+      "status": "ok",
+      "role": "Core",
+      "iface": "48 / 52 up",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "3s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "SW-BLR-DIST-04",
+      "kind": "switch",
+      "model": "Arista 7280R3",
+      "site": "dc-blr-1",
+      "ip": "10.10.2.4",
+      "os": "EOS 4.31.2F",
+      "uptime": "29d 18h",
+      "cpu": 18,
+      "mem": 36,
+      "status": "ok",
+      "role": "Distribution",
+      "iface": "32 / 32 up",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "2s ago",
+      "agent": "snmp+streaming"
+    },
+    {
+      "id": "SW-BLR-TOR-12",
+      "kind": "switch",
+      "model": "Arista 7050X3",
+      "site": "dc-blr-1",
+      "ip": "10.10.3.12",
+      "os": "EOS 4.30.5M",
+      "uptime": "144d 7h",
+      "cpu": 12,
+      "mem": 28,
+      "status": "ok",
+      "role": "ToR",
+      "iface": "44 / 48 up",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "SW-BLR-TOR-13",
+      "kind": "switch",
+      "model": "Arista 7050X3",
+      "site": "dc-blr-1",
+      "ip": "10.10.3.13",
+      "os": "EOS 4.30.5M",
+      "uptime": "144d 7h",
+      "cpu": 89,
+      "mem": 71,
+      "status": "critical",
+      "role": "ToR",
+      "iface": "32 / 48 up",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "44s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "SW-FRA-DIST-01",
+      "kind": "switch",
+      "model": "Juniper EX4650-48Y",
+      "site": "dc-fra-1",
+      "ip": "10.20.2.1",
+      "os": "Junos 22.4R3",
+      "uptime": "76d 4h",
+      "cpu": 16,
+      "mem": 31,
+      "status": "ok",
+      "role": "Distribution",
+      "iface": "44 / 48 up",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "5s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "RTR-BLR-EDGE-01",
+      "kind": "router",
+      "model": "Cisco ASR 1006-X",
+      "site": "dc-blr-1",
+      "ip": "10.10.0.252",
+      "os": "IOS-XE 17.9",
+      "uptime": "812d 1h",
+      "cpu": 31,
+      "mem": 48,
+      "status": "ok",
+      "role": "Edge",
+      "iface": "8 / 8 up",
+      "throughput": "4.2 Gbps",
+      "sessions": "\u2014",
+      "lastSeen": "2s ago",
+      "agent": "snmp+bgp"
+    },
+    {
+      "id": "RTR-FRA-EDGE-01",
+      "kind": "router",
+      "model": "Juniper MX204",
+      "site": "dc-fra-1",
+      "ip": "10.20.0.252",
+      "os": "Junos 22.2R3",
+      "uptime": "412d 16h",
+      "cpu": 26,
+      "mem": 39,
+      "status": "ok",
+      "role": "Edge",
+      "iface": "4 / 4 up",
+      "throughput": "3.1 Gbps",
+      "sessions": "\u2014",
+      "lastSeen": "4s ago",
+      "agent": "snmp+bgp"
+    },
+    {
+      "id": "LB-BLR-PROD-01",
+      "kind": "loadbal",
+      "model": "F5 BIG-IP i5800",
+      "site": "dc-blr-1",
+      "ip": "10.10.5.10",
+      "os": "TMOS 17.1.1",
+      "uptime": "184d 11h",
+      "cpu": 47,
+      "mem": 62,
+      "status": "ok",
+      "role": "Active",
+      "iface": "\u2014",
+      "throughput": "6.8 Gbps",
+      "sessions": "184K",
+      "lastSeen": "3s ago",
+      "agent": "snmp+istats"
+    },
+    {
+      "id": "LB-BLR-PROD-02",
+      "kind": "loadbal",
+      "model": "F5 BIG-IP i5800",
+      "site": "dc-blr-1",
+      "ip": "10.10.5.11",
+      "os": "TMOS 17.1.1",
+      "uptime": "184d 11h",
+      "cpu": 11,
+      "mem": 38,
+      "status": "ok",
+      "role": "Standby",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "3s ago",
+      "agent": "snmp+istats"
+    },
+    {
+      "id": "ESX-BLR-01",
+      "kind": "hypervisor",
+      "model": "Dell PowerEdge R760",
+      "site": "dc-blr-1",
+      "ip": "10.10.10.11",
+      "os": "ESXi 8.0 U2",
+      "uptime": "61d 4h",
+      "cpu": 64,
+      "mem": 78,
+      "status": "warn",
+      "role": "vSphere host \u00b7 28 VMs",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "vmware-exporter"
+    },
+    {
+      "id": "ESX-BLR-02",
+      "kind": "hypervisor",
+      "model": "Dell PowerEdge R760",
+      "site": "dc-blr-1",
+      "ip": "10.10.10.12",
+      "os": "ESXi 8.0 U2",
+      "uptime": "61d 4h",
+      "cpu": 71,
+      "mem": 82,
+      "status": "warn",
+      "role": "vSphere host \u00b7 31 VMs",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "vmware-exporter"
+    },
+    {
+      "id": "ESX-FRA-04",
+      "kind": "hypervisor",
+      "model": "HPE ProLiant DL380 Gen11",
+      "site": "dc-fra-1",
+      "ip": "10.20.10.14",
+      "os": "ESXi 8.0 U1",
+      "uptime": "189d 22h",
+      "cpu": 38,
+      "mem": 51,
+      "status": "ok",
+      "role": "vSphere host \u00b7 22 VMs",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "2s ago",
+      "agent": "vmware-exporter"
+    },
+    {
+      "id": "BARE-BLR-DB-01",
+      "kind": "phys-srv",
+      "model": "Dell PowerEdge R750",
+      "site": "dc-blr-1",
+      "ip": "10.10.20.5",
+      "os": "Oracle Linux 8.9",
+      "uptime": "412d 7h",
+      "cpu": 81,
+      "mem": 84,
+      "status": "warn",
+      "role": "Oracle DB primary",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "0s",
+      "agent": "node-exporter"
+    },
+    {
+      "id": "BARE-BLR-DB-02",
+      "kind": "phys-srv",
+      "model": "Dell PowerEdge R750",
+      "site": "dc-blr-1",
+      "ip": "10.10.20.6",
+      "os": "Oracle Linux 8.9",
+      "uptime": "412d 7h",
+      "cpu": 12,
+      "mem": 41,
+      "status": "ok",
+      "role": "Oracle DB standby",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "node-exporter"
+    },
+    {
+      "id": "WIN-AD-BLR-01",
+      "kind": "win-srv",
+      "model": "VM \u00b7 8 vCPU \u00b7 32 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.30.5",
+      "os": "Windows Server 2022",
+      "uptime": "44d 16h",
+      "cpu": 23,
+      "mem": 46,
+      "status": "ok",
+      "role": "AD DC \u00b7 DNS",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "win-exporter"
+    },
+    {
+      "id": "WIN-AD-BLR-02",
+      "kind": "win-srv",
+      "model": "VM \u00b7 8 vCPU \u00b7 32 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.30.6",
+      "os": "Windows Server 2022",
+      "uptime": "44d 16h",
+      "cpu": 27,
+      "mem": 49,
+      "status": "ok",
+      "role": "AD DC \u00b7 DNS",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "win-exporter"
+    },
+    {
+      "id": "WIN-EXCH-01",
+      "kind": "win-srv",
+      "model": "VM \u00b7 16 vCPU \u00b7 64 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.30.20",
+      "os": "Windows Server 2022",
+      "uptime": "12d 3h",
+      "cpu": 58,
+      "mem": 71,
+      "status": "ok",
+      "role": "Exchange \u00b7 CAS",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "2s ago",
+      "agent": "win-exporter"
+    },
+    {
+      "id": "WIN-SQL-PROD-01",
+      "kind": "win-srv",
+      "model": "Bare metal \u00b7 32C \u00b7 256GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.30.30",
+      "os": "Windows Server 2019",
+      "uptime": "98d 12h",
+      "cpu": 76,
+      "mem": 88,
+      "status": "warn",
+      "role": "SQL Server \u00b7 prod",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "0s",
+      "agent": "win-exporter+mssql"
+    },
+    {
+      "id": "WIN-FILE-01",
+      "kind": "win-srv",
+      "model": "VM \u00b7 4 vCPU \u00b7 16 GB",
+      "site": "dc-fra-1",
+      "ip": "10.20.30.40",
+      "os": "Windows Server 2019",
+      "uptime": "184d 9h",
+      "cpu": 9,
+      "mem": 28,
+      "status": "ok",
+      "role": "File \u00b7 DFS",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "3s ago",
+      "agent": "win-exporter"
+    },
+    {
+      "id": "LNX-K8S-CTL-01",
+      "kind": "linux-srv",
+      "model": "VM \u00b7 8 vCPU \u00b7 32 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.40.10",
+      "os": "Ubuntu 22.04",
+      "uptime": "144d 2h",
+      "cpu": 18,
+      "mem": 44,
+      "status": "ok",
+      "role": "k8s control-plane",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "node-exporter+kubelet"
+    },
+    {
+      "id": "LNX-K8S-W-04",
+      "kind": "linux-srv",
+      "model": "VM \u00b7 16 vCPU \u00b7 64 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.40.24",
+      "os": "Ubuntu 22.04",
+      "uptime": "144d 2h",
+      "cpu": 67,
+      "mem": 71,
+      "status": "ok",
+      "role": "k8s worker",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "node-exporter+kubelet"
+    },
+    {
+      "id": "LNX-K8S-W-05",
+      "kind": "linux-srv",
+      "model": "VM \u00b7 16 vCPU \u00b7 64 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.40.25",
+      "os": "Ubuntu 22.04",
+      "uptime": "0d 0h",
+      "cpu": 0,
+      "mem": 0,
+      "status": "down",
+      "role": "k8s worker",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "4m 12s ago",
+      "agent": "node-exporter+kubelet"
+    },
+    {
+      "id": "LNX-NGINX-01",
+      "kind": "linux-srv",
+      "model": "VM \u00b7 4 vCPU \u00b7 8 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.40.50",
+      "os": "Rocky Linux 9.3",
+      "uptime": "62d 8h",
+      "cpu": 21,
+      "mem": 33,
+      "status": "ok",
+      "role": "Edge nginx",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "node-exporter+nginx"
+    },
+    {
+      "id": "LNX-REDIS-01",
+      "kind": "linux-srv",
+      "model": "VM \u00b7 8 vCPU \u00b7 32 GB",
+      "site": "dc-blr-1",
+      "ip": "10.10.40.60",
+      "os": "Debian 12",
+      "uptime": "189d 14h",
+      "cpu": 38,
+      "mem": 64,
+      "status": "ok",
+      "role": "Redis cluster",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "0s",
+      "agent": "node-exporter+redis"
+    },
+    {
+      "id": "SAN-BLR-PROD-01",
+      "kind": "storage",
+      "model": "Pure FlashArray //X70 R3",
+      "site": "dc-blr-1",
+      "ip": "10.10.50.1",
+      "os": "Purity 6.6.4",
+      "uptime": "387d 12h",
+      "cpu": 41,
+      "mem": 58,
+      "status": "ok",
+      "role": "Block \u00b7 187 TB used / 280 TB",
+      "iface": "\u2014",
+      "throughput": "4.2 GB/s",
+      "sessions": "\u2014",
+      "lastSeen": "2s ago",
+      "agent": "purity-exporter"
+    },
+    {
+      "id": "NAS-BLR-01",
+      "kind": "storage",
+      "model": "NetApp AFF A400",
+      "site": "dc-blr-1",
+      "ip": "10.10.50.10",
+      "os": "ONTAP 9.13.1",
+      "uptime": "612d 4h",
+      "cpu": 28,
+      "mem": 49,
+      "status": "ok",
+      "role": "NAS \u00b7 NFS/CIFS",
+      "iface": "\u2014",
+      "throughput": "1.8 GB/s",
+      "sessions": "\u2014",
+      "lastSeen": "3s ago",
+      "agent": "ontap-exporter"
+    },
+    {
+      "id": "UPS-BLR-A",
+      "kind": "ups",
+      "model": "APC Symmetra PX 160kW",
+      "site": "dc-blr-1",
+      "ip": "10.10.99.10",
+      "os": "AOS 7.0.4",
+      "uptime": "1842d",
+      "cpu": 0,
+      "mem": 0,
+      "status": "ok",
+      "role": "Row A \u00b7 142 kW load \u00b7 87% load",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "10s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "UPS-BLR-B",
+      "kind": "ups",
+      "model": "APC Symmetra PX 160kW",
+      "site": "dc-blr-1",
+      "ip": "10.10.99.11",
+      "os": "AOS 7.0.4",
+      "uptime": "1842d",
+      "cpu": 0,
+      "mem": 0,
+      "status": "warn",
+      "role": "Row B \u00b7 138 kW load \u00b7 86% load",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "10s ago",
+      "agent": "snmp"
+    },
+    {
+      "id": "EXP-BLR-NETFLOW",
+      "kind": "exporter",
+      "model": "netflow-exporter v2.4",
+      "site": "dc-blr-1",
+      "ip": "10.10.7.100",
+      "os": "Container",
+      "uptime": "62d",
+      "cpu": 8,
+      "mem": 18,
+      "status": "ok",
+      "role": "NetFlow \u00b7 12 sources",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "self"
+    },
+    {
+      "id": "EXP-BLR-SNMP",
+      "kind": "exporter",
+      "model": "snmp-exporter v0.25",
+      "site": "dc-blr-1",
+      "ip": "10.10.7.101",
+      "os": "Container",
+      "uptime": "62d",
+      "cpu": 4,
+      "mem": 12,
+      "status": "ok",
+      "role": "SNMP \u00b7 218 targets",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "self"
+    },
+    {
+      "id": "EXP-BLR-WMI",
+      "kind": "exporter",
+      "model": "windows-exporter v0.27",
+      "site": "dc-blr-1",
+      "ip": "10.10.7.102",
+      "os": "Container",
+      "uptime": "44d",
+      "cpu": 6,
+      "mem": 14,
+      "status": "ok",
+      "role": "WMI \u00b7 98 hosts",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "1s ago",
+      "agent": "self"
+    },
+    {
+      "id": "EXP-FRA-VSPHERE",
+      "kind": "exporter",
+      "model": "vmware-exporter v1.1",
+      "site": "dc-fra-1",
+      "ip": "10.20.7.100",
+      "os": "Container",
+      "uptime": "189d",
+      "cpu": 11,
+      "mem": 22,
+      "status": "warn",
+      "role": "vSphere \u00b7 scrape lag 38s",
+      "iface": "\u2014",
+      "throughput": "\u2014",
+      "sessions": "\u2014",
+      "lastSeen": "38s ago",
+      "agent": "self"
+    }
+  ],
+  "NET_LINKS": [
+    [
+      "RTR-BLR-EDGE-01",
+      "FW-BLR-CORE-01"
+    ],
+    [
+      "FW-BLR-CORE-01",
+      "SW-BLR-CORE-01"
+    ],
+    [
+      "FW-BLR-CORE-01",
+      "SW-BLR-CORE-02"
+    ],
+    [
+      "FW-BLR-CORE-01",
+      "FW-BLR-DMZ-02"
+    ],
+    [
+      "SW-BLR-CORE-01",
+      "SW-BLR-DIST-04"
+    ],
+    [
+      "SW-BLR-CORE-02",
+      "SW-BLR-DIST-04"
+    ],
+    [
+      "SW-BLR-DIST-04",
+      "SW-BLR-TOR-12"
+    ],
+    [
+      "SW-BLR-DIST-04",
+      "SW-BLR-TOR-13"
+    ],
+    [
+      "SW-BLR-TOR-12",
+      "ESX-BLR-01"
+    ],
+    [
+      "SW-BLR-TOR-12",
+      "ESX-BLR-02"
+    ],
+    [
+      "SW-BLR-TOR-13",
+      "BARE-BLR-DB-01"
+    ],
+    [
+      "SW-BLR-TOR-13",
+      "BARE-BLR-DB-02"
+    ],
+    [
+      "SW-BLR-CORE-01",
+      "LB-BLR-PROD-01"
+    ],
+    [
+      "SW-BLR-CORE-02",
+      "LB-BLR-PROD-02"
+    ],
+    [
+      "SW-BLR-CORE-01",
+      "SAN-BLR-PROD-01"
+    ],
+    [
+      "SW-BLR-CORE-02",
+      "SAN-BLR-PROD-01"
+    ]
+  ],
+  "VMS": [
+    {
+      "id": "vm-prod-web-01",
+      "host": "ESX-BLR-01",
+      "cluster": "blr-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "4 vCPU",
+      "mem": "16 GB",
+      "disk": "120 GB",
+      "state": "running",
+      "cpuUse": 41,
+      "memUse": 62,
+      "ip": "10.10.100.11"
+    },
+    {
+      "id": "vm-prod-web-02",
+      "host": "ESX-BLR-01",
+      "cluster": "blr-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "4 vCPU",
+      "mem": "16 GB",
+      "disk": "120 GB",
+      "state": "running",
+      "cpuUse": 38,
+      "memUse": 59,
+      "ip": "10.10.100.12"
+    },
+    {
+      "id": "vm-prod-api-01",
+      "host": "ESX-BLR-02",
+      "cluster": "blr-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "8 vCPU",
+      "mem": "32 GB",
+      "disk": "200 GB",
+      "state": "running",
+      "cpuUse": 67,
+      "memUse": 71,
+      "ip": "10.10.100.21"
+    },
+    {
+      "id": "vm-prod-api-02",
+      "host": "ESX-BLR-02",
+      "cluster": "blr-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "8 vCPU",
+      "mem": "32 GB",
+      "disk": "200 GB",
+      "state": "running",
+      "cpuUse": 64,
+      "memUse": 69,
+      "ip": "10.10.100.22"
+    },
+    {
+      "id": "vm-prod-cache-01",
+      "host": "ESX-BLR-02",
+      "cluster": "blr-prod",
+      "os": "Debian 12",
+      "cpu": "4 vCPU",
+      "mem": "32 GB",
+      "disk": "80 GB",
+      "state": "running",
+      "cpuUse": 28,
+      "memUse": 84,
+      "ip": "10.10.100.31"
+    },
+    {
+      "id": "vm-stg-api-01",
+      "host": "ESX-BLR-01",
+      "cluster": "blr-stg",
+      "os": "Ubuntu 22.04",
+      "cpu": "4 vCPU",
+      "mem": "16 GB",
+      "disk": "120 GB",
+      "state": "running",
+      "cpuUse": 18,
+      "memUse": 42,
+      "ip": "10.10.110.21"
+    },
+    {
+      "id": "vm-jenkins",
+      "host": "ESX-BLR-02",
+      "cluster": "blr-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "8 vCPU",
+      "mem": "32 GB",
+      "disk": "500 GB",
+      "state": "running",
+      "cpuUse": 72,
+      "memUse": 81,
+      "ip": "10.10.100.50"
+    },
+    {
+      "id": "vm-test-04",
+      "host": "ESX-BLR-01",
+      "cluster": "blr-stg",
+      "os": "Windows Server 2022",
+      "cpu": "2 vCPU",
+      "mem": "8 GB",
+      "disk": "100 GB",
+      "state": "stopped",
+      "cpuUse": 0,
+      "memUse": 0,
+      "ip": "10.10.110.40"
+    },
+    {
+      "id": "vm-fra-web-01",
+      "host": "ESX-FRA-04",
+      "cluster": "fra-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "4 vCPU",
+      "mem": "16 GB",
+      "disk": "120 GB",
+      "state": "running",
+      "cpuUse": 32,
+      "memUse": 51,
+      "ip": "10.20.100.11"
+    },
+    {
+      "id": "vm-fra-web-02",
+      "host": "ESX-FRA-04",
+      "cluster": "fra-prod",
+      "os": "Ubuntu 22.04",
+      "cpu": "4 vCPU",
+      "mem": "16 GB",
+      "disk": "120 GB",
+      "state": "running",
+      "cpuUse": 35,
+      "memUse": 54,
+      "ip": "10.20.100.12"
+    }
+  ],
+  "INFRA_ALERTS": [
+    {
+      "id": "INF-A-2241",
+      "sev": "critical",
+      "device": "SW-BLR-TOR-13",
+      "site": "dc-blr-1",
+      "title": "Switch fan-tray failure detected",
+      "detail": "Fan 3 RPM 0 \u00b7 ambient temp 48\u00b0C",
+      "since": "8m ago",
+      "rule": "snmp.fan.failure"
+    },
+    {
+      "id": "INF-A-2240",
+      "sev": "critical",
+      "device": "LNX-K8S-W-05",
+      "site": "dc-blr-1",
+      "title": "Host unreachable \u00b7 last seen 4m ago",
+      "detail": "ICMP + node-exporter scrape both failing",
+      "since": "4m ago",
+      "rule": "host.down"
+    },
+    {
+      "id": "INF-A-2239",
+      "sev": "warn",
+      "device": "FW-BLR-DMZ-02",
+      "site": "dc-blr-1",
+      "title": "CPU sustained > 70% for 15m",
+      "detail": "Current 71% \u00b7 15m avg 73%",
+      "since": "22m ago",
+      "rule": "fw.cpu.high"
+    },
+    {
+      "id": "INF-A-2238",
+      "sev": "warn",
+      "device": "WIN-SQL-PROD-01",
+      "site": "dc-blr-1",
+      "title": "Memory pressure 88%",
+      "detail": "Buffer cache hit ratio 96.4% \u00b7 page life 142s",
+      "since": "38m ago",
+      "rule": "win.mem.high"
+    },
+    {
+      "id": "INF-A-2237",
+      "sev": "warn",
+      "device": "ESX-BLR-01",
+      "site": "dc-blr-1",
+      "title": "Datastore latency > 25ms",
+      "detail": "vmfs-prod-01 \u00b7 avg 28ms \u00b7 p99 64ms",
+      "since": "1h ago",
+      "rule": "vmware.ds.latency"
+    },
+    {
+      "id": "INF-A-2236",
+      "sev": "warn",
+      "device": "UPS-BLR-B",
+      "site": "dc-blr-1",
+      "title": "Battery runtime estimate < 12 min",
+      "detail": "Current load 86% \u00b7 runtime 11m 42s",
+      "since": "2h ago",
+      "rule": "ups.runtime.low"
+    },
+    {
+      "id": "INF-A-2235",
+      "sev": "warn",
+      "device": "EXP-FRA-VSPHERE",
+      "site": "dc-fra-1",
+      "title": "Exporter scrape lag 38s",
+      "detail": "Stale targets: 12 \u00b7 last successful 38s ago",
+      "since": "9m ago",
+      "rule": "exporter.lag"
+    },
+    {
+      "id": "INF-A-2234",
+      "sev": "info",
+      "device": "FW-BLR-CORE-01",
+      "site": "dc-blr-1",
+      "title": "BGP session flap (recovered)",
+      "detail": "Peer 172.16.0.4 \u00b7 down 2s, recovered",
+      "since": "1h ago",
+      "rule": "bgp.flap"
+    }
+  ],
+  "EXPORTERS": [
+    {
+      "name": "node-exporter",
+      "version": "1.8.2",
+      "port": 9100,
+      "protocol": "HTTP",
+      "hosts": 412,
+      "scrapes": "12.4k/s",
+      "lag": "0.4s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-fra-1",
+        "dc-nyc-1"
+      ]
+    },
+    {
+      "name": "windows-exporter",
+      "version": "0.27.2",
+      "port": 9182,
+      "protocol": "HTTP",
+      "hosts": 98,
+      "scrapes": "2.9k/s",
+      "lag": "0.6s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-fra-1",
+        "dc-nyc-1"
+      ]
+    },
+    {
+      "name": "snmp-exporter",
+      "version": "0.25.0",
+      "port": 9116,
+      "protocol": "SNMP",
+      "hosts": 218,
+      "scrapes": "1.1k/s",
+      "lag": "1.2s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-fra-1"
+      ]
+    },
+    {
+      "name": "blackbox-exporter",
+      "version": "0.24.0",
+      "port": 9115,
+      "protocol": "HTTP/DNS/TCP/ICMP",
+      "hosts": 8,
+      "scrapes": "0.6k/s",
+      "lag": "0.8s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1"
+      ]
+    },
+    {
+      "name": "idrac-exporter",
+      "version": "1.5.0",
+      "port": 9348,
+      "protocol": "Redfish / IPMI",
+      "hosts": 96,
+      "scrapes": "0.9k/s",
+      "lag": "0.7s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-nyc-1"
+      ]
+    },
+    {
+      "name": "ilo-exporter",
+      "version": "1.2.0",
+      "port": 9116,
+      "protocol": "Redfish / REST",
+      "hosts": 64,
+      "scrapes": "0.3k/s",
+      "lag": "\u2014",
+      "status": "warn",
+      "note": "SSL handshake timeout on HPE iLO \u2014 firmware < 2.70. Temporary insecure_skip_verify; firmware update tracked.",
+      "sites": [
+        "dc-blr-1",
+        "dc-fra-1"
+      ]
+    },
+    {
+      "name": "ipmi-exporter",
+      "version": "0.6.3",
+      "port": 9290,
+      "protocol": "IPMI",
+      "hosts": 142,
+      "scrapes": "1.4k/s",
+      "lag": "0.7s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-fra-1",
+        "dc-nyc-1"
+      ]
+    },
+    {
+      "name": "mysqld-exporter",
+      "version": "0.15.1",
+      "port": 9104,
+      "protocol": "MySQL",
+      "hosts": 18,
+      "scrapes": "0.4k/s",
+      "lag": "0.5s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-nyc-1"
+      ]
+    },
+    {
+      "name": "postgres-exporter",
+      "version": "0.15.0",
+      "port": 9187,
+      "protocol": "PostgreSQL",
+      "hosts": 9,
+      "scrapes": "0.2k/s",
+      "lag": "0.6s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1"
+      ]
+    },
+    {
+      "name": "mongodb-exporter",
+      "version": "0.40.0",
+      "port": 9216,
+      "protocol": "MongoDB",
+      "hosts": 6,
+      "scrapes": "0.2k/s",
+      "lag": "0.9s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1"
+      ]
+    },
+    {
+      "name": "redis-exporter",
+      "version": "1.62.0",
+      "port": 9121,
+      "protocol": "RESP",
+      "hosts": 11,
+      "scrapes": "0.3k/s",
+      "lag": "0.4s",
+      "status": "ok",
+      "note": "",
+      "sites": [
+        "dc-blr-1",
+        "dc-fra-1"
+      ]
+    },
+    {
+      "name": "vmware-exporter",
+      "version": "1.1.4",
+      "port": 9272,
+      "protocol": "vSphere API",
+      "hosts": 28,
+      "scrapes": "0.4k/s",
+      "lag": "38s",
+      "status": "warn",
+      "note": "Scrape lag 38s \u2014 vCenter API throttling.",
+      "sites": [
+        "dc-fra-1"
+      ]
+    }
+  ],
+  "PROBLEMS": [
+    {
+      "id": "PRB-3912",
+      "title": "Connection pool sizing regression in payments-primary",
+      "status": "Root cause analysis",
+      "priority": 1,
+      "assignee": "u2",
+      "linked": 4,
+      "created": "14 days ago",
+      "age": "14d",
+      "impact": "High \u00b7 Fyers",
+      "kb": "KB-2114"
+    },
+    {
+      "id": "PRB-3908",
+      "title": "Intermittent p95 spikes on inventory-service during scale events",
+      "status": "Known error",
+      "priority": 2,
+      "assignee": "u3",
+      "linked": 7,
+      "created": "28 days ago",
+      "age": "28d",
+      "impact": "Medium \u00b7 IndMoney",
+      "kb": null
+    },
+    {
+      "id": "PRB-3902",
+      "title": "Elastic search shard rebalance causes query timeouts",
+      "status": "Resolved",
+      "priority": 3,
+      "assignee": "u4",
+      "linked": 3,
+      "created": "6 weeks ago",
+      "age": "42d",
+      "impact": "Low \u00b7 internal",
+      "kb": "KB-1983"
+    },
+    {
+      "id": "PRB-3898",
+      "title": "Kafka consumer lag on notifications-worker during backfills",
+      "status": "Assessment",
+      "priority": 2,
+      "assignee": "u7",
+      "linked": 5,
+      "created": "2 months ago",
+      "age": "58d",
+      "impact": "Medium \u00b7 cross-tenant",
+      "kb": null
+    },
+    {
+      "id": "PRB-3890",
+      "title": "Kubernetes etcd leader elections during network partition",
+      "status": "Root cause analysis",
+      "priority": 1,
+      "assignee": "u8",
+      "linked": 2,
+      "created": "9 days ago",
+      "age": "9d",
+      "impact": "High \u00b7 BetaFront",
+      "kb": null
+    },
+    {
+      "id": "PRB-3882",
+      "title": "Memory leak in auth-svc after 72h uptime",
+      "status": "Known error",
+      "priority": 2,
+      "assignee": "u5",
+      "linked": 11,
+      "created": "3 months ago",
+      "age": "91d",
+      "impact": "Medium \u00b7 all tenants",
+      "kb": "KB-2088"
+    }
+  ],
+  "CHANGES": [
+    {
+      "id": "CHG-2219",
+      "title": "Rollback payments-primary pool config to 200 connections",
+      "type": "Emergency",
+      "state": "Approved",
+      "risk": "Moderate",
+      "window": "Now \u00b7 immediate",
+      "assignee": "u1",
+      "approvers": 3,
+      "approved": 3,
+      "tenant": "fyers",
+      "service": "payments-primary"
+    },
+    {
+      "id": "CHG-2218",
+      "title": "Upgrade Kubernetes control plane to 1.29 in prod-east",
+      "type": "Normal",
+      "state": "CAB review",
+      "risk": "High",
+      "window": "Sat Apr 27 \u00b7 02:00\u201304:00 UTC",
+      "assignee": "u2",
+      "approvers": 5,
+      "approved": 3,
+      "tenant": "fyers",
+      "service": "k8s-control"
+    },
+    {
+      "id": "CHG-2217",
+      "title": "Enable TLS 1.3 on edge load balancers",
+      "type": "Standard",
+      "state": "Scheduled",
+      "risk": "Low",
+      "window": "Tue Apr 30 \u00b7 14:00 UTC",
+      "assignee": "u7",
+      "approvers": 1,
+      "approved": 1,
+      "tenant": "flattrade",
+      "service": "edge"
+    },
+    {
+      "id": "CHG-2216",
+      "title": "Deploy feature flag service v2.4",
+      "type": "Normal",
+      "state": "Implementing",
+      "risk": "Moderate",
+      "window": "In progress",
+      "assignee": "u5",
+      "approvers": 3,
+      "approved": 3,
+      "tenant": "indmoney",
+      "service": "feature-flags"
+    },
+    {
+      "id": "CHG-2215",
+      "title": "Database schema migration for orders table",
+      "type": "Normal",
+      "state": "Draft",
+      "risk": "High",
+      "window": "TBD",
+      "assignee": "u4",
+      "approvers": 0,
+      "approved": 0,
+      "tenant": "fyers",
+      "service": "orders-db"
+    },
+    {
+      "id": "CHG-2214",
+      "title": "Rotate Okta SAML certificate",
+      "type": "Standard",
+      "state": "Completed",
+      "risk": "Low",
+      "window": "Apr 22 \u00b7 10:00 UTC",
+      "assignee": "u8",
+      "approvers": 1,
+      "approved": 1,
+      "tenant": "finspot-holdings",
+      "service": "sso"
+    },
+    {
+      "id": "CHG-2213",
+      "title": "Update CDN cache invalidation rules",
+      "type": "Standard",
+      "state": "Completed",
+      "risk": "Low",
+      "window": "Apr 21 \u00b7 08:30 UTC",
+      "assignee": "u7",
+      "approvers": 1,
+      "approved": 1,
+      "tenant": "indmoney",
+      "service": "cdn"
+    }
+  ],
+  "CATALOG_CATEGORIES": [
+    {
+      "id": "access",
+      "label": "Access & accounts",
+      "icon": "fa-user-lock",
+      "count": 24,
+      "color": "#2563eb"
+    },
+    {
+      "id": "hardware",
+      "label": "Hardware",
+      "icon": "fa-laptop",
+      "count": 18,
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "software",
+      "label": "Software",
+      "icon": "fa-box",
+      "count": 42,
+      "color": "#10b981"
+    },
+    {
+      "id": "dev",
+      "label": "Developer tools",
+      "icon": "fa-code",
+      "count": 31,
+      "color": "#f59e0b"
+    },
+    {
+      "id": "hr",
+      "label": "People & HR",
+      "icon": "fa-users",
+      "count": 16,
+      "color": "#ec4899"
+    },
+    {
+      "id": "finance",
+      "label": "Finance",
+      "icon": "fa-coins",
+      "count": 12,
+      "color": "#0891b2"
+    },
+    {
+      "id": "infra",
+      "label": "Cloud & infra",
+      "icon": "fa-cloud",
+      "count": 28,
+      "color": "#6366f1"
+    },
+    {
+      "id": "security",
+      "label": "Security",
+      "icon": "fa-shield-halved",
+      "count": 19,
+      "color": "#ef4444"
+    }
+  ],
+  "CATALOG_ITEMS": [
+    {
+      "id": "ci-1",
+      "cat": "access",
+      "title": "New employee onboarding",
+      "desc": "Provisions accounts, laptop, and day-1 software",
+      "sla": "2 days",
+      "eta": "Next business day",
+      "popular": true,
+      "badge": "Bundle"
+    },
+    {
+      "id": "ci-2",
+      "cat": "access",
+      "title": "Access request \u2014 production",
+      "desc": "Time-bound elevated access with approval workflow",
+      "sla": "1 hour",
+      "eta": "Within hour",
+      "popular": true,
+      "badge": "Approval"
+    },
+    {
+      "id": "ci-3",
+      "cat": "hardware",
+      "title": "MacBook Pro 16\"",
+      "desc": "Standard engineering laptop configuration",
+      "sla": "3 days",
+      "eta": "2\u20133 business days",
+      "popular": true
+    },
+    {
+      "id": "ci-4",
+      "cat": "hardware",
+      "title": "External monitor",
+      "desc": "Dell U2723QE \u00b7 27\" 4K \u00b7 USB-C",
+      "sla": "5 days",
+      "eta": "1 week"
+    },
+    {
+      "id": "ci-5",
+      "cat": "software",
+      "title": "Figma \u2014 Professional",
+      "desc": "Full design seat with organization access",
+      "sla": "30 min",
+      "eta": "Same day",
+      "popular": true,
+      "badge": "SSO"
+    },
+    {
+      "id": "ci-6",
+      "cat": "software",
+      "title": "Adobe Creative Cloud",
+      "desc": "All apps \u00b7 managed license",
+      "sla": "1 day",
+      "eta": "Next business day"
+    },
+    {
+      "id": "ci-7",
+      "cat": "dev",
+      "title": "GitHub org access",
+      "desc": "Join the Finspot GitHub org with team scopes",
+      "sla": "1 hour",
+      "eta": "Within hour",
+      "badge": "Auto"
+    },
+    {
+      "id": "ci-8",
+      "cat": "dev",
+      "title": "AWS sandbox account",
+      "desc": "Personal sandbox with $300 monthly budget",
+      "sla": "4 hours",
+      "eta": "Same day",
+      "badge": "Auto"
+    },
+    {
+      "id": "ci-9",
+      "cat": "infra",
+      "title": "Provision new micro-service",
+      "desc": "Bootstrap repo, CI, k8s namespace, observability",
+      "sla": "1 day",
+      "eta": "Next business day",
+      "badge": "Flow"
+    },
+    {
+      "id": "ci-10",
+      "cat": "infra",
+      "title": "Spin up staging environment",
+      "desc": "Ephemeral per-PR environment with data seed",
+      "sla": "30 min",
+      "eta": "Within hour"
+    },
+    {
+      "id": "ci-11",
+      "cat": "hr",
+      "title": "Time off request",
+      "desc": "Vacation, sick, or personal time",
+      "sla": "1 day",
+      "eta": "Next business day"
+    },
+    {
+      "id": "ci-12",
+      "cat": "security",
+      "title": "Report security concern",
+      "desc": "Confidential \u00b7 routed to security@",
+      "sla": "30 min",
+      "eta": "Immediate",
+      "badge": "Urgent"
+    }
+  ],
+  "CIS": [
+    {
+      "id": "CI-01",
+      "name": "checkout-api",
+      "cls": "Application",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u1",
+      "health": "degraded",
+      "deps": 6
+    },
+    {
+      "id": "CI-02",
+      "name": "payments-primary",
+      "cls": "Database",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u4",
+      "health": "degraded",
+      "deps": 2
+    },
+    {
+      "id": "CI-03",
+      "name": "auth-svc",
+      "cls": "Application",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u8",
+      "health": "healthy",
+      "deps": 4
+    },
+    {
+      "id": "CI-04",
+      "name": "inventory",
+      "cls": "Application",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u3",
+      "health": "degraded",
+      "deps": 9
+    },
+    {
+      "id": "CI-05",
+      "name": "notifications",
+      "cls": "Application",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u7",
+      "health": "healthy",
+      "deps": 3
+    },
+    {
+      "id": "CI-06",
+      "name": "warehouse",
+      "cls": "Data store",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u4",
+      "health": "healthy",
+      "deps": 11
+    },
+    {
+      "id": "CI-07",
+      "name": "edge",
+      "cls": "Load balancer",
+      "env": "prod",
+      "region": "global",
+      "owner": "u7",
+      "health": "healthy",
+      "deps": 2
+    },
+    {
+      "id": "CI-08",
+      "name": "k8s-control",
+      "cls": "Platform",
+      "env": "prod",
+      "region": "us-west-2",
+      "owner": "u2",
+      "health": "down",
+      "deps": 0
+    },
+    {
+      "id": "CI-09",
+      "name": "redis-cache",
+      "cls": "Cache",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u2",
+      "health": "healthy",
+      "deps": 1
+    },
+    {
+      "id": "CI-10",
+      "name": "kafka-broker",
+      "cls": "Message queue",
+      "env": "prod",
+      "region": "us-east-1",
+      "owner": "u2",
+      "health": "healthy",
+      "deps": 3
+    },
+    {
+      "id": "CI-11",
+      "name": "stripe-api",
+      "cls": "External SaaS",
+      "env": "prod",
+      "region": "global",
+      "owner": null,
+      "health": "degraded",
+      "deps": 0
+    },
+    {
+      "id": "CI-12",
+      "name": "datadog",
+      "cls": "External SaaS",
+      "env": "prod",
+      "region": "global",
+      "owner": null,
+      "health": "healthy",
+      "deps": 0
+    }
+  ],
+  "ARTICLES": [
+    {
+      "id": "KB-2114",
+      "title": "Runbook: Stripe connection pool exhaustion",
+      "cat": "Runbooks",
+      "views": 1283,
+      "upd": "2 days ago",
+      "author": "u1",
+      "rating": 4.8,
+      "tag": "payments"
+    },
+    {
+      "id": "KB-2113",
+      "title": "How to declare and lead a Sev-1 incident",
+      "cat": "Process",
+      "views": 4120,
+      "upd": "1 week ago",
+      "author": "u5",
+      "rating": 4.9,
+      "tag": "incident"
+    },
+    {
+      "id": "KB-2110",
+      "title": "Setting up on-call rotations in Argus-LinkedEye",
+      "cat": "Onboarding",
+      "views": 782,
+      "upd": "2 weeks ago",
+      "author": "u2",
+      "rating": 4.6,
+      "tag": "on-call"
+    },
+    {
+      "id": "KB-2108",
+      "title": "Writing effective post-incident reviews",
+      "cat": "Process",
+      "views": 988,
+      "upd": "3 weeks ago",
+      "author": "u5",
+      "rating": 4.7,
+      "tag": "postmortem"
+    },
+    {
+      "id": "KB-2104",
+      "title": "Database migration playbook \u2014 zero-downtime",
+      "cat": "Runbooks",
+      "views": 2011,
+      "upd": "1 month ago",
+      "author": "u4",
+      "rating": 4.9,
+      "tag": "database"
+    },
+    {
+      "id": "KB-2088",
+      "title": "Known error: auth-svc memory leak after 72h",
+      "cat": "Known errors",
+      "views": 144,
+      "upd": "1 month ago",
+      "author": "u5",
+      "rating": 4.2,
+      "tag": "auth"
+    },
+    {
+      "id": "KB-1983",
+      "title": "Elasticsearch shard rebalance tuning",
+      "cat": "Runbooks",
+      "views": 312,
+      "upd": "3 months ago",
+      "author": "u3",
+      "rating": 4.5,
+      "tag": "search"
+    },
+    {
+      "id": "KB-1880",
+      "title": "Slack integration \u2014 incident channels & bots",
+      "cat": "Onboarding",
+      "views": 621,
+      "upd": "4 months ago",
+      "author": "u8",
+      "rating": 4.4,
+      "tag": "chatops"
+    }
+  ],
+  "SLAS": [
+    {
+      "id": "SLA-01",
+      "name": "Sev 1 response",
+      "target": "5 min",
+      "window": "24\u00d77",
+      "breach": 2,
+      "compliance": 94.2
+    },
+    {
+      "id": "SLA-02",
+      "name": "Sev 1 resolution",
+      "target": "1 hour",
+      "window": "24\u00d77",
+      "breach": 4,
+      "compliance": 88.6
+    },
+    {
+      "id": "SLA-03",
+      "name": "Sev 2 response",
+      "target": "15 min",
+      "window": "24\u00d77",
+      "breach": 1,
+      "compliance": 97.4
+    },
+    {
+      "id": "SLA-04",
+      "name": "Sev 2 resolution",
+      "target": "4 hours",
+      "window": "24\u00d77",
+      "breach": 3,
+      "compliance": 92.1
+    },
+    {
+      "id": "SLA-05",
+      "name": "Sev 3 resolution",
+      "target": "1 day",
+      "window": "business",
+      "breach": 0,
+      "compliance": 99
+    },
+    {
+      "id": "SLA-06",
+      "name": "Change approval",
+      "target": "2 days",
+      "window": "business",
+      "breach": 0,
+      "compliance": 98.3
+    },
+    {
+      "id": "SLA-07",
+      "name": "Access request",
+      "target": "1 hour",
+      "window": "24\u00d77",
+      "breach": 0,
+      "compliance": 96.8
+    },
+    {
+      "id": "SLA-08",
+      "name": "Problem RCA",
+      "target": "5 days",
+      "window": "business",
+      "breach": 1,
+      "compliance": 91.4
+    }
+  ],
+  "ONBOARD_DEVICE_TYPES": [
+    {
+      "id": "firewall",
+      "label": "Firewall",
+      "icon": "fa-shield-halved"
+    },
+    {
+      "id": "router",
+      "label": "Router",
+      "icon": "fa-route"
+    },
+    {
+      "id": "switch",
+      "label": "Switch",
+      "icon": "fa-network-wired"
+    },
+    {
+      "id": "loadbal",
+      "label": "Load balancer",
+      "icon": "fa-scale-balanced"
+    },
+    {
+      "id": "linux-srv",
+      "label": "Linux server",
+      "icon": "fa-linux",
+      "brand": true
+    },
+    {
+      "id": "win-srv",
+      "label": "Windows server",
+      "icon": "fa-windows",
+      "brand": true
+    },
+    {
+      "id": "phys-srv",
+      "label": "Physical server",
+      "icon": "fa-server"
+    },
+    {
+      "id": "vm",
+      "label": "VM",
+      "icon": "fa-cube"
+    },
+    {
+      "id": "k8s",
+      "label": "Kubernetes node",
+      "icon": "fa-dharmachakra"
+    },
+    {
+      "id": "storage",
+      "label": "Storage",
+      "icon": "fa-database"
+    },
+    {
+      "id": "oob",
+      "label": "iDRAC / iLO",
+      "icon": "fa-microchip"
+    },
+    {
+      "id": "generic",
+      "label": "Generic SNMP",
+      "icon": "fa-tower-broadcast"
+    }
+  ],
+  "SWITCH_ROLES": [
+    "L2 Access",
+    "L3 Access",
+    "Distribution",
+    "Core",
+    "PoE Access",
+    "Stack",
+    "Modular Core",
+    "Edge"
+  ],
+  "MONITORING_METHODS": [
+    {
+      "id": "snmp",
+      "label": "SNMP",
+      "hint": "v2c/v3 polling \u2014 switches, routers, firewalls, UPS. Needs community string or v3 user."
+    },
+    {
+      "id": "node",
+      "label": "Node Exporter",
+      "hint": "Linux agent on :9100 \u2014 CPU, memory, disk, NIC. Install via ansible role or rpm/deb."
+    },
+    {
+      "id": "wmi",
+      "label": "Windows Exporter",
+      "hint": "Windows agent on :9182 \u2014 CPU, memory, disk, services, IIS/SQL collectors."
+    },
+    {
+      "id": "blackbox",
+      "label": "Blackbox Ping",
+      "hint": "ICMP/TCP/HTTP probe from the poller \u2014 availability + latency only, agentless."
+    },
+    {
+      "id": "oob",
+      "label": "iDRAC / iLO",
+      "hint": "Out-of-band Redfish/IPMI \u2014 power, fans, temperature, RAID, even when OS is down."
+    },
+    {
+      "id": "api",
+      "label": "API Polling",
+      "hint": "Vendor REST API (vCenter, Purity, ONTAP, FortiOS). Needs API token."
+    }
+  ],
+  "VENDOR_MODELS": {
+    "Cisco": [
+      {
+        "model": "Catalyst 2960",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "cisco-ios-legacy",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "poe"
+        ]
+      },
+      {
+        "model": "Catalyst 3560",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "cisco-ios-legacy",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "poe"
+        ]
+      },
+      {
+        "model": "Catalyst 3750",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "cisco-ios-legacy",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe"
+        ]
+      },
+      {
+        "model": "Catalyst 3850",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "Distribution",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Catalyst 9200",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "stack",
+          "poe",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Catalyst 9300",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Catalyst 9400",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "Modular Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Catalyst 9500",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Nexus 3000",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "cisco-nxos",
+        "role": "L3 Access / ToR",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Nexus 5000",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "cisco-nxos",
+        "role": "Distribution",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Nexus 7000",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "cisco-nxos",
+        "role": "Modular Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "ISR Router",
+        "type": "router",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "Edge",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "routing"
+        ]
+      },
+      {
+        "model": "ASR Router",
+        "type": "router",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "cisco-iosxe",
+        "role": "Edge",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "ASA Firewall",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "cisco-asa",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha"
+        ]
+      },
+      {
+        "model": "Firepower Firewall",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "cisco-ftd",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Aruba": [
+      {
+        "model": "Aruba 2530",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "aruba-procurve",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "poe"
+        ]
+      },
+      {
+        "model": "Aruba 2540",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "aruba-procurve",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "poe"
+        ]
+      },
+      {
+        "model": "Aruba 2930F",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "aruba-procurve",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe"
+        ]
+      },
+      {
+        "model": "Aruba 2930M",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "aruba-procurve",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe",
+          "power"
+        ]
+      },
+      {
+        "model": "Aruba 3810M",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "aruba-procurve",
+        "role": "Distribution",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Aruba 5400R",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "aruba-procurve",
+        "role": "Modular Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Aruba CX 6100",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "aruba-cx",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "poe"
+        ]
+      },
+      {
+        "model": "Aruba CX 6200",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "aruba-cx",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe"
+        ]
+      },
+      {
+        "model": "Aruba CX 6300",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "aruba-cx",
+        "role": "Distribution",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "stack",
+          "poe",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Aruba CX 6400",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "aruba-cx",
+        "role": "Modular Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Aruba CX 8320",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "aruba-cx",
+        "role": "Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "Aruba CX 8400",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "aruba-cx",
+        "role": "Modular Core",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Arista": [
+      {
+        "model": "7050X3",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "arista-eos",
+        "role": "L3 Access / ToR",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "7280R3",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "arista-eos",
+        "role": "Distribution",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Juniper": [
+      {
+        "model": "EX4650",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "juniper-junos",
+        "role": "Distribution",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "MX204",
+        "type": "router",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "juniper-junos",
+        "role": "Edge",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "routing",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "SRX1500",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "juniper-srx",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha"
+        ]
+      }
+    ],
+    "Fortinet": [
+      {
+        "model": "FortiGate 100F",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "fortinet-fortios",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha",
+          "temperature"
+        ]
+      },
+      {
+        "model": "FortiGate 600F",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api",
+          "blackbox"
+        ],
+        "snmp": "fortinet-fortios",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Palo Alto": [
+      {
+        "model": "PA-3260",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "paloalto-panos",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "PA-5450",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "paloalto-panos",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Check Point": [
+      {
+        "model": "Quantum 6200",
+        "type": "firewall",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "checkpoint-gaia",
+        "role": "Firewall",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "firewall",
+          "ha"
+        ]
+      }
+    ],
+    "Dell": [
+      {
+        "model": "PowerEdge R750",
+        "type": "phys-srv",
+        "methods": [
+          "node",
+          "oob",
+          "blackbox"
+        ],
+        "snmp": "dell-idrac9",
+        "role": "Server",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      },
+      {
+        "model": "PowerEdge R760",
+        "type": "phys-srv",
+        "methods": [
+          "node",
+          "oob",
+          "blackbox"
+        ],
+        "snmp": "dell-idrac9",
+        "role": "Server",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "HP / HPE": [
+      {
+        "model": "ProLiant DL380 Gen11",
+        "type": "phys-srv",
+        "methods": [
+          "node",
+          "oob",
+          "blackbox"
+        ],
+        "snmp": "hpe-ilo6",
+        "role": "Server",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Lenovo": [
+      {
+        "model": "ThinkSystem SR650",
+        "type": "phys-srv",
+        "methods": [
+          "node",
+          "oob",
+          "blackbox"
+        ],
+        "snmp": "lenovo-xcc",
+        "role": "Server",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Huawei": [
+      {
+        "model": "CloudEngine S5731",
+        "type": "switch",
+        "methods": [
+          "snmp"
+        ],
+        "snmp": "huawei-vrp",
+        "role": "L3 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "routing",
+          "poe"
+        ]
+      }
+    ],
+    "MikroTik": [
+      {
+        "model": "CCR2116",
+        "type": "router",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "mikrotik-routeros",
+        "role": "Edge",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "routing"
+        ]
+      }
+    ],
+    "Ubiquiti": [
+      {
+        "model": "UniFi USW-Pro-48",
+        "type": "switch",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "ubiquiti-unifi",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "poe"
+        ]
+      }
+    ],
+    "Netgear": [
+      {
+        "model": "M4300",
+        "type": "switch",
+        "methods": [
+          "snmp"
+        ],
+        "snmp": "netgear-m4300",
+        "role": "L2 Access",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "vlan",
+          "poe"
+        ]
+      }
+    ],
+    "F5": [
+      {
+        "model": "BIG-IP i5800",
+        "type": "loadbal",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "f5-tmos",
+        "role": "Load Balancer",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "ha",
+          "power",
+          "fan",
+          "temperature"
+        ]
+      }
+    ],
+    "Citrix": [
+      {
+        "model": "NetScaler MPX",
+        "type": "loadbal",
+        "methods": [
+          "snmp",
+          "api"
+        ],
+        "snmp": "citrix-adc",
+        "role": "Load Balancer",
+        "caps": [
+          "cpu",
+          "memory",
+          "interfaces",
+          "ha"
+        ]
+      }
+    ],
+    "Generic": [
+      {
+        "model": "Generic SNMP device",
+        "type": "generic",
+        "methods": [
+          "snmp",
+          "blackbox"
+        ],
+        "snmp": "generic-mib2",
+        "role": "Unassigned",
+        "caps": [
+          "interfaces"
+        ]
+      }
+    ]
+  },
+  "CAP_LABELS": {
+    "cpu": "CPU",
+    "memory": "Memory",
+    "interfaces": "Interfaces",
+    "vlan": "VLANs",
+    "routing": "Routing",
+    "firewall": "Firewall policy",
+    "ha": "HA state",
+    "power": "Power",
+    "fan": "Fans",
+    "temperature": "Temperature",
+    "stack": "Stacking",
+    "poe": "PoE"
+  },
+  "CREDENTIAL_PROFILES": [
+    {
+      "id": "cp-1",
+      "name": "snmp-v3-netops",
+      "method": "snmp",
+      "detail": "SNMPv3 \u00b7 SHA-256 / AES-128 \u00b7 user netops-ro"
+    },
+    {
+      "id": "cp-2",
+      "name": "snmp-v2c-legacy",
+      "method": "snmp",
+      "detail": "SNMPv2c \u00b7 community m3rid1an-ro"
+    },
+    {
+      "id": "cp-3",
+      "name": "idrac-svc-account",
+      "method": "oob",
+      "detail": "Redfish \u00b7 svc-idrac \u00b7 vault-backed"
+    },
+    {
+      "id": "cp-4",
+      "name": "linux-node-default",
+      "method": "node",
+      "detail": "node-exporter :9100 \u00b7 mTLS scrape"
+    },
+    {
+      "id": "cp-5",
+      "name": "win-exporter-gMSA",
+      "method": "wmi",
+      "detail": "windows-exporter :9182 \u00b7 gMSA svc account"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels: { app: veltacore, component: worker }
+spec:
+  replicas: {{ .Values.replicas.worker }}
+  selector:
+    matchLabels: { app: veltacore, component: worker }
+  template:
+    metadata:
+      labels: { app: veltacore, component: worker }
+    spec:
+      containers:
+        - name: worker
+          image: {{ .Values.image.api }}
+          command: ["celery", "-A", "config", "worker", "-l", "info", "-Q", "celery,eod_batch"]
+          envFrom:
+            - configMapRef: { name: {{ .Release.Name }}-env }
+            - secretRef: { name: {{ .Values.postgres.existingSecret }} }
+          resources: {{- toYaml .Values.resources.worker | nindent 12 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-beat
+  labels: { app: veltacore, component: beat }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: veltacore, component: beat }
+  template:
+    metadata:
+      labels: { app: veltacore, component: beat }
+    spec:
+      containers:
+        - name: beat
+          image: {{ .Values.image.api }}
+          command: ["celery", "-A", "config", "beat", "-l", "info"]
+          envFrom:
+            - configMapRef: { name: {{ .Release.Name }}-env }
+            - secretRef: { name: {{ .Values.postgres.existingSecret }} }

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-env
+data:
+  DJANGO_DEBUG: "0"
+  POSTGRES_HOST: {{ .Values.postgres.host | quote }}
+  POSTGRES_PORT: {{ .Values.postgres.port | quote }}
+  POSTGRES_DB: {{ .Values.postgres.db | quote }}
+  POSTGRES_USER: {{ .Values.postgres.user | quote }}
+  REDIS_URL: {{ .Values.redis.url | quote }}
+  CELERY_BROKER_URL: {{ .Values.redis.url | quote }}
+  KEYCLOAK_SERVER_URL: {{ .Values.keycloak.serverUrl | quote }}
+  KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.keycloak.clientId | quote }}
+  OPA_URL: {{ .Values.opa.url | quote }}
+  OPA_FAIL_OPEN: {{ if .Values.opa.failOpen }}"1"{{ else }}"0"{{ end }}
