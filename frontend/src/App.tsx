@@ -25,67 +25,85 @@ function useTenantBootstrap() {
   }, [data, tenant.id, setTenant]);
 }
 
-import DashboardScreen from "@/screens/DashboardScreen";
-import IncidentsScreen from "@/screens/IncidentsScreen";
-import IncidentDetailScreen from "@/screens/IncidentDetailScreen";
-import IncidentNewScreen from "@/screens/IncidentNewScreen";
-import CrossTenantScreen from "@/screens/CrossTenantScreen";
-import AdminTenantsScreen from "@/screens/AdminTenantsScreen";
-import AdminBillingScreen from "@/screens/AdminBillingScreen";
-import AdminUsageScreen from "@/screens/AdminUsageScreen";
-import OnboardingScreen from "@/screens/OnboardingScreen";
-import SignInScreen from "@/screens/SignInScreen";
-import SettingsScreen from "@/screens/SettingsScreen";
-import UsersScreen from "@/screens/UsersScreen";
-import RunbooksScreen from "@/screens/RunbooksScreen";
-import IntegrationsScreen from "@/screens/IntegrationsScreen";
-import IntegrationDetailScreen from "@/screens/IntegrationDetailScreen";
-import ProblemsScreen from "@/screens/ProblemsScreen";
-import ProblemDetailScreen from "@/screens/ProblemDetailScreen";
-import ProblemNewScreen from "@/screens/ProblemNewScreen";
-import ChangesScreen from "@/screens/ChangesScreen";
-import ChangeDetailScreen from "@/screens/ChangeDetailScreen";
-import ChangeNewScreen from "@/screens/ChangeNewScreen";
-import CatalogScreen, { CatalogRequestScreen } from "@/screens/CatalogScreen";
-import CMDBScreen from "@/screens/CMDBScreen";
-import KnowledgeScreen, { KnowledgeArticleScreen } from "@/screens/KnowledgeScreen";
-import FlowScreen from "@/screens/FlowScreen";
-import ReportsScreen, { SLAScreen } from "@/screens/ReportsScreen";
-import InfraScreen from "@/screens/InfraScreen";
-import InfraAssetsScreen from "@/screens/InfraAssetsScreen";
-import InfraDeviceScreen from "@/screens/InfraDeviceScreen";
-import FirewallDetailScreen from "@/screens/FirewallDetailScreen";
-import SwitchDetailScreen from "@/screens/SwitchDetailScreen";
-import ServerDetailScreen from "@/screens/ServerDetailScreen";
-import StorageDetailScreen from "@/screens/StorageDetailScreen";
-import LoadBalancerDetailScreen from "@/screens/LoadBalancerDetailScreen";
-import UpsDetailScreen from "@/screens/UpsDetailScreen";
-import InfraTopologyScreen from "@/screens/InfraTopologyScreen";
-import DeviceOnboardingWizard from "@/screens/DeviceOnboardingWizard";
-import InfraVMsScreen from "@/screens/InfraVMsScreen";
-import InfraRackScreen from "@/screens/InfraRackScreen";
-import InfraExportersScreen from "@/screens/InfraExportersScreen";
-import APMScreen from "@/screens/APMScreen";
-import APMCatalogScreen from "@/screens/APMCatalogScreen";
-import AppDetailScreen from "@/screens/AppDetailScreen";
-import LogsScreen from "@/screens/LogsScreen";
-import AlertsScreen from "@/screens/AlertsScreen";
-import AlertGroupingScreen from "@/screens/AlertGroupingScreen";
-import StatusPageScreen from "@/screens/StatusPageScreen";
-import RetroScreen from "@/screens/RetroScreen";
-import EntityMapScreen from "@/screens/EntityMapScreen";
-import OrderLatencyScreen from "@/screens/OrderLatencyScreen";
-import CtclMonitorScreen from "@/screens/CtclMonitorScreen";
-import MetricsExplorerScreen from "@/screens/MetricsExplorerScreen";
-import SyntheticsScreen from "@/screens/SyntheticsScreen";
-import SlosScreen from "@/screens/SlosScreen";
-import MonitorsScreen from "@/screens/MonitorsScreen";
-import HostMapScreen from "@/screens/HostMapScreen";
-import NodeViewScreen from "@/screens/NodeViewScreen";
-import MarketCalendarScreen from "@/screens/MarketCalendarScreen";
-import BodChecksScreen from "@/screens/BodChecksScreen";
-import BodEodScreen from "@/screens/BodEodScreen";
-import SiteDetailScreen from "@/screens/SiteDetailScreen";
+const DashboardScreen = React.lazy(() => import("@/screens/DashboardScreen"));
+const IncidentsScreen = React.lazy(() => import("@/screens/IncidentsScreen"));
+const IncidentDetailScreen = React.lazy(() => import("@/screens/IncidentDetailScreen"));
+const IncidentNewScreen = React.lazy(() => import("@/screens/IncidentNewScreen"));
+const CrossTenantScreen = React.lazy(() => import("@/screens/CrossTenantScreen"));
+const AdminTenantsScreen = React.lazy(() => import("@/screens/AdminTenantsScreen"));
+const AdminBillingScreen = React.lazy(() => import("@/screens/AdminBillingScreen"));
+const AdminUsageScreen = React.lazy(() => import("@/screens/AdminUsageScreen"));
+const OnboardingScreen = React.lazy(() => import("@/screens/OnboardingScreen"));
+const SignInScreen = React.lazy(() => import("@/screens/SignInScreen"));
+const SettingsScreen = React.lazy(() => import("@/screens/SettingsScreen"));
+const UsersScreen = React.lazy(() => import("@/screens/UsersScreen"));
+const RunbooksScreen = React.lazy(() => import("@/screens/RunbooksScreen"));
+const IntegrationsScreen = React.lazy(() => import("@/screens/IntegrationsScreen"));
+const IntegrationDetailScreen = React.lazy(() => import("@/screens/IntegrationDetailScreen"));
+const ProblemsScreen = React.lazy(() => import("@/screens/ProblemsScreen"));
+const ProblemDetailScreen = React.lazy(() => import("@/screens/ProblemDetailScreen"));
+const ProblemNewScreen = React.lazy(() => import("@/screens/ProblemNewScreen"));
+const ChangesScreen = React.lazy(() => import("@/screens/ChangesScreen"));
+const ChangeDetailScreen = React.lazy(() => import("@/screens/ChangeDetailScreen"));
+const ChangeNewScreen = React.lazy(() => import("@/screens/ChangeNewScreen"));
+const CatalogScreen = React.lazy(() => import("@/screens/CatalogScreen"));
+const CatalogRequestScreen = React.lazy(() =>
+  import("@/screens/CatalogScreen").then((module) => ({ default: module.CatalogRequestScreen })),
+);
+const CMDBScreen = React.lazy(() => import("@/screens/CMDBScreen"));
+const KnowledgeScreen = React.lazy(() => import("@/screens/KnowledgeScreen"));
+const KnowledgeArticleScreen = React.lazy(() =>
+  import("@/screens/KnowledgeScreen").then((module) => ({ default: module.KnowledgeArticleScreen })),
+);
+const FlowScreen = React.lazy(() => import("@/screens/FlowScreen"));
+const ReportsScreen = React.lazy(() => import("@/screens/ReportsScreen"));
+const SLAScreen = React.lazy(() =>
+  import("@/screens/ReportsScreen").then((module) => ({ default: module.SLAScreen })),
+);
+const InfraScreen = React.lazy(() => import("@/screens/InfraScreen"));
+const InfraAssetsScreen = React.lazy(() => import("@/screens/InfraAssetsScreen"));
+const InfraDeviceScreen = React.lazy(() => import("@/screens/InfraDeviceScreen"));
+const FirewallDetailScreen = React.lazy(() => import("@/screens/FirewallDetailScreen"));
+const SwitchDetailScreen = React.lazy(() => import("@/screens/SwitchDetailScreen"));
+const ServerDetailScreen = React.lazy(() => import("@/screens/ServerDetailScreen"));
+const StorageDetailScreen = React.lazy(() => import("@/screens/StorageDetailScreen"));
+const LoadBalancerDetailScreen = React.lazy(() => import("@/screens/LoadBalancerDetailScreen"));
+const UpsDetailScreen = React.lazy(() => import("@/screens/UpsDetailScreen"));
+const InfraTopologyScreen = React.lazy(() => import("@/screens/InfraTopologyScreen"));
+const DeviceOnboardingWizard = React.lazy(() => import("@/screens/DeviceOnboardingWizard"));
+const InfraVMsScreen = React.lazy(() => import("@/screens/InfraVMsScreen"));
+const InfraRackScreen = React.lazy(() => import("@/screens/InfraRackScreen"));
+const InfraExportersScreen = React.lazy(() => import("@/screens/InfraExportersScreen"));
+const APMScreen = React.lazy(() => import("@/screens/APMScreen"));
+const APMCatalogScreen = React.lazy(() => import("@/screens/APMCatalogScreen"));
+const AppDetailScreen = React.lazy(() => import("@/screens/AppDetailScreen"));
+const LogsScreen = React.lazy(() => import("@/screens/LogsScreen"));
+const AlertsScreen = React.lazy(() => import("@/screens/AlertsScreen"));
+const AlertGroupingScreen = React.lazy(() => import("@/screens/AlertGroupingScreen"));
+const StatusPageScreen = React.lazy(() => import("@/screens/StatusPageScreen"));
+const RetroScreen = React.lazy(() => import("@/screens/RetroScreen"));
+const EntityMapScreen = React.lazy(() => import("@/screens/EntityMapScreen"));
+const OrderLatencyScreen = React.lazy(() => import("@/screens/OrderLatencyScreen"));
+const CtclMonitorScreen = React.lazy(() => import("@/screens/CtclMonitorScreen"));
+const MetricsExplorerScreen = React.lazy(() => import("@/screens/MetricsExplorerScreen"));
+const SyntheticsScreen = React.lazy(() => import("@/screens/SyntheticsScreen"));
+const SlosScreen = React.lazy(() => import("@/screens/SlosScreen"));
+const MonitorsScreen = React.lazy(() => import("@/screens/MonitorsScreen"));
+const HostMapScreen = React.lazy(() => import("@/screens/HostMapScreen"));
+const NodeViewScreen = React.lazy(() => import("@/screens/NodeViewScreen"));
+const MarketCalendarScreen = React.lazy(() => import("@/screens/MarketCalendarScreen"));
+const BodChecksScreen = React.lazy(() => import("@/screens/BodChecksScreen"));
+const BodEodScreen = React.lazy(() => import("@/screens/BodEodScreen"));
+const SiteDetailScreen = React.lazy(() => import("@/screens/SiteDetailScreen"));
+
+function RouteLoading() {
+  return (
+    <div className="route-loading" role="status" aria-live="polite">
+      <span className="route-loading-spinner" aria-hidden="true" />
+      <span>Loading workspace…</span>
+    </div>
+  );
+}
 
 export default function App() {
   const { route } = useNav();
@@ -122,7 +140,8 @@ export default function App() {
         {!noChrome && <Sidebar />}
         {!noChrome && <Header />}
         <main className="main">
-          <Routes>
+          <React.Suspense fallback={<RouteLoading />}>
+            <Routes>
             <Route path="/" element={<DashboardScreen />} />
             <Route path="/dashboard" element={<Navigate to="/" replace />} />
             <Route path="/incidents" element={<IncidentsScreen />} />
@@ -190,7 +209,8 @@ export default function App() {
             <Route path="/site-detail" element={<SiteDetailScreen />} />
             <Route path="/lesites" element={<SiteDetailScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+          </React.Suspense>
         </main>
       </div>
       <TenantSwitcher />

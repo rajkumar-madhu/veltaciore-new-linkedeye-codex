@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "check:bundle": "node --test scripts/check-bundle.test.mjs && npm run build && node scripts/check-bundle.mjs",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },

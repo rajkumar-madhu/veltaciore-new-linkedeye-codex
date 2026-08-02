@@ -4,6 +4,17 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    manifest: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "state-vendor": ["@tanstack/react-query", "zustand"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

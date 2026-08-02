@@ -2829,3 +2829,31 @@ button.primary:not(.pay-cta) {
 
 /* ── Monitor builder labels ─────────────────────────────────────────────── */
 .mon-l { display: block; font-size: 10.5px; font-weight: 700; color: #8a94a3; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+
+/* ── Route loading boundary ─────────────────────────────────────────────── */
+.route-loading {
+  min-height: 45vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+.route-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: route-loading-spin 0.7s linear infinite;
+}
+
+@keyframes route-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-spinner { animation: none; }
+}
