@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectStaticFiles } from "./check-bundle.mjs";
+import { collectStaticFiles } from "./bundle-graph.mjs";
 
 test("collectStaticFiles includes recursive imports once and excludes dynamic imports", () => {
   const manifest = {

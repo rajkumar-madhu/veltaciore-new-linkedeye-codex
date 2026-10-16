@@ -1,6 +1,6 @@
 // Root component: chrome + routing. Ported from app.jsx.
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Sidebar, Header, TenantSwitcher } from "@/components/Shell";
 import { useUiStore, NO_TENANT } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
@@ -105,8 +105,42 @@ function RouteLoading() {
   );
 }
 
+/**
+ * Catches render errors from a route, most often a lazy chunk that failed to
+ * download (e.g. its hashed file was removed by a newer deploy). Keeps the
+ * shell usable instead of letting React unmount the whole tree. Keyed by
+ * pathname so navigating elsewhere clears the error.
+ */
+class RouteErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Route failed to render", error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="route-loading" role="alert">
+        <span>This page failed to load.</span>
+        <button className="btn" type="button" onClick={() => window.location.reload()}>
+          Reload
+        </button>
+      </div>
+    );
+  }
+}
+
 export default function App() {
   const { route } = useNav();
+  const location = useLocation();
   const tweaks = useUiStore((s) => s.tweaks);
   const setSwitcher = useUiStore((s) => s.setSwitcher);
   useTenantBootstrap();
@@ -140,6 +174,7 @@ export default function App() {
         {!noChrome && <Sidebar />}
         {!noChrome && <Header />}
         <main className="main">
+          <RouteErrorBoundary key={location.pathname}>
           <React.Suspense fallback={<RouteLoading />}>
             <Routes>
             <Route path="/" element={<DashboardScreen />} />
@@ -211,6 +246,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </React.Suspense>
+          </RouteErrorBoundary>
         </main>
       </div>
       <TenantSwitcher />
