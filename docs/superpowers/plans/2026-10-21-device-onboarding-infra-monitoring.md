@@ -1,7 +1,7 @@
 # Device Onboarding + Infra/Application Monitoring — implementation plan
 
 Source: `LinkedEye_DeviceOnboarding_InfraMonitoring_ClaudeCode_Prompt.md` (R. Madhu).
-Status: **approved — decisions recorded below; Phase 1 done.**
+Status: **approved — decisions recorded below; Phases 1–3 done.**
 
 ## What already exists (verified in the repo)
 
@@ -58,3 +58,7 @@ Each phase ships with Django tests (and `opa test` for policy) before the next s
 - **Phase 1 — done.** Tenant scope (`apps/tenants/context.py`) set per request by `TenantScopePermission`; `TenantScopedModel.objects` applies it when a query executes (fetch, count, exists, aggregate, update, delete, subquery) and raises with no scope. Unknown tenant → 400; no header → all-tenants scope that OPA restricts to admins (fails closed without OPA in production). Celery tasks and seed commands run under `system_task` / `all_tenants()`.
   - Fixed: the Rego cross-tenant guard used `not input.tenant`, which is false for JSON `null` — the value the API sends — so it never fired. Reads without a tenant now also require admin.
   - Open: `test_viewer_cannot_write` contradicts the "any authenticated user may create work items" rule; failing before this change, left for a product decision.
+- **Phase 2 — done.** `AuditEvent` (append-only in the model, queryset and a DB trigger), `apps.audit.events.record()` / `snapshot()` (secret fields redacted) emitting JSON lines on `linkedeye.audit` for Filebeat → Loki, and read-only `GET /api/audit/events/`.
+- **Phase 3 — done.** `InfraDevice.lifecycle_state` / `criticality_tier` / `owning_team`; `apps.infra.lifecycle.transition_device()` enforces the allowed edges, requires a reason to decommission or re-review, asks OPA (`resource.action = "device.transition"`) and saves state + audit event in one transaction. `POST /api/infra/devices/{id}/transition/`. Rego: infra-admin/admin may make any move; noc-engineer only to `pending_review`.
+  - Assumption: existing devices migrate as `active`, `tier3`, no owning team.
+  - Assumption: there is no per-user tenant-membership claim in the Keycloak token visible in the repo, so a valid `X-Tenant-ID` is trusted once OPA allows the request. Proposed: a `tenants` claim checked in Rego (`input.tenant in input.tenants`).

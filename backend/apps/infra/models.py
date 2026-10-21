@@ -31,7 +31,16 @@ class InfraDevice(TenantScopedModel):
     serial_number = models.CharField(max_length=64, blank=True, default="")
     os_name = models.CharField(max_length=64, blank=True, default="")
     os_version = models.CharField(max_length=64, blank=True, default="")
+    LIFECYCLE = [("discovered", "Discovered"), ("pending_review", "Pending review"),
+                 ("active", "Active"), ("decommissioned", "Decommissioned")]
+    CRITICALITY = [("tier1", "Tier 1 — business critical"), ("tier2", "Tier 2 — high"),
+                   ("tier3", "Tier 3 — standard"), ("tier4", "Tier 4 — low")]
+
     status = models.CharField(max_length=12, choices=STATUS, default="unknown")
+    # Change only through apps.infra.lifecycle.transition_device (OPA + audit).
+    lifecycle_state = models.CharField(max_length=16, choices=LIFECYCLE, default="active", db_index=True)
+    criticality_tier = models.CharField(max_length=8, choices=CRITICALITY, default="tier3")
+    owning_team = models.CharField(max_length=128, blank=True, default="")
     health_status = models.CharField(max_length=12, choices=STATUS, default="unknown")
     monitoring_enabled = models.BooleanField(default=True)
     snmp_version = models.CharField(max_length=8, blank=True, default="")

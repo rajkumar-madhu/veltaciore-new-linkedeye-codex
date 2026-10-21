@@ -54,9 +54,23 @@ class SiteViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = InfraDevice.objects.select_related("site").all()
     serializer_class = DeviceSerializer
-    filterset_fields = ["site", "device_type", "status", "vendor"]
     search_fields = ["id", "name", "hostname", "ip_address", "model", "vendor", "serial_number"]
     ordering_fields = ["id", "cpu", "mem", "status"]
+
+    filterset_fields = ["site", "device_type", "status", "vendor", "lifecycle_state", "criticality_tier"]
+
+    @action(detail=True, methods=["post"])
+    def transition(self, request, pk=None):
+        """POST /api/infra/devices/{id}/transition/ {"to": "...", "reason": "..."}"""
+        from .lifecycle import transition_device
+
+        device = transition_device(
+            self.get_object(),
+            str(request.data.get("to", "")),
+            request=request,
+            reason=str(request.data.get("reason", "")),
+        )
+        return Response(DeviceSerializer(device).data)
 
     @action(detail=True)
     def overview(self, request, pk=None):
