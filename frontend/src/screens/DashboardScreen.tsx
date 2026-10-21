@@ -7,7 +7,6 @@
 // deployment renders honestly instead of showing illustrative numbers.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
-import { useCanWrite } from "@/auth/auth";
 import {
   useIncidents,
   useIncidentRecords,
@@ -229,7 +228,6 @@ function TrendChart({ days }: { days: { label: string; opened: number; resolved:
 
 export default function DashboardScreen() {
   const { setRoute } = useNav();
-  const canWrite = useCanWrite();
 
   const tickets = useIncidentRecords().data ?? [];
   const incidents = useIncidents().data ?? [];
@@ -329,11 +327,6 @@ export default function DashboardScreen() {
           <h1>Dashboard</h1>
           <p>Complete view of your IT infrastructure, services, and support operations</p>
         </div>
-        {canWrite && (
-          <button type="button" className="ld-primary" onClick={() => setRoute("incident-new")}>
-            <i className="fa-solid fa-plus" aria-hidden="true" /> New incident
-          </button>
-        )}
       </div>
 
       <div className="ld-grid ld-grid-stats">

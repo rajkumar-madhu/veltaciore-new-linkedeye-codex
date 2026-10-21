@@ -122,20 +122,11 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sb-head">
-        <div className="sb-logo">A</div>
+        <div className="sb-logo" aria-hidden="true"><i className="fa-solid fa-eye" /></div>
         <div className="sb-brand">
-          <b>Argus-LinkedEye</b>
-          <span>Monitoring</span>
+          <b>LinkedEye</b>
+          <span>ITSM &amp; Monitoring Platform</span>
         </div>
-      </div>
-
-      <div className="tenant-switch" onClick={() => setSwitcher(true)}>
-        <div className="t-icon" style={{ background: colorFor(tenant.color) }}>{tenant.code}</div>
-        <div className="t-body">
-          <div className="t-org">{ORG.name}</div>
-          <div className="t-unit"><span className="t-unit-label">Unit:</span> {tenant.name}</div>
-        </div>
-        <i className="fa-solid fa-chevron-down" />
       </div>
 
       <nav className="sb-nav">
@@ -145,18 +136,32 @@ export function Sidebar() {
             {sec.items.filter((i) => !i.hidden).map((i) => {
               const badge = badgeFor(i);
               return (
-              <div key={i.id} className={`sb-item${route === i.id ? " active" : ""}`} onClick={() => setRoute(i.id)}>
-                <span className="sb-icon"><i className={`fa-solid ${i.icon}`} /></span>
+              <button
+                type="button"
+                key={i.id}
+                className={`sb-item${route === i.id ? " active" : ""}`}
+                aria-current={route === i.id ? "page" : undefined}
+                onClick={() => setRoute(i.id)}
+              >
+                <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${i.icon}`} /></span>
                 <span className="sb-label">{i.label}</span>
                 {badge && <span className={`sb-badge ${badge.kind}`}>{badge.n}</span>}
                 {!badge && i.kbd && <kbd>{i.kbd}</kbd>}
-              </div>
+              </button>
             );})}
           </div>
         ))}
       </nav>
 
       <div className="sb-foot">
+        <button type="button" className="tenant-switch" onClick={() => setSwitcher(true)} title={`${ORG.name} · switch client`}>
+          <span className="t-icon" style={{ background: colorFor(tenant.color) }} aria-hidden="true">{tenant.code}</span>
+          <span className="t-body">
+            <span className="t-unit-label">Client</span>
+            <span className="t-org">{tenant.name}</span>
+          </span>
+          <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+        </button>
         <div className="sb-env">
           <span className="env-dot" />
           <span>Production · us-east-1</span>
@@ -239,7 +244,9 @@ export function Header() {
           </div>
         )}
         <div className="hdr-divider" />
-        <button className="icon-btn" title="Create"><i className="fa-solid fa-plus" /></button>
+        <button type="button" className="hdr-new" onClick={() => setRoute("incident-new")}>
+          <i className="fa-solid fa-plus" aria-hidden="true" /> New
+        </button>
         <button className="icon-btn" title="Automation"><i className="fa-solid fa-robot" /></button>
         <button className="icon-btn" title="Notifications"><i className="fa-solid fa-bell" /><span className="dot" /></button>
         <button className="icon-btn" title="Help"><i className="fa-solid fa-circle-question" /></button>
