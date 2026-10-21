@@ -1,172 +1,227 @@
-// ServiceNow form-style exporter fleet.
-// Ported from screens/infra-exporters.jsx.
+// All Exporters — LinkedEye layout: fleet summary cards, category tiles, a
+// searchable exporter table, and a health / top-installs rail with the agent
+// install snippet. Exporters are a static catalog (reference data), so the
+// local seed is used when the backend is unreachable.
 import React from "react";
 import { useExporters } from "@/api/hooks";
 import { EXPORTERS } from "@/data/infra";
-import { Kpi, FormSection, Field } from "@/components/primitives";
+import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Slice } from "@/components/ld";
+import type { Exporter } from "@/lib/types";
+
+interface Category {
+  id: string;
+  label: string;
+  icon: string;
+  match: (name: string) => boolean;
+}
+
+const CATEGORIES: Category[] = [
+  { id: "servers", label: "Servers", icon: "fa-server", match: (n) => /^(node|windows)-/.test(n) },
+  { id: "network", label: "Network", icon: "fa-network-wired", match: (n) => /^snmp-/.test(n) },
+  { id: "hardware", label: "Hardware", icon: "fa-microchip", match: (n) => /^(idrac|ilo|ipmi|redfish)-/.test(n) },
+  { id: "databases", label: "Databases", icon: "fa-database", match: (n) => /^(mysqld|postgres|mongodb|redis|mssql|oracle)-/.test(n) },
+  { id: "virtualization", label: "Virtualization", icon: "fa-cube", match: (n) => /^(vmware|proxmox|hyperv|libvirt)-/.test(n) },
+  { id: "probes", label: "URLs & Probes", icon: "fa-globe", match: (n) => /^blackbox-/.test(n) },
+];
+const OTHER: Category = { id: "other", label: "Other", icon: "fa-puzzle-piece", match: () => true };
+
+const categoryOf = (e: Exporter) => CATEGORIES.find((c) => c.match(e.name)) ?? OTHER;
+
+/** "12.4k/s" → 12400; unparseable → 0. */
+function scrapesPerSec(v: string) {
+  const m = /([\d.]+)\s*([kKmM]?)/.exec(v);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  return m[2].toLowerCase() === "k" ? n * 1e3 : m[2].toLowerCase() === "m" ? n * 1e6 : n;
+}
+
+const rate = (n: number) => (n >= 1e3 ? `${(n / 1e3).toFixed(1)}k/s` : `${Math.round(n)}/s`);
 
 export default function InfraExportersScreen() {
   const { data } = useExporters();
-  // Exporters are a static catalog (reference data): fall back to the local
-  // seed when the backend is unreachable so the inventory always renders.
   const exporters = data ?? EXPORTERS;
-  const totalHosts = exporters.reduce((a,b) => a + b.hosts, 0);
-  const healthy = exporters.filter(e => e.status === "ok").length;
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+
+  const [cat, setCat] = React.useState("all");
+  const [status, setStatus] = React.useState("");
+  const [query, setQuery] = React.useState("");
+
+  const healthy = exporters.filter((e) => e.status === "ok").length;
+  const degraded = exporters.length - healthy;
+  const installs = exporters.reduce((a, e) => a + e.hosts, 0);
+  const scrapeTotal = exporters.reduce((a, e) => a + scrapesPerSec(e.scrapes), 0);
+  const lags = exporters.map((e) => parseFloat(e.lag)).filter((n) => !Number.isNaN(n));
+  const avgLag = lags.length ? lags.reduce((a, b) => a + b, 0) / lags.length : 0;
+
+  const usedCats = [...CATEGORIES, OTHER].filter((c) => exporters.some((e) => categoryOf(e).id === c.id));
+  const countIn = (id: string) => exporters.filter((e) => categoryOf(e).id === id).length;
+
+  const q = query.trim().toLowerCase();
+  const visible = exporters.filter((e) => {
+    if (cat !== "all" && categoryOf(e).id !== cat) return false;
+    if (status === "ok" && e.status !== "ok") return false;
+    if (status === "degraded" && e.status === "ok") return false;
+    if (q && ![e.name, e.protocol ?? "", ...e.sites].some((s) => s.toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const healthSlices: Slice[] = [
+    { label: "Healthy", value: healthy, color: "#16a34a" },
+    { label: "Degraded", value: degraded, color: "#f5a524" },
+  ];
+  const top = [...exporters].sort((a, b) => b.hosts - a.hosts).slice(0, 8);
+  const topMax = top[0]?.hosts || 1;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Infrastructure</a><span className="sn-bc-sep">›</span>
-        <span>Exporters &amp; Collectors</span>
-      </div>
-
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">AGENTS</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {healthy}/{exporters.length} Healthy</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-tower-broadcast" /> {totalHosts.toLocaleString()} installs</span>
+    <div className="ld-dash">
+      <div className="ld-head">
+        <div>
+          <h1>All Exporters</h1>
+          <p>Prometheus-compatible exporters collecting metrics from your infrastructure, network, databases and services</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Exporters &amp; Collectors</h1>
-            <div className="sn-form-sub">{exporters.length} exporter types · Prometheus-compatible · 18.6k scrapes/sec</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-book" /> Install Docs</button>
-            <button className="sn-btn"><i className="fa-solid fa-rotate" /> Re-deploy</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> Add Exporter</button>
-          </div>
+        <div className="ld-head-actions">
+          <a className="ld-btn" href="#install-snippet"><i className="fa-solid fa-book" aria-hidden="true" /> Install docs</a>
         </div>
       </div>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="Exporter types" v={exporters.length} s="installed" tone="neutral" />
-        <Kpi l="Healthy" v={`${healthy}/${exporters.length}`} s="reporting" tone="ok" />
-        <Kpi l="Agent installs" v={totalHosts.toLocaleString()} s="+18 this week" tone="ok" />
-        <Kpi l="Scrape volume" v="18.6k/s" s="stable" tone="neutral" />
-        <Kpi l="Avg lag" v="0.9s" s="+0.2s vs avg" tone="warn" />
-        <Kpi l="Degraded" v={exporters.length - healthy} s="needs check" tone={exporters.length - healthy > 0 ? "warn" : "ok"} />
+      <div className="ld-grid ld-grid-stats ld-grid-6">
+        <StatCard icon="fa-tower-broadcast" tone="purple" label="Exporter types" value={fmt(exporters.length)} note="in the catalog" onClick={() => { setCat("all"); setStatus(""); }} />
+        <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(healthy)} note={exporters.length ? `${Math.round((healthy / exporters.length) * 100)}% reporting normally` : "—"} onClick={() => setStatus("ok")} />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="Degraded" value={fmt(degraded)} note={degraded ? "needs a check" : "all clear"} onClick={() => setStatus("degraded")} />
+        <StatCard icon="fa-server" tone="info" label="Agent installs" value={fmt(installs)} note="hosts reporting" />
+        <StatCard icon="fa-chart-line" tone="info" label="Scrape volume" value={rate(scrapeTotal)} note="across all exporters" />
+        <StatCard icon="fa-clock" tone={avgLag > 5 ? "warn" : "ok"} label="Average lag" value={`${avgLag.toFixed(1)}s`} note="scrape to ingest" />
       </div>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="inv" title="Exporter Inventory" badge={`${exporters.length} types`} collapsed={collapsed.inv} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead>
-                <tr>
-                  <th>Exporter</th><th style={{width:90}}>Version</th>
-                  <th style={{width:70}}>Port</th><th style={{width:150}}>Protocol</th><th style={{width:70}}>Hosts</th>
-                  <th>Sites</th><th style={{width:100}}>Scrape rate</th><th style={{width:70}}>Lag</th>
-                  <th style={{width:120}}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {exporters.map(e => (
-                  <tr key={e.name} style={{ cursor: "pointer" }}>
-                    <td>
-                      <div className="row row-8">
-                        <span className="kind-mini" style={{ color: "#14b8a6", background: "#14b8a618" }}><i className="fa-solid fa-tower-broadcast" /></span>
-                        <div>
-                          <a className="sn-link mono"><b>{e.name}</b></a>
-                          <div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>prom · {e.port ? `:${e.port}` : ""}/metrics</div>
-                          {e.note && (
-                            <div style={{ fontSize: 10.5, color: "#b45309", marginTop: 3, maxWidth: 340 }}>
-                              <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: 4 }} />{e.note}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="mono">v{e.version}</td>
-                    <td className="mono"><b>{e.port ?? "—"}</b></td>
-                    <td className="mono" style={{ fontSize: 11.5, color: "#475467" }}>{e.protocol ?? "—"}</td>
-                    <td className="mono"><b>{e.hosts}</b></td>
-                    <td>
-                      <div className="row row-4" style={{ flexWrap: "wrap" }}>
-                        {e.sites.map(s => <span key={s} className="sn-state-pill state-neutral" style={{ fontSize: 10.5 }}><i className="fa-solid fa-circle" /> {s}</span>)}
-                      </div>
-                    </td>
-                    <td className="mono">{e.scrapes}</td>
-                    <td className={`mono ${parseFloat(e.lag) > 5 ? "tone-warn" : ""}`}>{e.lag}</td>
-                    <td><span className={`sn-state-pill ${e.status === "ok" ? "svc-healthy" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {e.status === "ok" ? "healthy" : "degraded"}</span></td>
+      <div className="ld-chips" role="group" aria-label="Filter by category">
+        <button type="button" className={`ld-chip${cat === "all" ? " active" : ""}`} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
+          <i className="fa-solid fa-layer-group" aria-hidden="true" />
+          <span className="ld-chip-label">All</span>
+          <span className="ld-chip-count">{exporters.length}</span>
+        </button>
+        {usedCats.map((c) => (
+          <button key={c.id} type="button" className={`ld-chip${cat === c.id ? " active" : ""}`} aria-pressed={cat === c.id} onClick={() => setCat(c.id)}>
+            <i className={`fa-solid ${c.icon}`} aria-hidden="true" />
+            <span className="ld-chip-label">{c.label}</span>
+            <span className="ld-chip-count">{countIn(c.id)}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="ld-split">
+        <section className="ld-card ld-panel" aria-labelledby="exp-h">
+          <div className="ld-panel-head">
+            <h2 id="exp-h">Exporters ({fmt(visible.length)})</h2>
+          </div>
+          <div className="ld-toolbar">
+            <label htmlFor="exp-search" className="sr-only">Search exporters</label>
+            <span className="ld-search ld-field-grow">
+              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <input id="exp-search" type="search" placeholder="Search by name, protocol or site…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </span>
+            <label htmlFor="exp-status" className="sr-only">Status</label>
+            <select id="exp-status" className="ld-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">All statuses</option>
+              <option value="ok">Healthy</option>
+              <option value="degraded">Degraded</option>
+            </select>
+          </div>
+          {visible.length ? (
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Exporter</th>
+                    <th scope="col">Protocol · version</th>
+                    <th scope="col">Hosts</th>
+                    <th scope="col">Sites</th>
+                    <th scope="col">Scrapes</th>
+                    <th scope="col">Lag</th>
+                    <th scope="col">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-
-          <FormSection id="install" title="Install Snippet · node-exporter" badge="Linux hosts" collapsed={collapsed.install} onToggle={toggle}>
-            <div style={{ padding: 14 }}>
-              <div style={{ background: "#0b1220", color: "#e2e8f0", padding: 14, borderRadius: 3, fontFamily: "var(--font-mono)", fontSize: 11.5, lineHeight: 1.7 }}>
-                <div><span style={{ color: "#38bdf8" }}>$</span> curl -sSL https://linkedeye.in/agent/install.sh \</div>
-                <div>    | sudo TENANT=fyers ROLE=linux-host sh</div>
-                <div style={{ color: "#94a3b8" }}>  ✓ verified signature · sha256:a91c…7e43</div>
-                <div style={{ color: "#94a3b8" }}>  ✓ installed node-exporter v1.7.0 to /opt/linkedeye</div>
-                <div style={{ color: "#94a3b8" }}>  ✓ registered with le-collector-blr-1.linkedeye.in:9090</div>
-                <div><span style={{ color: "#38bdf8" }}>$</span> systemctl status linkedeye-agent</div>
-                <div style={{ color: "#4ade80" }}>  ● active (running) since Wed 14:22 IST</div>
-              </div>
-              <div className="row row-8" style={{ marginTop: 10 }}>
-                <button className="sn-btn"><i className="fa-solid fa-copy" /> Copy</button>
-                <button className="sn-btn"><i className="fa-solid fa-key" /> Generate scoped token</button>
-              </div>
+                </thead>
+                <tbody>
+                  {visible.map((e) => {
+                    const c = categoryOf(e);
+                    const lagHigh = parseFloat(e.lag) > 5;
+                    return (
+                      <tr key={e.name}>
+                        <td>
+                          <span className="ld-strong ld-mono-name">{e.name}</span>
+                          <span className="ld-sub">{c.label} · {e.port ? `:${e.port}/metrics` : "/metrics"}</span>
+                          {e.note && (
+                            <span className="ld-sub ld-note" title={e.note}><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {e.note}</span>
+                          )}
+                        </td>
+                        <td className="ld-muted">
+                          {e.protocol ?? "—"}
+                          <span className="ld-sub">v{e.version}</span>
+                        </td>
+                        <td className="ld-strong">{fmt(e.hosts)}</td>
+                        <td className="ld-muted ld-wrap">
+                          {e.sites.map((site, i) => (
+                            <React.Fragment key={site}>
+                              <span className="ld-nowrap">{site}</span>
+                              {i < e.sites.length - 1 ? ", " : ""}
+                            </React.Fragment>
+                          ))}
+                        </td>
+                        <td>{e.scrapes}</td>
+                        <td className={lagHigh ? "ld-text-warn" : undefined}>{e.lag}</td>
+                        <td>
+                          <Pill tone={e.status === "ok" ? "ok" : "warn"}>
+                            <span className="ld-pill-dot" />
+                            {e.status === "ok" ? "Healthy" : "Degraded"}
+                          </Pill>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </FormSection>
+          ) : (
+            <Empty>No exporters match these filters.</Empty>
+          )}
+        </section>
+
+        <div className="ld-rail">
+          <Panel title="Exporter Health">
+            <div className="ld-donut-row">
+              <Donut slices={healthSlices} center={fmt(exporters.length)} sub="Exporters" label={`${healthy} healthy and ${degraded} degraded exporters`} />
+              <Legend slices={healthSlices} />
+            </div>
+          </Panel>
+          <Panel title="Top Exporters by Installs">
+            <ul className="ld-bars">
+              {top.map((e, i) => (
+                <li key={e.name}>
+                  <span className="ld-bar-label">{e.name}</span>
+                  <span className="ld-bar-track">
+                    <span className="ld-bar-fill" style={{ width: `${(e.hosts / topMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                  </span>
+                  <span className="ld-bar-value">{fmt(e.hosts)}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
         </div>
-
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Coverage</div>
-            <div className="sn-side-body">
-              {([
-                ["Linux hosts", 412, 414],
-                ["Windows hosts", 98, 98],
-                ["Network (SNMP)", 218, 260],
-                ["vSphere clusters", 3, 3],
-                ["Storage arrays", 16, 16],
-                ["UPS / Power", 22, 24],
-              ] as [string, number, number][]).map(([l, h, t]) => (
-                <Field key={l} label={l} value={
-                  <div className="row row-8">
-                    <div className="bar-track" style={{ width: 70 }}>
-                      <div className="bar-fill" style={{ width: (h/t*100) + "%", background: h === t ? "var(--success)" : "var(--warning)" }} />
-                    </div>
-                    <span className="mono" style={{ fontSize: 11 }}>{h}/{t}</span>
-                  </div>
-                } />
-              ))}
-            </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Quick Actions</div>
-            <div className="sn-side-body sn-actions-grid">
-              {[["fa-plus","Add Exporter"],["fa-rotate","Re-deploy All"],["fa-key","Tokens"],["fa-bell","Lag Alerts"],["fa-book","Docs"],["fa-circle-question","Help"]].map(([ic,l]) => (
-                <button key={l} className="sn-action"><i className={`fa-solid ${ic}`} /><span>{l}</span></button>
-              ))}
-            </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Recent Activity</div>
-            <div className="sn-side-body">
-              {[
-                ["vmware-exporter scrape lag","38s ago","warn"],
-                ["18 new node-exporter installs","12m ago","ok"],
-                ["snmp-exporter v0.25 deployed","2h ago","ok"],
-              ].map(([t, time, sev], i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title">{t}</div><div className="sn-related-meta">{time}</div></div>
-                  <span className={`sn-state-pill ${sev === "warn" ? "state-mitigating" : "svc-healthy"}`}><i className="fa-solid fa-circle" /> {sev}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
+
+      <section id="install-snippet" className="ld-card ld-panel" aria-labelledby="install-h">
+        <div className="ld-panel-head">
+          <h2 id="install-h">Install the agent · node-exporter on Linux</h2>
+        </div>
+        <pre className="ld-code">
+{`$ curl -sSL https://linkedeye.in/agent/install.sh \\
+    | sudo TENANT=<tenant> ROLE=linux-host sh
+  ✓ verified signature
+  ✓ installed node-exporter to /opt/linkedeye
+  ✓ registered with the LinkedEye collector
+$ systemctl status linkedeye-agent
+  ● active (running)`}
+        </pre>
+      </section>
     </div>
   );
 }

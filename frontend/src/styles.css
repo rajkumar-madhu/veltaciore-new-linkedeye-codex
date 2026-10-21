@@ -3024,3 +3024,25 @@ button.primary:not(.pay-cta) {
 .ld-major-title { font-size: 13px; color: var(--fg); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ld-table td.ld-ellipsis-sm { max-width: 180px; }
 .ld-table td.ld-ellipsis-xs { max-width: 140px; }
+/* ── LinkedEye monitoring screens (Exporters, Templates, Domains, checks) ── */
+a.ld-btn { text-decoration: none; }
+.ld-grid-6 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.ld-grid-6 .ld-stat { gap: 12px; padding: 14px; }
+.ld-grid-6 .ld-tile { width: 44px; height: 44px; font-size: 18px; }
+.ld-grid-6 .ld-stat-value { font-size: 22px; }
+.ld-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.ld-chip { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 104px; min-height: 76px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-raised); color: var(--fg); font: inherit; cursor: pointer; box-shadow: var(--shadow-sm); }
+.ld-chip i { font-size: 18px; color: var(--accent); }
+.ld-chip-label { font-size: 13px; color: var(--fg-muted); }
+.ld-chip-count { font-size: 15px; font-weight: 700; }
+.ld-chip:hover { border-color: var(--border-strong); }
+.ld-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ld-chip.active i, .ld-chip.active .ld-chip-label { color: #fff; }
+.ld-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ld-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ld-toolbar .ld-search { flex: 1 1 240px; }
+.ld-mono-name { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); }
+.ld-note { color: #8a4b00; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-theme="dark"] .ld-note, [data-theme="dark"] .ld-text-warn { color: #fcd34d; }
+.ld-text-warn { color: #8a4b00; font-weight: 600; }
+.ld-code { margin: 0; padding: 14px 16px; border-radius: var(--radius); background: #0b1220; color: #e2e8f0; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; overflow-x: auto; white-space: pre; }
