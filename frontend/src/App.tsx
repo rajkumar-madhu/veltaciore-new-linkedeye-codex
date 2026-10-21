@@ -74,6 +74,10 @@ const DeviceOnboardingWizard = React.lazy(() => import("@/screens/DeviceOnboardi
 const InfraVMsScreen = React.lazy(() => import("@/screens/InfraVMsScreen"));
 const InfraRackScreen = React.lazy(() => import("@/screens/InfraRackScreen"));
 const InfraExportersScreen = React.lazy(() => import("@/screens/InfraExportersScreen"));
+const MonitoringTemplatesScreen = React.lazy(() => import("@/screens/MonitoringTemplatesScreen"));
+const DomainsScreen = React.lazy(() => import("@/screens/DomainsScreen"));
+const UrlCheckerScreen = React.lazy(() => import("@/screens/UrlCheckerScreen"));
+const TelnetMonitoringScreen = React.lazy(() => import("@/screens/TelnetMonitoringScreen"));
 const APMScreen = React.lazy(() => import("@/screens/APMScreen"));
 const APMCatalogScreen = React.lazy(() => import("@/screens/APMCatalogScreen"));
 const AppDetailScreen = React.lazy(() => import("@/screens/AppDetailScreen"));
@@ -221,6 +225,10 @@ export default function App() {
             <Route path="/infra-vms" element={<InfraVMsScreen />} />
             <Route path="/infra-rack" element={<InfraRackScreen />} />
             <Route path="/infra-exporters" element={<InfraExportersScreen />} />
+            <Route path="/infra-templates" element={<MonitoringTemplatesScreen />} />
+            <Route path="/domains" element={<DomainsScreen />} />
+            <Route path="/url-checker" element={<UrlCheckerScreen />} />
+            <Route path="/telnet-monitoring" element={<TelnetMonitoringScreen />} />
             <Route path="/apm" element={<APMScreen />} />
             <Route path="/apm-catalog" element={<APMCatalogScreen />} />
             <Route path="/app-detail" element={<AppDetailScreen />} />
