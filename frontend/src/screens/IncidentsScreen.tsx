@@ -1,19 +1,76 @@
-// Incidents list — clean ServiceNow filter-chip + table layout.
-// Ported from screens/incidents.jsx.
+// Incidents — LinkedEye layout: tabs, priority summary cards, trend + status/SLA
+// donuts (Overview), a filter bar, and the incidents table beside a major
+// incidents / top categories rail. Live data from useIncidentRecords.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { useIncidentRecords, useUpdateIncident } from "@/api/hooks";
-import { useCanWrite } from "@/auth/auth";
+import { useAuth, useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
+import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, TrendChart, countBy, dailyTrend, fmt } from "@/components/ld";
+import type { Slice, Tone } from "@/components/ld";
 
-// State machine for the click-to-advance STATE pill.
+// State machine for the click-to-advance action.
 const NEXT_STATE: Record<string, string> = {
   New: "Assigned",
   Assigned: "In Progress",
   "In Progress": "Resolved",
   Resolved: "Closed",
 };
+
+const RESOLVED_STATES = new Set(["Resolved", "Closed", "Cancelled", "Canceled"]);
+
+const PRIORITY: Record<number, { label: string; tone: Tone; icon: string }> = {
+  1: { label: "Critical", tone: "crit", icon: "fa-fire" },
+  2: { label: "High", tone: "warn", icon: "fa-circle-exclamation" },
+  3: { label: "Medium", tone: "info", icon: "fa-triangle-exclamation" },
+  4: { label: "Low", tone: "ok", icon: "fa-circle-info" },
+};
+
+const STATE_TONE: Record<string, Tone> = {
+  New: "crit",
+  Assigned: "warn",
+  "In Progress": "warn",
+  "On Hold": "info",
+  Resolved: "ok",
+  Closed: "muted",
+};
+
+const STATE_COLOR: Record<string, string> = {
+  New: "#e5383b",
+  Assigned: "#f5a524",
+  "In Progress": "#2f6bff",
+  "On Hold": "#7c4dff",
+  Resolved: "#16a34a",
+  Closed: "#98a2b3",
+};
+
+const SLA_VIEW: Record<string, { label: string; tone: Tone; icon: string }> = {
+  breach: { label: "Breached", tone: "crit", icon: "fa-triangle-exclamation" },
+  warn: { label: "At risk", tone: "warn", icon: "fa-clock" },
+  met: { label: "Met", tone: "ok", icon: "fa-check" },
+  ok: { label: "On track", tone: "ok", icon: "fa-check" },
+};
+
+type TabId = "overview" | "all" | "mine" | "unassigned" | "major" | "breaches";
+const TABS: { id: TabId; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "all", label: "All Incidents" },
+  { id: "mine", label: "My Incidents" },
+  { id: "unassigned", label: "Unassigned" },
+  { id: "major", label: "Major Incidents" },
+  { id: "breaches", label: "SLA Breaches" },
+];
+
+const PAGE_SIZE = 10;
+
+/** "2026-04-24 06:32" → "Apr 24, 06:32"; unparseable values pass through. */
+function shortDate(v: string) {
+  const d = new Date(v.replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return v;
+  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ${v.slice(11, 16)}`;
+}
+const ANY = "";
 
 export interface SnIncident {
   id: string;
@@ -47,197 +104,356 @@ export default function IncidentsScreen() {
   const createdId = useUiStore((s) => s.params.createdIncidentId) as string | undefined;
   const search = useUiStore((s) => s.search);
   const setSearch = useUiStore((s) => s.setSearch);
+  const me = useAuth((s) => s.identity.name);
   const { data } = useIncidentRecords(search);
   const update = useUpdateIncident();
   const canWrite = useCanWrite();
-  const records = data ?? [];
+  const records = React.useMemo(() => data ?? [], [data]);
 
-  const advanceState = (e: React.MouseEvent, inc: SnIncident) => {
-    e.stopPropagation();
-    if (!canWrite) return;
+  const [tab, setTab] = React.useState<TabId>("overview");
+  const [status, setStatus] = React.useState(ANY);
+  const [priority, setPriority] = React.useState(ANY);
+  const [category, setCategory] = React.useState(ANY);
+  const [assignee, setAssignee] = React.useState(ANY);
+  const [query, setQuery] = React.useState(search);
+  const [page, setPage] = React.useState(0);
+
+  const advance = (inc: SnIncident) => {
     const next = NEXT_STATE[inc.state];
-    if (next) update.mutate({ id: inc.id, patch: { state: next } });
+    if (canWrite && next) update.mutate({ id: inc.id, patch: { state: next } });
   };
-  const [filters, setFilters] = React.useState([
-    { k: "State", op: "≠", v: "Closed" },
-    { k: "Priority", op: "=", v: "P1,P2,P3" },
-    { k: "Site", op: "=", v: "fs-prd-htspr1" },
-  ]);
-  const removeFilter = (i: number) => setFilters(filters.filter((_, idx) => idx !== i));
 
-  // Sort state — clicking a sortable header toggles asc/desc.
-  const [sort, setSort] = React.useState<{ key: "id" | "opened" | "pri" | "state"; dir: "asc" | "desc" }>({ key: "id", dir: "asc" });
-  const toggleSort = (key: "id" | "opened" | "pri" | "state") =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
-  const sortCaret = (key: string) =>
-    sort.key === key ? (
-      <i className={`fa-solid fa-caret-${sort.dir === "asc" ? "up" : "down"}`} style={{ marginLeft: 4, fontSize: 9 }} />
-    ) : (
-      <i className="fa-solid fa-sort" style={{ marginLeft: 4, fontSize: 9, opacity: 0.3 }} />
-    );
+  const reset = () => {
+    setStatus(ANY);
+    setPriority(ANY);
+    setCategory(ANY);
+    setAssignee(ANY);
+    setQuery("");
+    setSearch("");
+    setPage(0);
+  };
 
-  // Apply the active filter chips (client-side) then sort.
+  // Options come from the data so filters never offer empty choices.
+  const states = countBy(records, (r) => r.state).map(([s]) => s);
+  const categories = countBy(records, (r) => r.category || "Uncategorised");
+  const people = [...new Set(records.map((r) => r.assignee).filter((a): a is string => !!a))].sort();
+
   const visible = React.useMemo(() => {
-    const rows = records.filter((inc) => {
-      for (const f of filters) {
-        if (f.k === "State" && f.op === "≠" && inc.state === f.v) return false;
-        if (f.k === "Priority" && f.op === "=") {
-          const allowed = f.v.split(",").map((p) => Number(p.replace(/\D/g, "")));
-          if (allowed.length && !allowed.includes(inc.pri)) return false;
-        }
-        // "Site" has no backing field on records — it stays a display-only chip.
-      }
+    const rows = records.filter((r) => {
+      if (tab === "mine" && r.assignee !== me) return false;
+      if (tab === "unassigned" && r.assignee) return false;
+      if (tab === "major" && r.pri !== 1) return false;
+      if (tab === "breaches" && r.sla !== "breach") return false;
+      if (status && r.state !== status) return false;
+      if (priority && r.pri !== Number(priority)) return false;
+      if (category && (r.category || "Uncategorised") !== category) return false;
+      if (assignee === "__none" ? !!r.assignee : assignee && r.assignee !== assignee) return false;
       return true;
     });
-    const dir = sort.dir === "asc" ? 1 : -1;
-    const val = (inc: SnIncident): string | number =>
-      sort.key === "pri" ? inc.pri : sort.key === "state" ? inc.state : sort.key === "opened" ? inc.opened : inc.id;
-    return [...rows].sort((a, b) => {
-      const av = val(a), bv = val(b);
-      return av < bv ? -dir : av > bv ? dir : 0;
-    });
-  }, [records, filters, sort]);
+    return rows.sort((a, b) => b.opened.localeCompare(a.opened));
+  }, [records, tab, me, status, priority, category, assignee]);
 
-  const slaPill = (s: string) => {
-    if (s === "breach") return <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}><i className="fa-solid fa-triangle-exclamation" /> Breach</span>;
-    if (s === "warn") return <span style={{ color: "#d97706", fontWeight: 600, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}><i className="fa-solid fa-clock" /> Warning</span>;
-    if (s === "met") return <span style={{ color: "#059669", fontWeight: 600, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}><i className="fa-solid fa-check" /> Met</span>;
-    return <span style={{ color: "#059669", fontWeight: 600, fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}><i className="fa-solid fa-check" /> OK</span>;
-  };
+  React.useEffect(() => setPage(0), [tab, status, priority, category, assignee, search]);
+  const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const pageRows = visible.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
-  const statePill = (s: string) => {
-    const colors: Record<string, { dot: string; bg: string; fg: string }> = {
-      New: { dot: "#a855f7", bg: "#faf5ff", fg: "#6b21a8" },
-      Assigned: { dot: "#3b82f6", bg: "#eff6ff", fg: "#1d4ed8" },
-      "In Progress": { dot: "#10b981", bg: "#ecfdf5", fg: "#047857" },
-      Resolved: { dot: "#16a34a", bg: "#f0fdf4", fg: "#15803d" },
-    };
-    const c = colors[s] || colors.New;
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 500, color: c.fg, padding: "2px 8px", borderRadius: 12, background: c.bg }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: c.dot }} /> {s}
-      </span>
-    );
-  };
+  // Summary cards
+  const open = records.filter((r) => !RESOLVED_STATES.has(r.state));
+  const byPri = (p: number) => records.filter((r) => r.pri === p);
+  const unassignedOf = (rows: SnIncident[]) => rows.filter((r) => !r.assignee && !RESOLVED_STATES.has(r.state)).length;
 
-  const priBadge = (p: number) => {
-    const colors: Record<number, { bg: string; fg: string; brd: string }> = {
-      1: { bg: "#fef3c7", fg: "#92400e", brd: "#fcd34d" },
-      2: { bg: "#fef3c7", fg: "#92400e", brd: "#fcd34d" },
-      3: { bg: "#dbeafe", fg: "#1e40af", brd: "#93c5fd" },
-      4: { bg: "#f3f4f6", fg: "#374151", brd: "#d1d5db" },
-    };
-    const c = colors[p] || colors[3];
-    return (
-      <span style={{ display: "inline-block", width: 22, height: 22, lineHeight: "20px", textAlign: "center", border: `1px solid ${c.brd}`, background: c.bg, color: c.fg, fontSize: 12, fontWeight: 700, borderRadius: 3 }}>
-        {p}
-      </span>
-    );
-  };
+  // Overview charts
+  const days = React.useMemo(() => dailyTrend(records, RESOLVED_STATES), [records]);
+  const statusSlices: Slice[] = countBy(records, (r) => r.state).map(([label, value], i) => ({
+    label,
+    value,
+    color: STATE_COLOR[label] ?? PALETTE[i % PALETTE.length],
+  }));
+  const slaMet = records.filter((r) => r.sla === "met" || r.sla === "ok").length;
+  const slaBreached = records.filter((r) => r.sla === "breach").length;
+  const slaAtRisk = records.filter((r) => r.sla === "warn").length;
+  const slaTotal = slaMet + slaBreached + slaAtRisk;
+  const slaSlices: Slice[] = [
+    { label: "Met", value: slaMet, color: "#16a34a" },
+    { label: "Breached", value: slaBreached, color: "#e5383b" },
+    { label: "At Risk", value: slaAtRisk, color: "#f5a524" },
+  ];
+  const slaPct = slaTotal ? `${Math.round((slaMet / slaTotal) * 100)}%` : "—";
+
+  const major = records.filter((r) => r.pri === 1 && !RESOLVED_STATES.has(r.state)).slice(0, 5);
+  const topCat = categories[0]?.[1] ?? 1;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Incident Management</a><span className="sn-bc-sep">›</span>
-        <span>All Incidents</span>
-      </div>
-
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">INCIDENTS</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> {visible.filter((i) => i.pri === 1).length} Critical</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {visible.filter((i) => i.state !== "Resolved").length} Active</span>
+    <div className="ld-dash">
+      <div className="ld-head">
+        <div>
+          <h1>Incidents</h1>
+          <p>View, manage and resolve incidents across your IT infrastructure and services · {tenant.name}</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>All Incidents · {tenant.name}</h1>
-            <div className="sn-form-sub">{visible.length} records · auto-refresh 30s · last sync 2s ago</div>
-          </div>
-          <div className="sn-form-actions">
-            <ReadOnlyBadge />
-            <button className="sn-btn"><i className="fa-solid fa-file-export" /> Export</button>
-            {canWrite && (
-              <button className="sn-btn primary" onClick={() => setRoute("incident-new")}><i className="fa-solid fa-plus" /> New Incident</button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="card" style={{ margin: "16px 24px 0", background: "white", border: "1px solid #e5e8eb", borderRadius: 6, overflow: "hidden" }}>
-        {/* Active filters bar */}
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #e5e8eb", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", background: "white" }}>
-          <span style={{ fontSize: 11.5, color: "#6b7785", fontWeight: 600 }}>Active filters:</span>
-          {search && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 16, fontSize: 12, color: "#1d4ed8", fontWeight: 600 }}>
-              <i className="fa-solid fa-magnifying-glass" style={{ fontSize: 10 }} /> “{search}”
-              <i className="fa-solid fa-xmark" onClick={() => setSearch("")} style={{ cursor: "pointer", fontSize: 10, opacity: 0.7 }} title="Clear search" />
-            </span>
+        <div className="ld-head-actions">
+          <ReadOnlyBadge />
+          {canWrite && (
+            <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("incident-new")}>
+              <i className="fa-solid fa-plus" aria-hidden="true" /> New Incident
+            </button>
           )}
-          {filters.map((f, i) => (
-            <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 12px", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 16, fontSize: 12, color: "#047857", fontWeight: 500 }}>
-              {f.k} {f.op} {f.v}
-              <i className="fa-solid fa-xmark" onClick={() => removeFilter(i)} style={{ cursor: "pointer", fontSize: 10, opacity: 0.7 }} />
-            </span>
-          ))}
-          <span style={{ flex: 1 }} />
-          <button className="sn-btn" style={{ padding: "5px 12px" }}><i className="fa-solid fa-filter" /> Add Filter</button>
         </div>
+      </div>
 
-        {/* Table */}
-        <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-          <thead>
-            <tr>
-              <th style={{ width: 36 }}><input type="checkbox" /></th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("id")}>NUMBER {sortCaret("id")}</th>
-              <th style={{ cursor: "pointer" }} onClick={() => toggleSort("opened")}>OPENED {sortCaret("opened")}</th>
-              <th>SHORT DESCRIPTION</th>
-              <th style={{ width: 130 }}>CALLER</th>
-              <th style={{ width: 60, textAlign: "center", cursor: "pointer" }} onClick={() => toggleSort("pri")}>PRI {sortCaret("pri")}</th>
-              <th style={{ width: 130, cursor: "pointer" }} onClick={() => toggleSort("state")}>STATE {sortCaret("state")}</th>
-              <th style={{ width: 110 }}>CATEGORY</th>
-              <th style={{ width: 180 }}>ASSIGNMENT GROUP</th>
-              <th style={{ width: 130 }}>ASSIGNED TO</th>
-              <th style={{ width: 100 }}>SLA</th>
-              <th style={{ width: 80 }}>UPDATED</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((inc) => (
-              <tr key={inc.id} onClick={() => setRoute("incident-detail")} style={{ cursor: "pointer", background: inc.id === createdId ? "#ecfdf5" : inc.critical ? "#fef2f2" : undefined, boxShadow: inc.id === createdId ? "inset 3px 0 0 var(--success)" : undefined }}>
-                <td onClick={(e) => e.stopPropagation()}><input type="checkbox" /></td>
-                <td><a className="sn-link mono" style={{ fontWeight: 700, color: inc.critical ? "#dc2626" : "#016" }}>{inc.id}</a></td>
-                <td className="mono" style={{ fontSize: 11.5, color: "#475467" }}>{inc.opened}</td>
-                <td style={{ color: "#0f1c3f" }}>{inc.title}</td>
-                <td style={{ color: "#475467" }}>{inc.caller}</td>
-                <td style={{ textAlign: "center" }}>{priBadge(inc.pri)}</td>
-                <td
-                  onClick={(e) => advanceState(e, inc)}
-                  title={!canWrite ? "Read-only" : NEXT_STATE[inc.state] ? `Click to advance → ${NEXT_STATE[inc.state]}` : "Final state"}
-                  style={{ cursor: canWrite && NEXT_STATE[inc.state] ? "pointer" : "default" }}
-                >
-                  {statePill(inc.state)}
-                </td>
-                <td style={{ color: "#475467" }}>{inc.category}</td>
-                <td style={{ color: "#475467", fontSize: 11.5 }}>{inc.group}</td>
-                <td style={{ color: inc.assignee ? "#0f1c3f" : "#9ca3af" }}>{inc.assignee || "—"}</td>
-                <td>{slaPill(inc.sla)}</td>
-                <td className="text-mute" style={{ fontSize: 11 }}>{inc.updated}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="ld-tabs" role="tablist" aria-label="Incident views">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`ld-tab${tab === t.id ? " active" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Footer */}
-        <div style={{ padding: "12px 20px", borderTop: "1px solid #e5e8eb", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fafbfc" }}>
-          <span style={{ fontSize: 11.5, color: "#6b7785" }}>
-            Showing 1–{visible.length} of {visible.length} · Rows per page: 20
+      <div className="ld-grid ld-grid-5">
+        <StatCard
+          icon="fa-triangle-exclamation"
+          tone="crit"
+          label="Total Incidents"
+          value={fmt(records.length)}
+          note={`${fmt(open.length)} open, ${fmt(records.length - open.length)} resolved`}
+          onClick={() => { reset(); setTab("all"); }}
+        />
+        {[1, 2, 3, 4].map((p) => (
+          <StatCard
+            key={p}
+            icon={PRIORITY[p].icon}
+            tone={PRIORITY[p].tone}
+            label={PRIORITY[p].label}
+            value={fmt(byPri(p).length)}
+            note={`${unassignedOf(byPri(p))} unassigned`}
+            onClick={() => { setTab("all"); setPriority(String(p)); }}
+          />
+        ))}
+      </div>
+
+      {tab === "overview" && (
+        <div className="ld-grid ld-grid-3">
+          <Panel title="Incident Trend">
+            <div className="ld-chart-legend">
+              <span><span className="ld-dot" style={{ background: "#2f6bff" }} />Opened</span>
+              <span><span className="ld-dot" style={{ background: "#16a34a" }} />Since resolved</span>
+            </div>
+            {records.length ? <TrendChart days={days} /> : <Empty>No incidents yet.</Empty>}
+          </Panel>
+          <Panel title="Incidents by Status">
+            {records.length ? (
+              <div className="ld-donut-row">
+                <Donut slices={statusSlices} center={fmt(records.length)} sub="Total" label={`${records.length} incidents by status`} />
+                <Legend slices={statusSlices} />
+              </div>
+            ) : (
+              <Empty>No incidents yet.</Empty>
+            )}
+          </Panel>
+          <Panel title="SLA Compliance">
+            {slaTotal ? (
+              <div className="ld-donut-row">
+                <div className="ld-donut-col">
+                  <Donut slices={slaSlices} center={slaPct} label={`${slaPct} of incident SLAs met`} />
+                  <span className="ld-donut-caption">SLA Met</span>
+                </div>
+                <Legend slices={slaSlices} />
+              </div>
+            ) : (
+              <Empty>No SLA data yet.</Empty>
+            )}
+          </Panel>
+        </div>
+      )}
+
+      <form
+        className="ld-card ld-filters"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setSearch(query.trim());
+        }}
+        onReset={(e) => {
+          e.preventDefault();
+          reset();
+        }}
+      >
+        <span className="ld-filter-icon" aria-hidden="true"><i className="fa-solid fa-filter" /></span>
+        <div className="ld-field">
+          <label htmlFor="inc-f-status">Status</label>
+          <select id="inc-f-status" className="ld-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value={ANY}>All Statuses</option>
+            {states.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="ld-field">
+          <label htmlFor="inc-f-priority">Priority</label>
+          <select id="inc-f-priority" className="ld-select" value={priority} onChange={(e) => setPriority(e.target.value)}>
+            <option value={ANY}>All Priorities</option>
+            {[1, 2, 3, 4].map((p) => <option key={p} value={p}>{PRIORITY[p].label}</option>)}
+          </select>
+        </div>
+        <div className="ld-field">
+          <label htmlFor="inc-f-category">Category</label>
+          <select id="inc-f-category" className="ld-select" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value={ANY}>All Categories</option>
+            {categories.map(([c]) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="ld-field">
+          <label htmlFor="inc-f-assignee">Assigned To</label>
+          <select id="inc-f-assignee" className="ld-select" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+            <option value={ANY}>All Users</option>
+            <option value="__none">Unassigned</option>
+            {people.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div className="ld-field ld-field-grow">
+          <label htmlFor="inc-f-search" className="sr-only">Search incidents</label>
+          <span className="ld-search">
+            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+            <input id="inc-f-search" type="search" placeholder="Search incidents…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </span>
-          <div style={{ display: "flex", gap: 4 }}>
-            <button className="sn-btn" style={{ padding: "3px 10px", fontSize: 11 }}><i className="fa-solid fa-chevron-left" /></button>
-            <button className="sn-btn primary" style={{ padding: "3px 12px", fontSize: 11 }}>1</button>
-            <button className="sn-btn" style={{ padding: "3px 10px", fontSize: 11 }}><i className="fa-solid fa-chevron-right" /></button>
+        </div>
+        <button type="submit" className="ld-btn ld-btn-primary">Search</button>
+        <button type="reset" className="ld-btn">Reset</button>
+      </form>
+
+      <div className="ld-split">
+        <section className="ld-card ld-panel" aria-labelledby="inc-list-h">
+          <div className="ld-panel-head">
+            <h2 id="inc-list-h">{tab === "overview" ? "Recent Incidents" : TABS.find((t) => t.id === tab)?.label}</h2>
+            <span className="ld-muted ld-small">{fmt(visible.length)} records · auto-refresh 30s</span>
           </div>
+          {pageRows.length ? (
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Title</th>
+                    <th scope="col">Priority</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Assigned To</th>
+                    <th scope="col">Opened</th>
+                    <th scope="col">SLA</th>
+                    <th scope="col"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((r) => {
+                    const p = PRIORITY[r.pri] ?? { label: `P${r.pri}`, tone: "muted" as Tone, icon: "" };
+                    const sla = SLA_VIEW[r.sla] ?? { label: r.sla || "—", tone: "muted" as Tone, icon: "fa-minus" };
+                    const next = NEXT_STATE[r.state];
+                    return (
+                      <tr key={r.id} className={r.id === createdId ? "ld-row-new" : undefined}>
+                        <td>
+                          <button type="button" className="ld-link ld-mono" onClick={() => setRoute("incident-detail", { id: r.id })}>
+                            {r.id}
+                          </button>
+                        </td>
+                        <td className="ld-ellipsis ld-ellipsis-sm" title={`${r.title} · ${r.category} · ${r.group}`}>{r.title}</td>
+                        <td><Pill tone={p.tone}>{p.label}</Pill></td>
+                        <td><Pill tone={STATE_TONE[r.state] ?? "muted"}>{r.state}</Pill></td>
+                        <td className={r.assignee ? undefined : "ld-muted"}>{r.assignee || "Unassigned"}</td>
+                        <td className="ld-muted">{shortDate(r.opened)}</td>
+                        <td>
+                          <span className={`ld-sla ld-sla-${sla.tone}`}>
+                            <i className={`fa-solid ${sla.icon}`} aria-hidden="true" /> {sla.label}
+                          </span>
+                        </td>
+                        <td>
+                          {canWrite && next && (
+                            <button
+                              type="button"
+                              className="ld-btn ld-btn-sm"
+                              onClick={() => advance(r)}
+                              disabled={update.isPending}
+                              title={`Move ${r.id} to ${next}`}
+                            >
+                              {next} <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>{records.length ? "No incidents match these filters." : "No incidents yet."}</Empty>
+          )}
+          {visible.length > PAGE_SIZE && (
+            <nav className="ld-pager" aria-label="Pagination">
+              <span className="ld-muted ld-small">
+                Showing {page * PAGE_SIZE + 1}–{Math.min(visible.length, (page + 1) * PAGE_SIZE)} of {fmt(visible.length)}
+              </span>
+              <div className="ld-pager-btns">
+                <button type="button" className="ld-btn ld-btn-sm" onClick={() => setPage(page - 1)} disabled={page === 0} aria-label="Previous page">
+                  <i className="fa-solid fa-chevron-left" aria-hidden="true" />
+                </button>
+                {Array.from({ length: pages }, (_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`ld-btn ld-btn-sm${i === page ? " ld-btn-primary" : ""}`}
+                    aria-current={i === page ? "page" : undefined}
+                    onClick={() => setPage(i)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button type="button" className="ld-btn ld-btn-sm" onClick={() => setPage(page + 1)} disabled={page >= pages - 1} aria-label="Next page">
+                  <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+                </button>
+              </div>
+            </nav>
+          )}
+        </section>
+
+        <div className="ld-rail">
+          <Panel title="Major Incidents" action={{ label: "View All", onClick: () => setTab("major") }}>
+            {major.length ? (
+              <ul className="ld-major">
+                {major.map((r) => (
+                  <li key={r.id}>
+                    <span className="ld-tile ld-tile-sm ld-crit" aria-hidden="true"><i className="fa-solid fa-fire" /></span>
+                    <span className="ld-major-body">
+                      <button type="button" className="ld-link ld-mono" onClick={() => setRoute("incident-detail", { id: r.id })}>{r.id}</button>
+                      <span className="ld-major-title" title={r.title}>{r.title}</span>
+                      <span className="ld-muted ld-small">{r.updated} · {r.group}</span>
+                    </span>
+                    <Pill tone={STATE_TONE[r.state] ?? "muted"}>{r.state}</Pill>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>No open critical incidents.</Empty>
+            )}
+          </Panel>
+          <Panel title="Top Incident Categories">
+            {categories.length ? (
+              <ul className="ld-bars">
+                {categories.slice(0, 7).map(([label, value], i) => (
+                  <li key={label}>
+                    <span className="ld-bar-label">{label}</span>
+                    <span className="ld-bar-track">
+                      <span className="ld-bar-fill" style={{ width: `${(value / topCat) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                    </span>
+                    <span className="ld-bar-value">{value}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>No incidents yet.</Empty>
+            )}
+          </Panel>
         </div>
       </div>
     </div>
