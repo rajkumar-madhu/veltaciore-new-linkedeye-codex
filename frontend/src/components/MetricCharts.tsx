@@ -1,0 +1,289 @@
+// Real metric charts for device and VM pages: a time-range picker (presets +
+// custom start/end) and one chart per metric group, drawn from the series the
+// API reads from Prometheus. When Prometheus is not connected the panel says
+// so instead of drawing placeholder lines.
+import React from "react";
+import { useDeviceMetrics, useVmMetrics, type MetricSeries, type MetricsResponse } from "@/api/hooks";
+import { MAX_RANGE_DAYS, PRESETS, useTimeRange } from "@/store/timeRange";
+import { Empty, Panel } from "@/components/ld";
+
+const COLORS = ["#2f6bff", "#16a34a", "#f5a524", "#7c4dff", "#e5383b", "#0ea5e9"];
+
+const GROUP_TITLE: Record<string, string> = {
+  cpu: "CPU Utilization",
+  memory: "Memory Usage",
+  disk: "Disk Usage",
+  disk_io: "Disk I/O",
+  network: "Network Traffic",
+  load: "Load",
+  errors: "Interface Errors",
+  ports: "Ports Up",
+  virtualization: "Virtualization",
+  state: "Power State",
+  uptime: "Uptime",
+};
+const GROUP_ORDER = ["cpu", "memory", "disk", "disk_io", "network", "virtualization", "load", "errors", "ports", "state", "uptime"];
+
+// ── helpers ─────────────────────────────────────────────────────────────────
+const toLocalInput = (ms: number) => {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+function fmtValue(v: number, unit: string) {
+  const n = Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2);
+  if (unit === "%") return `${n}%`;
+  if (unit === "count") return n;
+  return `${n} ${unit}`;
+}
+
+/** Compact axis label: 1200 → "1.2k"; percent keeps its sign. */
+function fmtAxis(v: number, unit: string) {
+  const n = Math.abs(v) >= 1e6 ? `${+(v / 1e6).toFixed(1)}M` : Math.abs(v) >= 1e3 ? `${+(v / 1e3).toFixed(1)}k` : `${+v.toFixed(v < 10 ? 1 : 0)}`;
+  return unit === "%" ? `${n}%` : n;
+}
+
+function fmtTick(ts: number, spanSec: number) {
+  const d = new Date(ts * 1000);
+  if (spanSec <= 2 * 86400) return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+}
+
+function niceMax(v: number, unit: string) {
+  if (unit === "%") return v > 80 ? 100 : Math.max(10, Math.ceil(v / 10) * 10 + 10);
+  if (v <= 0) return 1;
+  const mag = 10 ** Math.floor(Math.log10(v));
+  return Math.ceil((v * 1.15) / mag) * mag;
+}
+
+// ── time range picker ───────────────────────────────────────────────────────
+export function TimeRangePicker() {
+  const { preset, from, to, setPreset, setCustom } = useTimeRange();
+  const [open, setOpen] = React.useState(false);
+  const now = Date.now();
+  const [start, setStart] = React.useState(toLocalInput(from ?? now - 86400_000));
+  const [end, setEnd] = React.useState(toLocalInput(to ?? now));
+  const [error, setError] = React.useState("");
+  const id = React.useId();
+
+  const apply = (e: React.FormEvent) => {
+    e.preventDefault();
+    const s = new Date(start).getTime();
+    const t = new Date(end).getTime();
+    if (Number.isNaN(s) || Number.isNaN(t)) return setError("Enter both a start and an end.");
+    if (s >= t) return setError("Start must be before end.");
+    if (t - s > MAX_RANGE_DAYS * 86400_000) return setError(`Range is limited to ${MAX_RANGE_DAYS} days.`);
+    if (t > Date.now() + 60_000) return setError("End can't be in the future.");
+    setError("");
+    setCustom(s, t);
+    setOpen(false);
+  };
+
+  const label =
+    preset === "custom" && from != null && to != null
+      ? `${new Date(from).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} – ${new Date(to).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`
+      : PRESETS.find((p) => p.id === preset)?.label;
+
+  return (
+    <div className="ld-range">
+      <div className="ld-range-presets" role="group" aria-label="Time range">
+        {PRESETS.map((p) => (
+          <button key={p.id} type="button" className={`ld-btn ld-btn-sm${preset === p.id ? " ld-btn-primary" : ""}`} aria-pressed={preset === p.id} onClick={() => { setPreset(p.id); setOpen(false); }}>
+            {p.id}
+          </button>
+        ))}
+        <button type="button" className={`ld-btn ld-btn-sm${preset === "custom" ? " ld-btn-primary" : ""}`} aria-expanded={open} aria-controls={`${id}-custom`} onClick={() => setOpen(!open)}>
+          <i className="fa-solid fa-calendar-days" aria-hidden="true" /> Custom
+        </button>
+      </div>
+      <span className="ld-muted ld-small" aria-live="polite">
+        {label}
+        {preset !== "custom" && <span className="ld-live"><span className="ld-pill-dot" /> Live · refresh 30s</span>}
+      </span>
+      {open && (
+        <form id={`${id}-custom`} className="ld-card ld-range-custom" onSubmit={apply}>
+          <div className="ld-form-field">
+            <label htmlFor={`${id}-start`}>Start</label>
+            <input id={`${id}-start`} className="ld-input" type="datetime-local" value={start} max={end} onChange={(e) => setStart(e.target.value)} required />
+          </div>
+          <div className="ld-form-field">
+            <label htmlFor={`${id}-end`}>End</label>
+            <input id={`${id}-end`} className="ld-input" type="datetime-local" value={end} min={start} max={toLocalInput(Date.now())} onChange={(e) => setEnd(e.target.value)} required />
+          </div>
+          <button type="submit" className="ld-btn ld-btn-primary">Apply</button>
+          {error && <p className="ld-text-crit ld-small" role="alert">{error}</p>}
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ── chart ───────────────────────────────────────────────────────────────────
+function TimeChart({ series, startSec, endSec }: { series: MetricSeries[]; startSec: number; endSec: number }) {
+  const W = 560, H = 210, L = 44, R = 10, T = 20, B = 26;
+  const unit = series[0]?.unit ?? "";
+  const all = series.flatMap((s) => s.points.map((p) => p[1]));
+  const yMax = niceMax(all.length ? Math.max(...all) : 0, unit);
+  const span = Math.max(1, endSec - startSec);
+  const x = (t: number) => L + ((t - startSec) / span) * (W - L - R);
+  const y = (v: number) => H - B - (v / yMax) * (H - T - B);
+  const [hover, setHover] = React.useState<number | null>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
+
+  const onMove = (e: React.MouseEvent) => {
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const t = startSec + ((((e.clientX - r.left) / r.width) * W - L) / (W - L - R)) * span;
+    setHover(Math.min(endSec, Math.max(startSec, t)));
+  };
+  const nearest = (s: MetricSeries, t: number) =>
+    s.points.reduce<[number, number] | null>((best, p) => (!best || Math.abs(p[0] - t) < Math.abs(best[0] - t) ? p : best), null);
+
+  const ticks = Array.from({ length: 5 }, (_, i) => startSec + (span * i) / 4);
+  const summary = series.map((s) => {
+    const vals = s.points.map((p) => p[1]);
+    return {
+      s,
+      last: vals.length ? vals[vals.length - 1] : null,
+      avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null,
+      max: vals.length ? Math.max(...vals) : null,
+    };
+  });
+
+  return (
+    <div>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        className="ld-trend"
+        role="img"
+        aria-label={summary.map(({ s, last }) => `${s.label} ${last == null ? "no data" : fmtValue(last, s.unit)}`).join(", ")}
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <g key={f}>
+            <line x1={L} x2={W - R} y1={y(yMax * f)} y2={y(yMax * f)} className="ld-gridline" />
+            <text x={L - 6} y={y(yMax * f) + 4} textAnchor="end" className="ld-axis">{fmtAxis(yMax * f, unit)}</text>
+          </g>
+        ))}
+        {unit !== "%" && unit !== "count" && <text x={4} y={11} className="ld-axis">{unit}</text>}
+        {ticks.map((t, i) => (
+          <text key={t} x={x(t)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} className="ld-axis">{fmtTick(t, span)}</text>
+        ))}
+        {series.map((s, i) => (
+          <polyline
+            key={s.key}
+            points={s.points.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}
+            fill="none"
+            stroke={COLORS[i % COLORS.length]}
+            strokeWidth={1.8}
+            strokeLinejoin="round"
+          />
+        ))}
+        {hover != null && (
+          <g>
+            <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="var(--border-strong)" strokeDasharray="3 3" />
+            {series.map((s, i) => {
+              const p = nearest(s, hover);
+              return p ? <circle key={s.key} cx={x(p[0])} cy={y(p[1])} r={3} fill={COLORS[i % COLORS.length]} /> : null;
+            })}
+          </g>
+        )}
+      </svg>
+      {hover != null && (
+        <div className="ld-chart-tip ld-small">
+          <b>{new Date(hover * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</b>
+          {series.map((s, i) => {
+            const p = nearest(s, hover);
+            return (
+              <span key={s.key}><span className="ld-dot" style={{ background: COLORS[i % COLORS.length] }} /> {s.label} {p ? fmtValue(p[1], s.unit) : "—"}</span>
+            );
+          })}
+        </div>
+      )}
+      <table className="ld-legend-table">
+        <thead><tr><th scope="col">Series</th><th scope="col">Last</th><th scope="col">Avg</th><th scope="col">Max</th></tr></thead>
+        <tbody>
+          {summary.map(({ s, last, avg, max }, i) => (
+            <tr key={s.key}>
+              <td><span className="ld-dot" style={{ background: COLORS[i % COLORS.length] }} /> {s.label}</td>
+              <td>{last == null ? "—" : fmtValue(last, s.unit)}</td>
+              <td>{avg == null ? "—" : fmtValue(avg, s.unit)}</td>
+              <td>{max == null ? "—" : fmtValue(max, s.unit)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MetricsBody({ data, isLoading, isError }: { data?: MetricsResponse; isLoading: boolean; isError: boolean }) {
+  if (isLoading) return <div className="ld-card"><Empty>Loading metrics…</Empty></div>;
+  if (isError || !data) {
+    return <div className="ld-card"><Empty>Metrics service is not reachable from this browser.</Empty></div>;
+  }
+  if (data.source !== "prometheus") {
+    return (
+      <div className="ld-card ld-metrics-off" role="status">
+        <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+        <div>
+          <b>{data.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
+          <p className="ld-muted ld-small">{data.message}</p>
+          {data.source === "unavailable" && (
+            <p className="ld-muted ld-small">Set PROMETHEUS_URL on the API to your Prometheus (for example fs-le-dev-prometheus) to see live graphs.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  const startSec = Date.parse(data.start) / 1000;
+  const endSec = Date.parse(data.end) / 1000;
+  const groups = [...new Set(data.series.map((s) => s.group))].sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
+  return (
+    <div className="ld-grid ld-grid-2">
+      {groups.map((g) => {
+        const series = data.series.filter((s) => s.group === g);
+        const hasData = series.some((s) => s.points.length);
+        return (
+          <Panel key={g} title={GROUP_TITLE[g] ?? g}>
+            {hasData ? <TimeChart series={series} startSec={startSec} endSec={endSec} /> : <Empty>No samples in this range.</Empty>}
+          </Panel>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Live metrics section for a device page (server, switch, any InfraDevice). */
+export function DeviceMetrics({ deviceId, title = "Performance" }: { deviceId: string; title?: string }) {
+  const { preset, from, to } = useTimeRange();
+  const q = useDeviceMetrics(deviceId, preset, from, to);
+  return (
+    <section className="ld-metrics" aria-label={`${title} metrics`}>
+      <div className="ld-metrics-head">
+        <h2>{title}</h2>
+        <TimeRangePicker />
+      </div>
+      <MetricsBody data={q.data} isLoading={q.isLoading} isError={q.isError} />
+    </section>
+  );
+}
+
+/** Live metrics section for a VM page. */
+export function VmMetrics({ vmId, title = "Performance" }: { vmId: string; title?: string }) {
+  const { preset, from, to } = useTimeRange();
+  const q = useVmMetrics(vmId, preset, from, to);
+  return (
+    <section className="ld-metrics" aria-label={`${title} metrics`}>
+      <div className="ld-metrics-head">
+        <h2>{title}</h2>
+        <TimeRangePicker />
+      </div>
+      <MetricsBody data={q.data} isLoading={q.isLoading} isError={q.isError} />
+    </section>
+  );
+}
+

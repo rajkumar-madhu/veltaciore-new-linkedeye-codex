@@ -6,6 +6,7 @@ import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { useDevice, useInfraAlerts } from "@/api/hooks";
 import { Panel, Pill } from "@/components/ld";
+import { DeviceMetrics } from "@/components/MetricCharts";
 import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import {
@@ -328,19 +329,7 @@ export default function SwitchDetailScreen() {
             </div>
           )}
 
-          {(tab === "Overview" || tab === "Performance") && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              <Card title="CPU & Memory" right={<span style={{ fontSize: 10.5, color: "#6b7785" }}><span style={{ color: "#2563eb" }}>●</span> CPU <span style={{ color: "#16a34a" }}>●</span> Memory</span>} pad={14}>
-                <LineChart series={[MEM, CPU]} colors={["#16a34a", "#2563eb"]} yTicks={["100%", "75%", "50%", "25%", "0%"]} />
-              </Card>
-              <Card title="Throughput (bps)" right={<span style={{ fontSize: 10.5 }}><b className="mono" style={{ color: "#16a34a" }}>8.8G in</b> <b className="mono" style={{ color: "#2563eb" }}>7.2G out</b></span>} pad={14}>
-                <LineChart series={[THR_IN, THR_OUT]} colors={["#16a34a", "#2563eb"]} yTicks={["10G", "7.5G", "5G", "2.5G", "0"]} />
-              </Card>
-              <Card title="Broadcast Storms (%)" right={<b className="mono" style={{ fontSize: 12.5, color: "#f59e0b" }}>peak 1.9%</b>} pad={14}>
-                <LineChart series={[BCAST]} colors={["#f59e0b"]} yTicks={["4%", "3%", "2%", "1%", "0"]} />
-              </Card>
-            </div>
-          )}
+          {(tab === "Overview" || tab === "Performance") && <DeviceMetrics deviceId={d.id} title="Performance" />}
 
           {tab === "Overview" && (
             <div className="ld-grid ld-grid-2">

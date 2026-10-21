@@ -10,6 +10,7 @@ import { useUiStore } from "@/store/ui";
 import { useDevice, useInfraAlerts, useVms } from "@/api/hooks";
 import { DEVICES, VMS } from "@/data/infra";
 import { Empty, Panel, Pill, StatCard } from "@/components/ld";
+import { VmMetrics } from "@/components/MetricCharts";
 import type { Tone } from "@/components/ld";
 
 const STATE_TONE: Record<string, Tone> = { running: "ok", stopped: "muted", suspended: "warn", error: "crit" };
@@ -111,7 +112,7 @@ export default function VmDetailScreen() {
             {host && <UsageBar label={`Host CPU (${host.id})`} value={Math.round(host.cpu)} />}
             {host && <UsageBar label={`Host memory`} value={Math.round(host.mem)} />}
           </ul>
-          <p className="ld-muted ld-small">Current values. Usage history appears once VM metrics are collected from vCenter.</p>
+          <p className="ld-muted ld-small">Current values from the inventory. History over any time range is in Performance below.</p>
         </Panel>
 
         <Panel title="Host" action={host ? { label: "Open host", onClick: openHost } : undefined}>
@@ -131,6 +132,8 @@ export default function VmDetailScreen() {
           )}
         </Panel>
       </div>
+
+      <VmMetrics vmId={vm.id} />
 
       <div className="ld-grid ld-grid-2">
         <Panel title={`Other VMs on ${vm.host}`}>

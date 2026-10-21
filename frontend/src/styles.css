@@ -3120,3 +3120,22 @@ a.ld-btn { text-decoration: none; }
 .ld-head h1.ld-entity-title { font-size: 26px; }
 .ld-entity-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
 .ld-entity-meta span + span::before { content: "|"; margin-right: 14px; color: var(--border-strong); }
+/* ── Metric charts + time range ── */
+.ld-metrics { display: flex; flex-direction: column; gap: 12px; }
+.ld-metrics-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ld-metrics-head h2 { font-size: 18px; font-weight: 700; color: var(--fg); }
+.ld-range { position: relative; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.ld-range-presets { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.ld-live { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; color: #137a3f; }
+.ld-range-custom { position: absolute; top: 100%; right: 0; z-index: 20; margin-top: 6px; padding: 12px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; box-shadow: var(--shadow-lg); width: min(560px, calc(100vw - 32px)); }
+.ld-range-custom .ld-form-field { flex: 1 1 180px; }
+.ld-range-custom p { flex-basis: 100%; }
+.ld-legend-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+.ld-legend-table th { text-align: left; font-weight: 600; color: var(--fg-muted); padding: 4px 6px; }
+.ld-legend-table td { padding: 4px 6px; color: var(--fg); border-top: 1px solid var(--border-subtle); white-space: nowrap; }
+.ld-legend-table td:first-child { display: flex; align-items: center; gap: 6px; }
+.ld-chart-tip { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 6px 8px; margin-top: 4px; background: var(--bg-muted); border-radius: var(--radius-sm); color: var(--fg); }
+.ld-chart-tip span { display: inline-flex; align-items: center; gap: 5px; }
+.ld-metrics-off { display: flex; align-items: flex-start; gap: 14px; padding: 18px; }
+.ld-metrics-off i { font-size: 22px; color: #8a4b00; margin-top: 2px; }
+.ld-metrics-off b { color: var(--fg); }

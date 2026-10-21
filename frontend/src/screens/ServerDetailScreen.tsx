@@ -6,6 +6,7 @@ import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { useDevice, useInfraAlerts } from "@/api/hooks";
 import { Panel, Pill } from "@/components/ld";
+import { DeviceMetrics } from "@/components/MetricCharts";
 import { DEVICES, VMS } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import {
@@ -282,19 +283,7 @@ export default function ServerDetailScreen() {
             </div>
           )}
 
-          {(tab === "Overview" || tab === "Performance") && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              <Card title="CPU & Memory" right={<span style={{ fontSize: 10.5, color: "#6b7785" }}><span style={{ color: "#2563eb" }}>●</span> CPU <span style={{ color: "#16a34a" }}>●</span> Memory</span>} pad={14}>
-                <LineChart series={[MEM, CPU]} colors={["#16a34a", "#2563eb"]} yTicks={["100%", "75%", "50%", "25%", "0%"]} />
-              </Card>
-              <Card title="Disk I/O (MB/s)" right={<span style={{ fontSize: 10.5 }}><b className="mono" style={{ color: "#16a34a" }}>R 412</b> <b className="mono" style={{ color: "#7c3aed" }}>W 262</b></span>} pad={14}>
-                <LineChart series={[IO_R, IO_W]} colors={["#16a34a", "#7c3aed"]} yTicks={["500", "375", "250", "125", "0"]} />
-              </Card>
-              <Card title="Network (Gbps)" right={<span style={{ fontSize: 10.5 }}><b className="mono" style={{ color: "#16a34a" }}>RX 4.21</b> <b className="mono" style={{ color: "#2563eb" }}>TX 3.86</b></span>} pad={14}>
-                <LineChart series={[NET_RX, NET_TX]} colors={["#16a34a", "#2563eb"]} yTicks={["5G", "3.75G", "2.5G", "1.25G", "0"]} />
-              </Card>
-            </div>
-          )}
+          {(tab === "Overview" || tab === "Performance") && <DeviceMetrics deviceId={d.id} title="Performance" />}
 
           {(tab === "Overview" || tab === "Storage") && mountTable}
           {(tab === "Overview" || tab === "Network") && nicTable}

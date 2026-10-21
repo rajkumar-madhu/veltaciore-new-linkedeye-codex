@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
 import { useUiStore } from "@/store/ui";
+import { PRESETS } from "@/store/timeRange";
 import type {
   Tenant,
   Site,
@@ -462,4 +463,58 @@ export function useBrokers() {
     queryKey: ["brokers"],
     queryFn: () => apiGet<BrokerCtcl[]>("/trading/ctcl/brokers/"),
   });
+}
+
+// ── Device / VM metrics (Prometheus via the API) ───────────────────────────
+
+export interface MetricSeries {
+  key: string;
+  label: string;
+  unit: string;
+  group: string;
+  /** [unix seconds, value] */
+  points: [number, number][];
+}
+
+export interface MetricsResponse {
+  family: string | null;
+  /** "prometheus" = real data; "unavailable" / "unsupported" = no data, see message */
+  source: "prometheus" | "unavailable" | "unsupported";
+  message?: string;
+  start: string;
+  end: string;
+  step: number;
+  series: MetricSeries[];
+}
+
+function useMetrics(kind: "devices" | "vms", id: string | undefined, preset: string, from: number | null, to: number | null) {
+  const tenant = useTenantId();
+  const live = preset !== "custom";
+  return useQuery({
+    retry: 0,
+    refetchOnWindowFocus: false,
+    enabled: !!id,
+    queryKey: ["metrics", kind, tenant, id, preset, from, to],
+    queryFn: () => {
+      // Relative presets are resolved at fetch time so each refetch slides the window.
+      const span = PRESET_SECONDS[preset] ?? 3600;
+      const end = live ? Date.now() : (to as number);
+      const start = live ? end - span * 1000 : (from as number);
+      return apiGet<MetricsResponse>(`/infra/${kind}/${id}/metrics/`, {
+        start: new Date(start).toISOString(),
+        end: new Date(end).toISOString(),
+      });
+    },
+    refetchInterval: live ? 30_000 : false,
+  });
+}
+
+const PRESET_SECONDS: Record<string, number> = Object.fromEntries(PRESETS.map((p) => [p.id, p.seconds]));
+
+export function useDeviceMetrics(deviceId: string | undefined, preset: string, from: number | null, to: number | null) {
+  return useMetrics("devices", deviceId, preset, from, to);
+}
+
+export function useVmMetrics(vmId: string | undefined, preset: string, from: number | null, to: number | null) {
+  return useMetrics("vms", vmId, preset, from, to);
 }
