@@ -4,7 +4,8 @@
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
-import { useDevice } from "@/api/hooks";
+import { useDevice, useInfraAlerts } from "@/api/hooks";
+import { Panel, Pill } from "@/components/ld";
 import { DEVICES, VMS } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import {
@@ -75,6 +76,44 @@ export default function ServerDetailScreen() {
     ?? DEVICES.find(d => d.kind === "hypervisor") ?? DEVICES[0];
   const { data: live } = useDevice(seed.id);
   const d: Device = live ?? seed;
+  const deviceAlerts = (useInfraAlerts().data ?? []).filter(a => a.device === d.id).slice(0, 5);
+
+  const infoPanel = (
+    <Panel title="Device Information">
+      <dl className="ld-dl">
+        <dt>Hostname</dt><dd>{d.hostname || d.id}</dd>
+        <dt>IP address</dt><dd className="ld-mono">{d.ip}</dd>
+        <dt>Model</dt><dd>{d.model}</dd>
+        <dt>Vendor</dt><dd>{d.vendor || d.model.split(" ")[0]}</dd>
+        <dt>Serial number</dt><dd className="ld-mono">{d.serial_number || "—"}</dd>
+        <dt>Operating system</dt><dd>{d.os || "—"}</dd>
+        <dt>Site / location</dt><dd>{d.site}{d.location ? ` · ${d.location}` : ""}</dd>
+        <dt>Role</dt><dd>{d.role || "—"}</dd>
+        <dt>Monitoring agent</dt><dd>{d.agent || "—"}</dd>
+        <dt>Uptime</dt><dd>{d.uptime || "—"}</dd>
+        <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+      </dl>
+    </Panel>
+  );
+
+  const alertsPanel = (
+    <Panel title="Recent Alerts" action={{ label: "View All", onClick: () => setRoute("alerts") }}>
+      {deviceAlerts.length ? (
+        <ul className="ld-activity">
+          {deviceAlerts.map(a => (
+            <li key={a.id}>
+              <span className={`ld-tile ld-tile-sm ld-${a.sev === "critical" ? "crit" : a.sev === "warning" || a.sev === "warn" ? "warn" : "info"}`} aria-hidden="true"><i className="fa-solid fa-bell" /></span>
+              <span className="ld-activity-text">{a.title} · <span className="ld-muted">{a.detail}</span></span>
+              <Pill tone={a.sev === "critical" ? "crit" : a.sev === "warning" || a.sev === "warn" ? "warn" : "info"}>{a.sev === "critical" ? "Critical" : a.sev === "warning" || a.sev === "warn" ? "Warning" : "Info"}</Pill>
+              <span className="ld-muted ld-nowrap">{a.since}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="ld-empty">No active alerts on {d.id}.</div>
+      )}
+    </Panel>
+  );
   const hostedVms = VMS.filter(v => v.host === d.id);
 
   const [tab, setTab] = React.useState("Overview");
@@ -259,10 +298,17 @@ export default function ServerDetailScreen() {
 
           {(tab === "Overview" || tab === "Storage") && mountTable}
           {(tab === "Overview" || tab === "Network") && nicTable}
+          {tab === "Overview" && (
+            <div className="ld-grid ld-grid-2">
+              {infoPanel}
+              {alertsPanel}
+            </div>
+          )}
+          {tab === "Alerts" && alertsPanel}
           {tab === "Hardware" && hardwarePanel}
           {tab === "Processes" && procPanel}
 
-          {(tab === "Logs" || tab === "Alerts" || tab === "Settings") && (
+          {(tab === "Logs" || tab === "Settings") && (
             <Card>
               <div style={{ textAlign: "center", color: "#6b7785", fontSize: 13, padding: 8 }}>
                 <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 8 }} />
