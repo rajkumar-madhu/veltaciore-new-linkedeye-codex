@@ -3108,3 +3108,6 @@ a.ld-btn { text-decoration: none; }
 .ld-list-option-add { color: var(--accent); font-weight: 600; background: var(--bg-muted); }
 .ld-tips { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--fg-muted); line-height: 1.5; }
 .ld-tips b { color: var(--fg); }
+.ld-inline-label { font-size: 13px; color: var(--fg-muted); }
+.ld-textarea { min-height: 76px; padding: 8px 10px; resize: vertical; line-height: 1.4; }
+.ld-desc { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

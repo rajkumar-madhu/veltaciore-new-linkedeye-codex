@@ -173,7 +173,10 @@ export const DOMAINS: DomainRecord[] = [
 ];
 
 export interface UrlCheck {
+  /** Owning client (tenant id) — checks are tenant-scoped. */
+  client: string;
   name: string;
+  description: string;
   url: string;
   type: "Web" | "API";
   site: string;
@@ -184,20 +187,24 @@ export interface UrlCheck {
 }
 
 export const URL_CHECKS: UrlCheck[] = [
-  { name: "NSE Web Portal", url: "https://www.nseindia.com", type: "Web", site: "Mumbai (NSE)", status: "Online", responseMs: 321, lastCheck: "26 Jun 11:02:15", uptime: 99.98 },
-  { name: "BSE Portal", url: "https://www.bseindia.com", type: "Web", site: "Mumbai (BSE)", status: "Online", responseMs: 412, lastCheck: "26 Jun 11:02:12", uptime: 99.95 },
-  { name: "MCX Portal", url: "https://www.mcxindia.com", type: "Web", site: "Mumbai (MCX)", status: "Degraded", responseMs: 1842, lastCheck: "26 Jun 11:02:10", uptime: 95.23 },
-  { name: "WeCrew Academy", url: "https://wecrew.in", type: "Web", site: "All Sites", status: "Online", responseMs: 289, lastCheck: "26 Jun 11:02:14", uptime: 99.99 },
-  { name: "LinkedEye API", url: "https://api.wecrew.in", type: "API", site: "All Sites", status: "Online", responseMs: 356, lastCheck: "26 Jun 11:02:11", uptime: 99.96 },
-  { name: "Redmine", url: "https://redmine.wecrew.in", type: "Web", site: "Mumbai", status: "Down", responseMs: null, lastCheck: "26 Jun 11:01:55", uptime: 87.42 },
-  { name: "Grafana", url: "https://grafana.wecrew.in", type: "Web", site: "All Sites", status: "Online", responseMs: 623, lastCheck: "26 Jun 11:02:13", uptime: 99.91 },
-  { name: "Prometheus", url: "https://prometheus.wecrew.in", type: "Web", site: "All Sites", status: "Online", responseMs: 512, lastCheck: "26 Jun 11:02:12", uptime: 99.93 },
-  { name: "Superset", url: "https://superset.wecrew.in", type: "Web", site: "All Sites", status: "Degraded", responseMs: 1256, lastCheck: "26 Jun 11:02:09", uptime: 96.18 },
-  { name: "Customer Portal", url: "https://customer.wecrew.in", type: "Web", site: "DR Site", status: "Online", responseMs: 398, lastCheck: "26 Jun 11:02:10", uptime: 99.89 },
+  { client: "fyers", name: "NSE Web Portal", description: "NSE public site availability", url: "https://www.nseindia.com", type: "Web", site: "Mumbai (NSE)", status: "Online", responseMs: 321, lastCheck: "26 Jun 11:02:15", uptime: 99.98 },
+  { client: "fyers", name: "BSE Portal", description: "BSE public site availability", url: "https://www.bseindia.com", type: "Web", site: "Mumbai (BSE)", status: "Online", responseMs: 412, lastCheck: "26 Jun 11:02:12", uptime: 99.95 },
+  { client: "indmoney", name: "MCX Portal", description: "MCX commodities portal", url: "https://www.mcxindia.com", type: "Web", site: "Mumbai (MCX)", status: "Degraded", responseMs: 1842, lastCheck: "26 Jun 11:02:10", uptime: 95.23 },
+  { client: "flattrade", name: "WeCrew Academy", description: "Training portal for client staff", url: "https://wecrew.in", type: "Web", site: "All Sites", status: "Online", responseMs: 289, lastCheck: "26 Jun 11:02:14", uptime: 99.99 },
+  { client: "fyers", name: "LinkedEye API", description: "LinkedEye public API health", url: "https://api.wecrew.in", type: "API", site: "All Sites", status: "Online", responseMs: 356, lastCheck: "26 Jun 11:02:11", uptime: 99.96 },
+  { client: "lemonn", name: "Redmine", description: "Internal ticketing", url: "https://redmine.wecrew.in", type: "Web", site: "Mumbai", status: "Down", responseMs: null, lastCheck: "26 Jun 11:01:55", uptime: 87.42 },
+  { client: "fyers", name: "Grafana", description: "Dashboards for the NOC", url: "https://grafana.wecrew.in", type: "Web", site: "All Sites", status: "Online", responseMs: 623, lastCheck: "26 Jun 11:02:13", uptime: 99.91 },
+  { client: "indmoney", name: "Prometheus", description: "Metrics backend UI", url: "https://prometheus.wecrew.in", type: "Web", site: "All Sites", status: "Online", responseMs: 512, lastCheck: "26 Jun 11:02:12", uptime: 99.93 },
+  { client: "neo-broking", name: "Superset", description: "Analytics dashboards", url: "https://superset.wecrew.in", type: "Web", site: "All Sites", status: "Degraded", responseMs: 1256, lastCheck: "26 Jun 11:02:09", uptime: 96.18 },
+  { client: "betafront", name: "Customer Portal", description: "Customer self-service portal", url: "https://customer.wecrew.in", type: "Web", site: "DR Site", status: "Online", responseMs: 398, lastCheck: "26 Jun 11:02:10", uptime: 99.89 },
 ];
 
 export interface TelnetCheck {
+  /** Owning client (tenant id) — checks are tenant-scoped. */
+  client: string;
   host: string;
+  ip: string;
+  description: string;
   port: number;
   service: string;
   site: string;
@@ -208,14 +215,14 @@ export interface TelnetCheck {
 }
 
 export const TELNET_CHECKS: TelnetCheck[] = [
-  { host: "NSE-GW-01", port: 23, service: "Telnet", site: "Mumbai (NSE)", status: "Up", responseMs: 28, lastCheck: "26 Jun 11:00:15", uptime: 99.98 },
-  { host: "BSE-CORE-01", port: 23, service: "Telnet", site: "Mumbai (BSE)", status: "Up", responseMs: 32, lastCheck: "26 Jun 11:00:14", uptime: 99.95 },
-  { host: "MCX-SW-01", port: 23, service: "Telnet", site: "Mumbai (MCX)", status: "Down", responseMs: null, lastCheck: "26 Jun 10:58:02", uptime: 92.12 },
-  { host: "FIREWALL-01", port: 23, service: "Management", site: "Mumbai (NSE)", status: "Up", responseMs: 45, lastCheck: "26 Jun 11:00:12", uptime: 99.9 },
-  { host: "DC-ROUTER-01", port: 23, service: "Telnet", site: "Bangalore DC", status: "Up", responseMs: 38, lastCheck: "26 Jun 11:00:10", uptime: 99.87 },
-  { host: "CHN-SW-01", port: 23, service: "Telnet", site: "Chennai DC", status: "Unknown", responseMs: null, lastCheck: "26 Jun 10:59:55", uptime: 98.23 },
-  { host: "DEL-SW-01", port: 23, service: "Telnet", site: "Delhi DC", status: "Up", responseMs: 52, lastCheck: "26 Jun 11:00:08", uptime: 99.92 },
-  { host: "APP-SRV-01", port: 2323, service: "Application", site: "Mumbai (NSE)", status: "Down", responseMs: null, lastCheck: "26 Jun 10:57:12", uptime: 88.45 },
-  { host: "DB-CLUSTER-01", port: 23, service: "Telnet", site: "Bangalore DC", status: "Up", responseMs: 41, lastCheck: "26 Jun 11:00:06", uptime: 99.96 },
-  { host: "VPN-GW-01", port: 23, service: "Telnet", site: "Delhi DC", status: "Up", responseMs: 36, lastCheck: "26 Jun 11:00:04", uptime: 99.93 },
+  { client: "fyers", host: "NSE-GW-01", ip: "10.10.1.1", description: "NSE gateway management access", port: 23, service: "Telnet", site: "Mumbai (NSE)", status: "Up", responseMs: 28, lastCheck: "26 Jun 11:00:15", uptime: 99.98 },
+  { client: "fyers", host: "BSE-CORE-01", ip: "10.10.1.2", description: "BSE core switch CLI", port: 23, service: "Telnet", site: "Mumbai (BSE)", status: "Up", responseMs: 32, lastCheck: "26 Jun 11:00:14", uptime: 99.95 },
+  { client: "indmoney", host: "MCX-SW-01", ip: "10.10.1.3", description: "MCX access switch", port: 23, service: "Telnet", site: "Mumbai (MCX)", status: "Down", responseMs: null, lastCheck: "26 Jun 10:58:02", uptime: 92.12 },
+  { client: "fyers", host: "FIREWALL-01", ip: "10.10.1.254", description: "Perimeter firewall management port", port: 23, service: "Management", site: "Mumbai (NSE)", status: "Up", responseMs: 45, lastCheck: "26 Jun 11:00:12", uptime: 99.9 },
+  { client: "flattrade", host: "DC-ROUTER-01", ip: "10.20.0.1", description: "Bangalore DC edge router", port: 23, service: "Telnet", site: "Bangalore DC", status: "Up", responseMs: 38, lastCheck: "26 Jun 11:00:10", uptime: 99.87 },
+  { client: "lemonn", host: "CHN-SW-01", ip: "10.30.0.2", description: "Chennai DC distribution switch", port: 23, service: "Telnet", site: "Chennai DC", status: "Unknown", responseMs: null, lastCheck: "26 Jun 10:59:55", uptime: 98.23 },
+  { client: "neo-broking", host: "DEL-SW-01", ip: "10.40.0.2", description: "Delhi DC distribution switch", port: 23, service: "Telnet", site: "Delhi DC", status: "Up", responseMs: 52, lastCheck: "26 Jun 11:00:08", uptime: 99.92 },
+  { client: "fyers", host: "APP-SRV-01", ip: "10.10.1.21", description: "OMS application admin console", port: 2323, service: "Application", site: "Mumbai (NSE)", status: "Down", responseMs: null, lastCheck: "26 Jun 10:57:12", uptime: 88.45 },
+  { client: "flattrade", host: "DB-CLUSTER-01", ip: "10.20.5.10", description: "Database cluster management", port: 23, service: "Telnet", site: "Bangalore DC", status: "Up", responseMs: 41, lastCheck: "26 Jun 11:00:06", uptime: 99.96 },
+  { client: "betafront", host: "VPN-GW-01", ip: "10.40.0.1", description: "Remote access VPN gateway", port: 23, service: "Telnet", site: "Delhi DC", status: "Up", responseMs: 36, lastCheck: "26 Jun 11:00:04", uptime: 99.93 },
 ];

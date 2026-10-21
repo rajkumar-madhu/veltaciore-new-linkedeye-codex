@@ -8,8 +8,10 @@ import { URL_CHECKS } from "@/data/monitoring";
 const STATUS: Record<string, CheckStatus> = { Online: "up", Down: "down", Degraded: "warn" };
 
 const ROWS: CheckRow[] = URL_CHECKS.map((c) => ({
-  id: c.url,
+  id: `${c.client}:${c.url}`,
+  client: c.client,
   name: c.name,
+  description: c.description,
   target: c.url,
   kind: c.type,
   site: c.site,
@@ -34,14 +36,17 @@ export default function UrlCheckerScreen() {
       rows={ROWS}
       formFields={[
         { id: "name", label: "Name", type: "text", placeholder: "e.g. NSE Web Portal", required: true },
-        { id: "url", label: "URL", type: "text", placeholder: "https://example.com", required: true },
+        { id: "url", label: "URL", type: "text", placeholder: "https://example.com", required: true, pattern: "https?://.+", patternHint: "Start with http:// or https://" },
         { id: "type", label: "Check type", type: "select", options: ["Web", "API"], defaultValue: "Web" },
         { id: "site", label: "Site / location", type: "select", options: SITES, defaultValue: SITES[0] },
         { id: "interval", label: "Check interval", type: "select", options: ["1 minute", "5 minutes", "15 minutes"], defaultValue: "5 minutes" },
+        { id: "description", label: "Description", type: "textarea", placeholder: "What this endpoint is, e.g. NSE public site" },
       ]}
       toRow={(v) => ({
         id: `new-${Date.now()}`,
+        client: v.client,
         name: v.name,
+        description: v.description.trim() || undefined,
         target: v.url,
         kind: v.type,
         site: v.site,

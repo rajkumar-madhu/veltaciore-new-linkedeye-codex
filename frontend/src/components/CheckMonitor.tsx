@@ -1,8 +1,13 @@
 // Shared LinkedEye layout for endpoint check screens (URL Checker, Telnet
 // Monitoring): summary cards, status donut + slowest-checks bars, a filterable
 // checks table, an "add check" form and recent check events.
-// Checks added through the form live in component state for this session only.
+// Checks are tenant-scoped: the view opens on the client picked in the sidebar,
+// with an "All clients" option. Checks added through the form live in
+// component state for this session only.
 import React from "react";
+import { useUiStore } from "@/store/ui";
+import { useTenants } from "@/api/hooks";
+import { TENANTS } from "@/data/core";
 import { Donut, Empty, Legend, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
 
@@ -10,7 +15,10 @@ export type CheckStatus = "up" | "down" | "warn" | "pending";
 
 export interface CheckRow {
   id: string;
+  /** Owning client (tenant id). */
+  client: string;
   name: string;
+  description?: string;
   target: string;
   kind: string;
   site: string;
@@ -23,9 +31,12 @@ export interface CheckRow {
 export interface CheckField {
   id: string;
   label: string;
-  type: "text" | "number" | "select";
+  type: "text" | "number" | "select" | "textarea";
   options?: string[];
   placeholder?: string;
+  /** Regex the value must match (HTML pattern attribute), with a hint shown on mismatch. */
+  pattern?: string;
+  patternHint?: string;
   required?: boolean;
   defaultValue?: string;
 }
@@ -41,7 +52,7 @@ export interface CheckMonitorConfig {
   columns: { target: string; kind: string };
   rows: CheckRow[];
   formFields: CheckField[];
-  /** Build a row from submitted form values. */
+  /** Build a row from submitted form values; values.client is the chosen tenant id. */
   toRow: (values: Record<string, string>) => CheckRow;
 }
 
@@ -55,6 +66,12 @@ const lc = (s: string) => (/^[A-Z]{2}/.test(s) ? s : s.toLowerCase());
 const uptimeTone = (u: number | null): string => (u == null ? "" : u >= 99.5 ? "ld-text-ok" : u >= 95 ? "ld-text-warn" : "ld-text-crit");
 
 export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
+  const tenant = useUiStore((s) => s.tenant);
+  const clients = useTenants().data ?? TENANTS;
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? id;
+  const [client, setClient] = React.useState(tenant.id);
+  // Follow the sidebar's client switcher.
+  React.useEffect(() => setClient(tenant.id), [tenant.id]);
   const [added, setAdded] = React.useState<CheckRow[]>([]);
   const [query, setQuery] = React.useState("");
   const [site, setSite] = React.useState("");
@@ -63,29 +80,31 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
   const [page, setPage] = React.useState(0);
   const idp = React.useId();
 
-  const initialValues = () => Object.fromEntries(cfg.formFields.map((f) => [f.id, f.defaultValue ?? ""]));
+  const initialValues = () => ({ client: tenant.id, ...Object.fromEntries(cfg.formFields.map((f) => [f.id, f.defaultValue ?? ""])) });
   const [values, setValues] = React.useState<Record<string, string>>(initialValues);
   const [saved, setSaved] = React.useState<string | null>(null);
 
   const all = React.useMemo(() => [...added, ...cfg.rows], [added, cfg.rows]);
-  const sites = [...new Set(all.map((r) => r.site))].sort();
-  const kinds = [...new Set(all.map((r) => r.kind))].sort();
+  // Everything below (cards, charts, events, table) is scoped to the chosen client.
+  const scoped = client ? all.filter((r) => r.client === client) : all;
+  const sites = [...new Set(scoped.map((r) => r.site))].sort();
+  const kinds = [...new Set(scoped.map((r) => r.kind))].sort();
   const q = query.trim().toLowerCase();
-  const visible = all.filter(
+  const visible = scoped.filter(
     (r) =>
       (!site || r.site === site) &&
       (!status || r.status === status) &&
       (!kind || r.kind === kind) &&
-      (!q || r.name.toLowerCase().includes(q) || r.target.toLowerCase().includes(q)),
+      (!q || [r.name, r.target, r.description ?? ""].some((v) => v.toLowerCase().includes(q))),
   );
-  React.useEffect(() => setPage(0), [query, site, status, kind]);
+  React.useEffect(() => setPage(0), [query, site, status, kind, client]);
   const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const pageRows = visible.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const count = (s: CheckStatus) => all.filter((r) => r.status === s).length;
-  const timed = all.filter((r) => r.responseMs != null) as (CheckRow & { responseMs: number })[];
+  const count = (s: CheckStatus) => scoped.filter((r) => r.status === s).length;
+  const timed = scoped.filter((r) => r.responseMs != null) as (CheckRow & { responseMs: number })[];
   const avgMs = timed.length ? timed.reduce((a, r) => a + r.responseMs, 0) / timed.length : 0;
-  const pct = (n: number) => (all.length ? `${((n / all.length) * 100).toFixed(1)}%` : "—");
+  const pct = (n: number) => (scoped.length ? `${((n / scoped.length) * 100).toFixed(1)}%` : "—");
 
   const statusSlices: Slice[] = (["up", "down", "warn", "pending"] as CheckStatus[])
     .map((s) => ({ label: cfg.statusLabel[s], value: count(s), color: STATUS_COLOR[s] }))
@@ -95,7 +114,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
 
   // Failures first, then the most recent checks.
   const severity: Record<CheckStatus, number> = { down: 0, warn: 1, up: 2, pending: 3 };
-  const events = [...all]
+  const events = [...scoped]
     .filter((r) => r.status !== "pending")
     .sort((a, b) => severity[a.status] - severity[b.status] || b.lastCheck.localeCompare(a.lastCheck))
     .slice(0, 6);
@@ -104,7 +123,9 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
     e.preventDefault();
     const row = cfg.toRow(values);
     setAdded((rows) => [row, ...rows]);
-    setSaved(row.name);
+    setSaved(`${row.name} (${clientName(row.client)})`);
+    // Show the new check even if the list was scoped to another client.
+    if (client && row.client !== client) setClient(row.client);
     setValues(initialValues());
   };
 
@@ -113,9 +134,14 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
       <div className="ld-head">
         <div>
           <h1>{cfg.title}</h1>
-          <p>{cfg.subtitle}</p>
+          <p>{cfg.subtitle} · {client ? clientName(client) : "all clients"}</p>
         </div>
         <div className="ld-head-actions">
+          <label htmlFor={`${idp}-client`} className="ld-inline-label">Client</label>
+          <select id={`${idp}-client`} className="ld-select" value={client} onChange={(e) => setClient(e.target.value)}>
+            <option value="">All clients</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
           <a className="ld-btn ld-btn-primary" href={`#${idp}-form`}>
             <i className="fa-solid fa-plus" aria-hidden="true" /> Add {lc(cfg.noun.one)}
           </a>
@@ -123,7 +149,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
       </div>
 
       <div className="ld-grid ld-grid-5">
-        <StatCard icon={cfg.icon} tone="info" label={`Total ${cfg.noun.many}`} value={fmt(all.length)} note={`configured ${lc(cfg.noun.many)}`} onClick={() => setStatus("")} />
+        <StatCard icon={cfg.icon} tone="info" label={`Total ${cfg.noun.many}`} value={fmt(scoped.length)} note={`configured ${lc(cfg.noun.many)}`} onClick={() => setStatus("")} />
         <StatCard icon="fa-circle-check" tone="ok" label={cfg.statusLabel.up} value={fmt(count("up"))} note={pct(count("up"))} onClick={() => setStatus("up")} />
         <StatCard icon="fa-circle-xmark" tone="crit" label={cfg.statusLabel.down} value={fmt(count("down"))} note={pct(count("down"))} onClick={() => setStatus("down")} />
         <StatCard icon="fa-clock" tone="warn" label={cfg.statusLabel.warn} value={fmt(count("warn"))} note={pct(count("warn"))} onClick={() => setStatus("warn")} />
@@ -134,7 +160,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
         <Panel title={`${cfg.noun.one} Status Overview`}>
           {statusSlices.length ? (
             <div className="ld-donut-row">
-              <Donut slices={statusSlices} center={fmt(all.length)} sub={`Total ${cfg.noun.many}`} label={`${all.length} ${lc(cfg.noun.many)} by status`} />
+              <Donut slices={statusSlices} center={fmt(scoped.length)} sub={`Total ${cfg.noun.many}`} label={`${scoped.length} ${lc(cfg.noun.many)} by status`} />
               <Legend slices={statusSlices} />
             </div>
           ) : (
@@ -196,23 +222,30 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
                     <th scope="col">Name</th>
                     <th scope="col">{cfg.columns.target}</th>
                     <th scope="col">{cfg.columns.kind}</th>
-                    <th scope="col">Site</th>
+                    <th scope="col">Client · site</th>
                     <th scope="col">Status</th>
-                    <th scope="col">Response</th>
-                    <th scope="col">Last check</th>
+                    <th scope="col">Response · last check</th>
                     <th scope="col">Uptime (24h)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.map((r) => (
                     <tr key={r.id}>
-                      <td className="ld-strong">{r.name}</td>
+                      <td>
+                        <span className="ld-strong">{r.name}</span>
+                        {r.description && <span className="ld-sub ld-desc" title={r.description}>{r.description}</span>}
+                      </td>
                       <td className="ld-mono ld-ellipsis ld-ellipsis-sm" title={r.target}>{r.target}</td>
                       <td className="ld-muted">{r.kind}</td>
-                      <td className="ld-muted">{r.site}</td>
+                      <td>
+                        {clientName(r.client)}
+                        <span className="ld-sub">{r.site}</span>
+                      </td>
                       <td><Pill tone={STATUS_TONE[r.status]}><span className="ld-pill-dot" />{cfg.statusLabel[r.status]}</Pill></td>
-                      <td>{r.responseMs != null ? `${fmt(r.responseMs)} ms` : <span className="ld-muted">—</span>}</td>
-                      <td className="ld-muted">{r.lastCheck}</td>
+                      <td>
+                        {r.responseMs != null ? `${fmt(r.responseMs)} ms` : <span className="ld-muted">—</span>}
+                        <span className="ld-sub">{r.lastCheck}</span>
+                      </td>
                       <td className={uptimeTone(r.uptime)}>{r.uptime != null ? `${r.uptime.toFixed(2)}%` : "—"}</td>
                     </tr>
                   ))}
@@ -242,6 +275,12 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
               <h2 id={`${idp}-form-h`}>Add {cfg.noun.one}</h2>
             </div>
             <form className="ld-form" onSubmit={submit}>
+              <div className="ld-form-field">
+                <label htmlFor={`${idp}-f-client`}>Client<span className="ld-req" aria-hidden="true"> *</span></label>
+                <select id={`${idp}-f-client`} className="ld-select" required value={values.client} onChange={(e) => setValues({ ...values, client: e.target.value })}>
+                  {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
               {cfg.formFields.map((f) => (
                 <div key={f.id} className="ld-form-field">
                   <label htmlFor={`${idp}-f-${f.id}`}>
@@ -252,11 +291,23 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
                     <select id={`${idp}-f-${f.id}`} className="ld-select" required={f.required} value={values[f.id]} onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}>
                       {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
+                  ) : f.type === "textarea" ? (
+                    <textarea
+                      id={`${idp}-f-${f.id}`}
+                      className="ld-input ld-textarea"
+                      rows={3}
+                      placeholder={f.placeholder}
+                      required={f.required}
+                      value={values[f.id]}
+                      onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}
+                    />
                   ) : (
                     <input
                       id={`${idp}-f-${f.id}`}
                       className="ld-input"
                       type={f.type}
+                      pattern={f.pattern}
+                      title={f.patternHint}
                       min={f.type === "number" ? 1 : undefined}
                       placeholder={f.placeholder}
                       required={f.required}
