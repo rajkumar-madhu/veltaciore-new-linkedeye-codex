@@ -192,3 +192,11 @@ PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "")  # e.g. https://fs-le-dev-
 PROMETHEUS_TOKEN = os.environ.get("PROMETHEUS_TOKEN", "")
 PROMETHEUS_TENANT_LABEL = os.environ.get("PROMETHEUS_TENANT_LABEL", "")
 PROMETHEUS_TIMEOUT = float(os.environ.get("PROMETHEUS_TIMEOUT", "10"))
+
+# Logs (Windows Event Logs, syslog, journald) from the provisioned Loki.
+LOKI_URL = os.environ.get("LOKI_URL", "")  # e.g. https://fs-le-dev-loki.finspot.in
+LOKI_TOKEN = os.environ.get("LOKI_TOKEN", "")
+LOKI_ORG_ID = os.environ.get("LOKI_ORG_ID", "")  # X-Scope-OrgID for multi-tenant Loki
+LOKI_HOST_LABEL = os.environ.get("LOKI_HOST_LABEL", "host")  # stream label holding the hostname
+LOKI_TENANT_LABEL = os.environ.get("LOKI_TENANT_LABEL", "")
+LOKI_TIMEOUT = float(os.environ.get("LOKI_TIMEOUT", "10"))

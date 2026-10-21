@@ -388,6 +388,24 @@ class Command(BaseCommand):
                         "rx_mbps": rng.uniform(5, 900), "tx_mbps": rng.uniform(5, 700),
                     },
                 )
+            # Physical servers get their out-of-band controller as a device of
+            # its own, linked back with managed_by (read by …/hardware/).
+            if srv.device_type in ("hypervisor", "phys-srv") and not srv.model.startswith("VM"):
+                dell = "Dell" in srv.model
+                ip = None
+                if srv.ip_address:
+                    octets = str(srv.ip_address).split(".")
+                    ip = ".".join(octets[:3] + [str((int(octets[3]) + 100) % 254 + 1)])
+                InfraDevice.objects.update_or_create(
+                    id=f"{srv.id}-{'IDRAC' if dell else 'ILO'}",
+                    defaults={
+                        "tenant_id": srv.tenant_id, "site": srv.site, "managed_by": srv,
+                        "name": f"{srv.id} {'iDRAC' if dell else 'iLO'}",
+                        "device_type": "idrac" if dell else "ilo", "vendor": "Dell" if dell else "HPE",
+                        "model": srv.model, "ip_address": ip, "os_name": "iDRAC9" if dell else "iLO 5",
+                        "os_version": "6.10.30" if dell else "2.77", "status": "ok", "agent": "redfish-exporter",
+                    },
+                )
             for n, link in enumerate(links):
                 peer = link.src if link.dst_id == srv.id else link.dst
                 switch_ports[peer.id] = switch_ports.get(peer.id, 0) + 1

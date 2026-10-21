@@ -2,7 +2,8 @@ from rest_framework import exceptions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.monitoring.prometheus import device_timeseries, vm_timeseries
+from apps.monitoring.loki import device_logs
+from apps.monitoring.prometheus import device_hardware, device_inventory, device_timeseries, vm_timeseries
 from apps.sites.models import Rack, Site
 from apps.tenants.mixins import TenantScopedQuerysetMixin
 from .models import (
@@ -133,6 +134,45 @@ class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         metrics (comma-separated keys to limit the response).
         """
         return _timeseries(request, lambda **kw: device_timeseries(self.get_object(), **kw))
+
+    @action(detail=True)
+    def inventory(self, request, pk=None):
+        """GET /api/infra/devices/{id}/inventory/ — top processes, services, filesystems (now).
+
+        Query: top (processes to return, default 10, max 50).
+        """
+        try:
+            top = int(request.query_params.get("top", 10))
+        except ValueError:
+            raise exceptions.ValidationError({"detail": "top must be a number."})
+        try:
+            return Response(device_inventory(self.get_object(), top=top))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
+
+    @action(detail=True)
+    def hardware(self, request, pk=None):
+        """GET /api/infra/devices/{id}/hardware/ — iDRAC / iLO health and sensors (start, end, step)."""
+        q = request.query_params
+        try:
+            return Response(device_hardware(self.get_object(), start=q.get("start"), end=q.get("end"), step=q.get("step")))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
+
+    @action(detail=True)
+    def logs(self, request, pk=None):
+        """GET /api/infra/devices/{id}/logs/ — event logs from Loki.
+
+        Query: start, end, search (text), level (critical|error|warning|info|debug), limit (≤500).
+        """
+        q = request.query_params
+        try:
+            return Response(device_logs(
+                self.get_object(), start=q.get("start"), end=q.get("end"),
+                search=q.get("search", ""), level=q.get("level", ""), limit=q.get("limit", 200),
+            ))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
 
 
 class DeviceAlertViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):

@@ -161,6 +161,7 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
           )}
         </Panel>
 
+        {(data.vms.length > 0 || data.device.kind === "hypervisor") && (
         <Panel title={`Hosted Virtual Machines (${data.vms.length})`} action={data.vms.length ? { label: "All VMs", onClick: () => setRoute("infra-vms") } : undefined}>
           {data.vms.length ? (
             <div className="ld-table-wrap">
@@ -189,6 +190,7 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
             <Empty>No virtual machines run on this device.</Empty>
           )}
         </Panel>
+        )}
       </div>
     </section>
   );

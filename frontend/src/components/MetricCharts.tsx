@@ -7,11 +7,22 @@ import { useDeviceMetrics, useVmMetrics, type MetricSeries, type MetricsResponse
 import { MAX_RANGE_DAYS, PRESETS, useTimeRange } from "@/store/timeRange";
 import { Empty, Panel } from "@/components/ld";
 
-const COLORS = ["#2f6bff", "#16a34a", "#f5a524", "#7c4dff", "#e5383b", "#0ea5e9"];
+export const COLORS = ["#2f6bff", "#16a34a", "#f5a524", "#7c4dff", "#e5383b", "#0ea5e9"];
 
-const GROUP_TITLE: Record<string, string> = {
+// Fixed colours for well-known series so a CPU mode or memory kind looks the
+// same on every chart (Netdata convention: idle green, user blue, system orange).
+const SERIES_COLOR: Record<string, string> = {
+  cpu_user: "#2f6bff", cpu_system: "#f97316", cpu_interrupt: "#7c4dff", cpu_dpc: "#eab308",
+  cpu_iowait: "#7c4dff", cpu_irq: "#eab308", cpu_idle: "#86efac",
+  mem_used_gb: "#2f6bff", mem_cached_gb: "#f97316", mem_available_gb: "#16a34a", mem_total_gb: "#98a2b3",
+  net_rx: "#2f6bff", net_tx: "#f97316", disk_read: "#16a34a", disk_write: "#7c4dff",
+};
+const colorOf = (s: MetricSeries, i: number) => SERIES_COLOR[s.key] ?? COLORS[i % COLORS.length];
+
+export const GROUP_TITLE: Record<string, string> = {
   cpu: "CPU Utilization",
   memory: "Memory Usage",
+  memory_gb: "Memory Usage",
   disk: "Disk Usage",
   disk_io: "Disk I/O",
   network: "Network Traffic",
@@ -22,7 +33,7 @@ const GROUP_TITLE: Record<string, string> = {
   state: "Power State",
   uptime: "Uptime",
 };
-const GROUP_ORDER = ["cpu", "memory", "disk", "disk_io", "network", "virtualization", "load", "errors", "ports", "state", "uptime"];
+const GROUP_ORDER = ["cpu", "memory_gb", "memory", "disk", "disk_io", "network", "virtualization", "load", "errors", "ports", "state", "uptime"];
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 const toLocalInput = (ms: number) => {
@@ -31,7 +42,7 @@ const toLocalInput = (ms: number) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-function fmtValue(v: number, unit: string) {
+export function fmtValue(v: number, unit: string) {
   const n = Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2);
   if (unit === "%") return `${n}%`;
   if (unit === "count") return n;
@@ -120,14 +131,27 @@ export function TimeRangePicker() {
 }
 
 // ── chart ───────────────────────────────────────────────────────────────────
-function TimeChart({ series, startSec, endSec }: { series: MetricSeries[]; startSec: number; endSec: number }) {
+/** Stack series on shared timestamps: returns [t, lower, upper] per point. */
+function stackSeries(series: MetricSeries[]) {
+  const base = new Map<number, number>();
+  return series.map((s) =>
+    s.points.map(([t, v]) => {
+      const lo = base.get(t) ?? 0;
+      base.set(t, lo + v);
+      return [t, lo, lo + v] as [number, number, number];
+    }),
+  );
+}
+
+export function TimeChart({ series, startSec, endSec, stacked = false }: { series: MetricSeries[]; startSec: number; endSec: number; stacked?: boolean }) {
   const W = 560, H = 210, L = 44, R = 10, T = 20, B = 26;
   const unit = series[0]?.unit ?? "";
-  const all = series.flatMap((s) => s.points.map((p) => p[1]));
-  const yMax = niceMax(all.length ? Math.max(...all) : 0, unit);
+  const bands = stacked ? stackSeries(series) : null;
+  const all = bands ? bands.flatMap((b) => b.map((p) => p[2])) : series.flatMap((s) => s.points.map((p) => p[1]));
+  const yMax = stacked && unit === "%" ? 100 : niceMax(all.length ? Math.max(...all) : 0, unit);
   const span = Math.max(1, endSec - startSec);
   const x = (t: number) => L + ((t - startSec) / span) * (W - L - R);
-  const y = (v: number) => H - B - (v / yMax) * (H - T - B);
+  const y = (v: number) => H - B - (Math.min(v, yMax) / yMax) * (H - T - B);
   const [hover, setHover] = React.useState<number | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
 
@@ -172,22 +196,37 @@ function TimeChart({ series, startSec, endSec }: { series: MetricSeries[]; start
         {ticks.map((t, i) => (
           <text key={t} x={x(t)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} className="ld-axis">{fmtTick(t, span)}</text>
         ))}
-        {series.map((s, i) => (
-          <polyline
-            key={s.key}
-            points={s.points.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}
-            fill="none"
-            stroke={COLORS[i % COLORS.length]}
-            strokeWidth={1.8}
-            strokeLinejoin="round"
-          />
-        ))}
+        {bands
+          ? bands.map((b, i) => (
+              <polygon
+                key={series[i].key}
+                points={[...b.map(([t, , hi]) => `${x(t).toFixed(1)},${y(hi).toFixed(1)}`), ...[...b].reverse().map(([t, lo]) => `${x(t).toFixed(1)},${y(lo).toFixed(1)}`)].join(" ")}
+                fill={colorOf(series[i], i)}
+                fillOpacity={0.7}
+                stroke={colorOf(series[i], i)}
+                strokeWidth={0.8}
+              />
+            ))
+          : series.map((s, i) => {
+              const line = s.points.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+              const first = s.points[0], last = s.points[s.points.length - 1];
+              return (
+                <g key={s.key}>
+                  {first && last && (
+                    <polygon points={`${x(first[0]).toFixed(1)},${y(0)} ${line} ${x(last[0]).toFixed(1)},${y(0)}`} fill={colorOf(s, i)} fillOpacity={0.08} />
+                  )}
+                  <polyline points={line} fill="none" stroke={colorOf(s, i)} strokeWidth={1.8} strokeLinejoin="round" />
+                </g>
+              );
+            })}
         {hover != null && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="var(--border-strong)" strokeDasharray="3 3" />
             {series.map((s, i) => {
               const p = nearest(s, hover);
-              return p ? <circle key={s.key} cx={x(p[0])} cy={y(p[1])} r={3} fill={COLORS[i % COLORS.length]} /> : null;
+              if (!p) return null;
+              const cy = bands ? y(bands[i].find((b) => b[0] === p[0])?.[2] ?? p[1]) : y(p[1]);
+              return <circle key={s.key} cx={x(p[0])} cy={cy} r={3} fill={colorOf(s, i)} />;
             })}
           </g>
         )}
@@ -198,7 +237,7 @@ function TimeChart({ series, startSec, endSec }: { series: MetricSeries[]; start
           {series.map((s, i) => {
             const p = nearest(s, hover);
             return (
-              <span key={s.key}><span className="ld-dot" style={{ background: COLORS[i % COLORS.length] }} /> {s.label} {p ? fmtValue(p[1], s.unit) : "—"}</span>
+              <span key={s.key}><span className="ld-dot" style={{ background: colorOf(s, i) }} /> {s.label} {p ? fmtValue(p[1], s.unit) : "—"}</span>
             );
           })}
         </div>
@@ -208,7 +247,7 @@ function TimeChart({ series, startSec, endSec }: { series: MetricSeries[]; start
         <tbody>
           {summary.map(({ s, last, avg, max }, i) => (
             <tr key={s.key}>
-              <td><span className="ld-dot" style={{ background: COLORS[i % COLORS.length] }} /> {s.label}</td>
+              <td><span className="ld-dot" style={{ background: colorOf(s, i) }} /> {s.label}</td>
               <td>{last == null ? "—" : fmtValue(last, s.unit)}</td>
               <td>{avg == null ? "—" : fmtValue(avg, s.unit)}</td>
               <td>{max == null ? "—" : fmtValue(max, s.unit)}</td>
@@ -220,12 +259,35 @@ function TimeChart({ series, startSec, endSec }: { series: MetricSeries[]; start
   );
 }
 
-function MetricsBody({ data, isLoading, isError }: { data?: MetricsResponse; isLoading: boolean; isError: boolean }) {
+/** Small trend line for a KPI card. */
+export function Sparkline({ points, color = COLORS[0], label }: { points: [number, number][]; color?: string; label: string }) {
+  const W = 160, H = 34;
+  if (points.length < 2) return <svg className="ld-spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label}: no trend data`} />;
+  const t0 = points[0][0], t1 = points[points.length - 1][0];
+  const vals = points.map((p) => p[1]);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const x = (t: number) => ((t - t0) / Math.max(1, t1 - t0)) * W;
+  const y = (v: number) => H - 3 - ((v - lo) / Math.max(1e-9, hi - lo)) * (H - 6);
+  const line = points.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  return (
+    <svg className="ld-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label} trend`}>
+      <polygon points={`0,${H} ${line} ${W},${H}`} fill={color} fillOpacity={0.12} />
+      <polyline points={line} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenOff }: {
+  data?: MetricsResponse; isLoading: boolean; isError: boolean; groups?: string[];
+  /** the page already explains a missing source (e.g. a banner above) */
+  quietWhenOff?: boolean;
+}) {
   if (isLoading) return <div className="ld-card"><Empty>Loading metrics…</Empty></div>;
   if (isError || !data) {
     return <div className="ld-card"><Empty>Metrics service is not reachable from this browser.</Empty></div>;
   }
   if (data.source !== "prometheus") {
+    if (quietWhenOff) return null;
     return (
       <div className="ld-card ld-metrics-off" role="status">
         <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
@@ -241,15 +303,22 @@ function MetricsBody({ data, isLoading, isError }: { data?: MetricsResponse; isL
   }
   const startSec = Date.parse(data.start) / 1000;
   const endSec = Date.parse(data.end) / 1000;
-  const groups = [...new Set(data.series.map((s) => s.group))].sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
+  const present = new Set(data.series.map((s) => s.group));
+  const groups = (only ? only.filter((g) => present.has(g)) : [...present]).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
+  if (!groups.length) return <div className="ld-card"><Empty>No metrics of this kind for this device.</Empty></div>;
   return (
-    <div className="ld-grid ld-grid-2">
+    <div className="ld-grid ld-chart-grid">
       {groups.map((g) => {
-        const series = data.series.filter((s) => s.group === g);
+        const inGroup = data.series.filter((s) => s.group === g);
+        // A group with mode breakdowns (CPU user/system/…/idle) is drawn as a
+        // stacked area of the parts; the total is shown on the KPI card.
+        const parts = inGroup.filter((s) => s.stack && s.points.length);
+        const stacked = parts.length > 1;
+        const series = stacked ? parts : inGroup;
         const hasData = series.some((s) => s.points.length);
         return (
           <Panel key={g} title={GROUP_TITLE[g] ?? g}>
-            {hasData ? <TimeChart series={series} startSec={startSec} endSec={endSec} /> : <Empty>No samples in this range.</Empty>}
+            {hasData ? <TimeChart series={series} startSec={startSec} endSec={endSec} stacked={stacked} /> : <Empty>No samples in this range.</Empty>}
           </Panel>
         );
       })}

@@ -44,6 +44,7 @@ class MetricDef:
     unit: str  # "%", "Mbps", "MB/s", "count", "°C", "W"
     group: str  # chart grouping on the frontend: cpu, memory, disk, network, …
     promql: str  # uses {sel} for the label selector and {rate} for the range window
+    stack: bool = False  # drawn stacked (parts of a whole, e.g. CPU modes)
 
 
 # ── Catalog ─────────────────────────────────────────────────────────────────
@@ -51,14 +52,27 @@ NODE = [
     MetricDef("cpu", "CPU", "%", "cpu",
               '100 * (1 - avg(rate(node_cpu_seconds_total{{mode="idle",{sel}}}[{rate}])))'),
     MetricDef("cpu_user", "User", "%", "cpu",
-              '100 * avg(rate(node_cpu_seconds_total{{mode="user",{sel}}}[{rate}]))'),
+              '100 * avg(rate(node_cpu_seconds_total{{mode="user",{sel}}}[{rate}]))', True),
     MetricDef("cpu_system", "System", "%", "cpu",
-              '100 * avg(rate(node_cpu_seconds_total{{mode="system",{sel}}}[{rate}]))'),
+              '100 * avg(rate(node_cpu_seconds_total{{mode="system",{sel}}}[{rate}]))', True),
     MetricDef("cpu_iowait", "I/O wait", "%", "cpu",
-              '100 * avg(rate(node_cpu_seconds_total{{mode="iowait",{sel}}}[{rate}]))'),
+              '100 * avg(rate(node_cpu_seconds_total{{mode="iowait",{sel}}}[{rate}]))', True),
+    MetricDef("cpu_irq", "IRQ", "%", "cpu",
+              '100 * sum(rate(node_cpu_seconds_total{{mode=~"irq|softirq",{sel}}}[{rate}]))'
+              ' / count(node_cpu_seconds_total{{mode="idle",{sel}}})', True),
+    MetricDef("cpu_idle", "Idle", "%", "cpu",
+              '100 * avg(rate(node_cpu_seconds_total{{mode="idle",{sel}}}[{rate}]))', True),
     MetricDef("mem", "Memory used", "%", "memory",
               '100 * (1 - sum(node_memory_MemAvailable_bytes{{{sel}}}) / sum(node_memory_MemTotal_bytes{{{sel}}}))'),
+    MetricDef("mem_used_gb", "Used", "GB", "memory_gb",
+              '(sum(node_memory_MemTotal_bytes{{{sel}}}) - sum(node_memory_MemAvailable_bytes{{{sel}}})) / 1073741824'),
+    MetricDef("mem_cached_gb", "Cached", "GB", "memory_gb",
+              '(sum(node_memory_Cached_bytes{{{sel}}}) + sum(node_memory_Buffers_bytes{{{sel}}})) / 1073741824'),
+    MetricDef("mem_available_gb", "Available", "GB", "memory_gb",
+              'sum(node_memory_MemAvailable_bytes{{{sel}}}) / 1073741824'),
+    MetricDef("mem_total_gb", "Total", "GB", "memory_gb", 'sum(node_memory_MemTotal_bytes{{{sel}}}) / 1073741824'),
     MetricDef("load1", "Load (1m)", "count", "load", 'avg(node_load1{{{sel}}})'),
+    MetricDef("processes", "Processes", "count", "load", 'sum(node_processes_pids{{{sel}}})'),
     MetricDef("disk", "Disk used (fullest FS)", "%", "disk",
               '100 * max(1 - node_filesystem_avail_bytes{{fstype!~"tmpfs|overlay|squashfs",{sel}}}'
               ' / node_filesystem_size_bytes{{fstype!~"tmpfs|overlay|squashfs",{sel}}})'),
@@ -76,11 +90,23 @@ WINDOWS = [
     MetricDef("cpu", "CPU", "%", "cpu",
               '100 - 100 * avg(rate(windows_cpu_time_total{{mode="idle",{sel}}}[{rate}]))'),
     MetricDef("cpu_user", "User", "%", "cpu",
-              '100 * avg(rate(windows_cpu_time_total{{mode="user",{sel}}}[{rate}]))'),
+              '100 * avg(rate(windows_cpu_time_total{{mode="user",{sel}}}[{rate}]))', True),
     MetricDef("cpu_system", "Privileged", "%", "cpu",
-              '100 * avg(rate(windows_cpu_time_total{{mode="privileged",{sel}}}[{rate}]))'),
+              '100 * avg(rate(windows_cpu_time_total{{mode="privileged",{sel}}}[{rate}]))', True),
+    MetricDef("cpu_interrupt", "Interrupt", "%", "cpu",
+              '100 * avg(rate(windows_cpu_time_total{{mode="interrupt",{sel}}}[{rate}]))', True),
+    MetricDef("cpu_dpc", "DPC", "%", "cpu",
+              '100 * avg(rate(windows_cpu_time_total{{mode="dpc",{sel}}}[{rate}]))', True),
+    MetricDef("cpu_idle", "Idle", "%", "cpu",
+              '100 * avg(rate(windows_cpu_time_total{{mode="idle",{sel}}}[{rate}]))', True),
     MetricDef("mem", "Memory used", "%", "memory",
               '100 * (1 - sum(windows_memory_available_bytes{{{sel}}}) / sum(windows_cs_physical_memory_bytes{{{sel}}}))'),
+    MetricDef("mem_used_gb", "Used", "GB", "memory_gb",
+              '(sum(windows_cs_physical_memory_bytes{{{sel}}}) - sum(windows_memory_available_bytes{{{sel}}})) / 1073741824'),
+    MetricDef("mem_cached_gb", "Cached", "GB", "memory_gb", 'sum(windows_memory_cache_bytes{{{sel}}}) / 1073741824'),
+    MetricDef("mem_available_gb", "Available", "GB", "memory_gb",
+              'sum(windows_memory_available_bytes{{{sel}}}) / 1073741824'),
+    MetricDef("mem_total_gb", "Total", "GB", "memory_gb", 'sum(windows_cs_physical_memory_bytes{{{sel}}}) / 1073741824'),
     MetricDef("disk", "Disk C: used", "%", "disk",
               '100 * (1 - sum(windows_logical_disk_free_bytes{{volume="C:",{sel}}})'
               ' / sum(windows_logical_disk_size_bytes{{volume="C:",{sel}}}))'),
@@ -256,7 +282,8 @@ def rate_window(step: int) -> str:
 
 
 # ── Query ───────────────────────────────────────────────────────────────────
-def _query_range(promql: str, start: datetime, end: datetime, step: int) -> list[list[float]]:
+def _api(path: str, params: dict) -> list[dict]:
+    """GET a Prometheus HTTP API path; returns data.result or raises PrometheusUnavailable."""
     base = getattr(settings, "PROMETHEUS_URL", "")
     if not base:
         raise PrometheusUnavailable("PROMETHEUS_URL is not configured.")
@@ -266,8 +293,8 @@ def _query_range(promql: str, start: datetime, end: datetime, step: int) -> list
         headers["Authorization"] = f"Bearer {token}"
     try:
         res = requests.get(
-            f"{base.rstrip('/')}/api/v1/query_range",
-            params={"query": promql, "start": start.timestamp(), "end": end.timestamp(), "step": step},
+            f"{base.rstrip('/')}{path}",
+            params=params,
             headers=headers,
             timeout=getattr(settings, "PROMETHEUS_TIMEOUT", 10),
         )
@@ -277,18 +304,38 @@ def _query_range(promql: str, start: datetime, end: datetime, step: int) -> list
         raise PrometheusUnavailable(f"Prometheus query failed: {exc}") from exc
     if body.get("status") != "success":
         raise PrometheusUnavailable(body.get("error", "Prometheus returned an error."))
-    result = body.get("data", {}).get("result", [])
+    return body.get("data", {}).get("result", [])
+
+
+def _num(val) -> float | None:
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return None
+    return round(v, 3) if math.isfinite(v) else None
+
+
+def _query_range(promql: str, start: datetime, end: datetime, step: int) -> list[list[float]]:
+    result = _api("/api/v1/query_range",
+                  {"query": promql, "start": start.timestamp(), "end": end.timestamp(), "step": step})
     if not result:
         return []
     points = []
     for ts, val in result[0].get("values", []):
-        try:
-            v = float(val)
-        except (TypeError, ValueError):
-            continue
-        if math.isfinite(v):
-            points.append([float(ts), round(v, 3)])
+        v = _num(val)
+        if v is not None:
+            points.append([float(ts), v])
     return points
+
+
+def _query(promql: str) -> list[tuple[dict, float]]:
+    """Instant query → [(labels, value)] for every returned series."""
+    out = []
+    for r in _api("/api/v1/query", {"query": promql}):
+        v = _num((r.get("value") or [None, None])[1])
+        if v is not None:
+            out.append((r.get("metric", {}), v))
+    return out
 
 
 def run_catalog(defs: list[MetricDef], sel: str, vmsel: str, start, end, step, only: set[str] | None):
@@ -299,7 +346,7 @@ def run_catalog(defs: list[MetricDef], sel: str, vmsel: str, start, end, step, o
             continue
         promql = m.promql.format(sel=sel, vmsel=vmsel or sel, rate=rate)
         series.append({
-            "key": m.key, "label": m.label, "unit": m.unit, "group": m.group,
+            "key": m.key, "label": m.label, "unit": m.unit, "group": m.group, "stack": m.stack,
             "points": _query_range(promql, start, end, step),
         })
     return series
@@ -334,3 +381,150 @@ def vm_timeseries(vm, *, start=None, end=None, step=None, metrics=None) -> dict:
     t_start, t_end, t_step = resolve_window(start, end, step)
     sel = vm_selector(vm)
     return timeseries_response(VMWARE_VM, sel, sel, "vmware-vm", t_start, t_end, t_step, metrics)
+
+
+# ── Inventory: processes, services, filesystems (instant queries) ──────────
+# Windows: windows_exporter process/service/logical_disk collectors.
+# Linux: process-exporter (namedprocess_*), node_exporter systemd + filesystem.
+INVENTORY = {
+    "windows": {
+        "proc_label": "process",
+        "proc_cpu": 'topk({n}, 100 * sum by (process) (rate(windows_process_cpu_time_total{{{sel}}}[5m]))'
+                    ' / scalar(count(windows_cpu_time_total{{mode="idle",{sel}}})))',
+        "proc_mem": 'sum by (process) (windows_process_working_set_private_bytes{{{sel}}})',
+        "proc_threads": 'sum by (process) (windows_process_threads{{{sel}}})',
+        "svc_state": 'windows_service_state{{{sel}}} == 1',
+        "svc_mode": 'windows_service_start_mode{{{sel}}} == 1',
+        "fs_label": "volume",
+        "fs_size": 'max by (volume) (windows_logical_disk_size_bytes{{volume!~"HarddiskVolume.*",{sel}}})',
+        "fs_free": 'max by (volume) (windows_logical_disk_free_bytes{{volume!~"HarddiskVolume.*",{sel}}})',
+    },
+    "node": {
+        "proc_label": "groupname",
+        "proc_cpu": 'topk({n}, 100 * sum by (groupname) (rate(namedprocess_namegroup_cpu_seconds_total{{{sel}}}[5m]))'
+                    ' / scalar(count(node_cpu_seconds_total{{mode="idle",{sel}}})))',
+        "proc_mem": 'sum by (groupname) (namedprocess_namegroup_memory_bytes{{memtype="resident",{sel}}})',
+        "proc_threads": 'sum by (groupname) (namedprocess_namegroup_num_threads{{{sel}}})',
+        "svc_state": 'node_systemd_unit_state{{type="service",{sel}}} == 1',
+        "svc_mode": None,
+        "fs_label": "mountpoint",
+        "fs_size": 'max by (mountpoint) (node_filesystem_size_bytes{{fstype!~"tmpfs|overlay|squashfs",{sel}}})',
+        "fs_free": 'max by (mountpoint) (node_filesystem_avail_bytes{{fstype!~"tmpfs|overlay|squashfs",{sel}}})',
+    },
+}
+RUNNING_STATES = {"running", "active"}
+MAX_PROCESSES = 50
+
+
+def _services(q: dict, sel: str) -> dict:
+    modes = {}
+    if q["svc_mode"]:
+        modes = {m.get("name", ""): m.get("start_mode", "") for m, _ in _query(q["svc_mode"].format(sel=sel))}
+    running = stopped = other = 0
+    problems = []
+    for m, _ in _query(q["svc_state"].format(sel=sel)):
+        name, state = m.get("name", ""), m.get("state", "")
+        mode = modes.get(name, "")
+        if state in RUNNING_STATES:
+            running += 1
+        elif state == "failed" or (state == "stopped" and mode == "auto"):
+            # A failed unit, or a Windows service set to start automatically that is not running.
+            stopped += 1
+            problems.append({"name": name, "state": state, "start_mode": mode})
+        else:
+            other += 1
+    problems.sort(key=lambda p: p["name"].lower())
+    return {"running": running, "stopped": stopped, "other": other, "problems": problems[:100]}
+
+
+def device_inventory(device, *, top: int = 10) -> dict:
+    family = family_for_device(device)
+    if family not in INVENTORY:
+        return {"family": family, "source": "unsupported",
+                "message": "Processes, services and filesystems are collected for Linux and Windows servers.",
+                "processes": [], "services": None, "filesystems": []}
+    q = INVENTORY[family]
+    sel, _ = device_selector(device, family)
+    n = max(1, min(int(top), MAX_PROCESSES))
+    try:
+        label = q["proc_label"]
+        cpu = _query(q["proc_cpu"].format(sel=sel, n=n))
+        mem = {m.get(label): v for m, v in _query(q["proc_mem"].format(sel=sel))}
+        threads = {m.get(label): v for m, v in _query(q["proc_threads"].format(sel=sel))}
+        processes = sorted(
+            ({"name": m.get(label, "?"), "cpu": v, "mem_bytes": mem.get(m.get(label)),
+              "threads": threads.get(m.get(label))} for m, v in cpu),
+            key=lambda p: -p["cpu"],
+        )
+        services = _services(q, sel)
+        fl = q["fs_label"]
+        free = {m.get(fl): v for m, v in _query(q["fs_free"].format(sel=sel))}
+        filesystems = []
+        for m, size in _query(q["fs_size"].format(sel=sel)):
+            mount = m.get(fl, "?")
+            if size <= 0:
+                continue
+            avail = free.get(mount)
+            used = None if avail is None else max(0.0, size - avail)
+            filesystems.append({"mount": mount, "size_bytes": size, "used_bytes": used,
+                                "used_pct": None if used is None else round(100 * used / size, 1)})
+        filesystems.sort(key=lambda f: f["mount"])
+    except PrometheusUnavailable as exc:
+        return {"family": family, "source": "unavailable", "message": str(exc),
+                "processes": [], "services": None, "filesystems": []}
+    return {"family": family, "source": "prometheus", "processes": processes,
+            "services": services, "filesystems": filesystems}
+
+
+# ── Hardware: iDRAC / iLO through the Redfish exporter ──────────────────────
+# A BMC is its own InfraDevice (type idrac / ilo) with managed_by → the server.
+# Metric names follow jenningsloy318/redfish_exporter; the BMC is matched by
+# instance=<BMC IP> unless its metrics_labels say otherwise.
+REDFISH = [
+    MetricDef("health", "System health", "count", "health", 'max(redfish_system_health_state{{{sel}}})'),
+    MetricDef("temperature", "Temperature", "°C", "temperature",
+              'max(redfish_chassis_temperature_celsius{{sensor=~"(?i).*inlet.*",{sel}}})'
+              ' or max(redfish_chassis_temperature_celsius{{{sel}}})'),
+    MetricDef("fan", "Fan speed", "RPM", "fan", 'avg(redfish_chassis_fan_rpm{{{sel}}})'),
+    MetricDef("power", "Power", "W", "power", 'sum(redfish_chassis_power_average_consumed_watts{{{sel}}})'),
+]
+HEALTH = {1: "ok", 2: "warn", 3: "crit"}
+
+
+def bmc_selector(bmc) -> str:
+    tenant = _tenant_labels(bmc.tenant_id)
+    if bmc.metrics_labels:
+        return _matchers({**tenant, **{k: str(v) for k, v in bmc.metrics_labels.items()}})
+    if not bmc.ip_address:
+        raise ValueError(f"BMC {bmc.id} has no IP address.")
+    return _matchers({**tenant, "instance": str(bmc.ip_address)})
+
+
+def device_hardware(device, *, start=None, end=None, step=None) -> dict:
+    t_start, t_end, t_step = resolve_window(start, end, step)
+    bmcs = list(device.bmcs.all().order_by("id"))
+    base = {"start": t_start.isoformat(), "end": t_end.isoformat(), "step": t_step}
+    if not bmcs:
+        return {**base, "source": "none", "controllers": [],
+                "message": "No iDRAC / iLO is linked to this device."}
+    controllers = []
+    try:
+        for b in bmcs:
+            series = {s["key"]: s for s in run_catalog(REDFISH, bmc_selector(b), "", t_start, t_end, t_step, None)}
+            health_pts = series["health"]["points"]
+            controllers.append({
+                "id": b.id,
+                "kind": b.device_type,
+                "vendor": b.vendor,
+                "model": b.model,
+                "ip": str(b.ip_address or ""),
+                "firmware": b.os_version,
+                "health": HEALTH.get(int(health_pts[-1][1]), "unknown") if health_pts else "unknown",
+                "sensors": [series[k] for k in ("temperature", "fan", "power")],
+            })
+    except PrometheusUnavailable as exc:
+        return {**base, "source": "unavailable", "message": str(exc),
+                "controllers": [{"id": b.id, "kind": b.device_type, "vendor": b.vendor, "model": b.model,
+                                 "ip": str(b.ip_address or ""), "firmware": b.os_version,
+                                 "health": "unknown", "sensors": []} for b in bmcs]}
+    return {**base, "source": "prometheus", "controllers": controllers}

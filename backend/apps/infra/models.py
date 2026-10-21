@@ -45,6 +45,8 @@ class InfraDevice(TenantScopedModel):
     # {"instance": "10.10.1.21:9100", "job": "node"}. Empty → derived from
     # the device (apps.monitoring.prometheus.device_selector).
     metrics_labels = models.JSONField(default=dict, blank=True)
+    # Set on an iDRAC / iLO device: the server this controller manages.
+    managed_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="bmcs")
     health_status = models.CharField(max_length=12, choices=STATUS, default="unknown")
     monitoring_enabled = models.BooleanField(default=True)
     snmp_version = models.CharField(max_length=8, blank=True, default="")

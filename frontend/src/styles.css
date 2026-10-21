@@ -3157,3 +3157,55 @@ a.ld-btn { text-decoration: none; }
 .ld-path li { position: relative; padding: 8px 0 8px 28px; font-size: 13px; color: var(--fg); }
 .ld-path li i { position: absolute; left: 0; top: 10px; width: 18px; text-align: center; color: var(--accent); }
 .ld-path li:not(:last-child)::after { content: ""; position: absolute; left: 8px; top: 30px; bottom: -6px; border-left: 2px dashed var(--border-strong); }
+
+/* ── Server node page (Netdata layout) ─────────────────────────────────── */
+.ld-text-muted { color: var(--fg-muted); }
+.ld-text-info { color: var(--accent); }
+.ld-entity-head { align-items: flex-start; }
+.ld-head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; min-width: 0; }
+.ld-os-logo { flex: none; width: 60px; height: 60px; display: grid; place-items: center; font-size: 46px; }
+.ld-os-win { color: #0078d4; }
+.ld-os-linux { color: #1f2328; }
+.ld-os-esx { color: #607078; font-size: 38px; }
+[data-theme="dark"] .ld-os-linux { color: #e6edf3; }
+.ld-tags { list-style: none; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin: 0; padding: 0; }
+.ld-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-muted); color: var(--fg); }
+.ld-tag i { color: var(--accent); }
+.ld-range-bar { display: flex; justify-content: flex-end; }
+.ld-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.ld-kpi { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 10px; min-width: 0; }
+.ld-kpi-top { display: flex; align-items: center; gap: 8px; }
+.ld-kpi-label { font-size: 13px; color: var(--fg-muted); font-weight: 600; }
+.ld-kpi-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.ld-kpi-value b { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); line-height: 1.25; }
+.ld-kpi-sub { font-size: 12px; color: var(--fg-muted); display: flex; gap: 10px; }
+.ld-delta { font-size: 13px; font-weight: 700; white-space: nowrap; }
+.ld-spark { display: block; width: 100%; height: 34px; margin-top: auto; }
+.ld-kpi-donut { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ld-kpi-donut .ld-kpi-value b { font-size: 18px; }
+.ld-kpi-donut .ld-donut { width: 72px; height: 72px; }
+.ld-kpi-legend { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; color: var(--fg-muted); display: grid; gap: 2px; }
+.ld-kpi-legend b { color: var(--fg); margin-left: 4px; }
+.ld-bar-inline { display: inline-block; vertical-align: middle; width: 90px; height: 8px; }
+.ld-bmc { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.ld-bmc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ld-bmc-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.ld-bmc-more { margin-left: auto; font-size: 13px; }
+.ld-bmc-body { display: flex; align-items: stretch; gap: 14px; }
+.ld-bmc-logo { flex: none; width: 76px; display: grid; place-items: center; border-radius: 10px; font-weight: 900; font-size: 18px; letter-spacing: 0.04em; }
+.ld-bmc-idrac { color: #0076ce; border: 3px solid #0076ce; border-radius: 50%; width: 64px; height: 64px; align-self: center; font-size: 15px; }
+.ld-bmc-ilo { color: #01a982; border-top: 8px solid #01a982; border-radius: 2px; height: 46px; align-self: center; }
+.ld-bmc-tiles { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; min-width: 0; }
+.ld-bmc-tile { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+.ld-bmc-tile b { font-size: 18px; }
+.ld-bmc-tile .ld-spark { height: 22px; }
+.ld-logbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.ld-logbar .ld-search { flex: 1 1 240px; }
+.ld-logs td { vertical-align: top; }
+@media (max-width: 720px) {
+  .ld-head-side { align-items: flex-start; }
+  .ld-tags { justify-content: flex-start; }
+  .ld-bmc-body { flex-direction: column; }
+}
+.ld-chart-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .ld-chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

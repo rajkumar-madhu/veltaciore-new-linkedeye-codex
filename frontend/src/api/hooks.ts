@@ -472,6 +472,8 @@ export interface MetricSeries {
   label: string;
   unit: string;
   group: string;
+  /** parts of a whole (e.g. CPU modes) — drawn stacked */
+  stack?: boolean;
   /** [unix seconds, value] */
   points: [number, number][];
 }
@@ -495,21 +497,21 @@ function useMetrics(kind: "devices" | "vms", id: string | undefined, preset: str
     refetchOnWindowFocus: false,
     enabled: !!id,
     queryKey: ["metrics", kind, tenant, id, preset, from, to],
-    queryFn: () => {
-      // Relative presets are resolved at fetch time so each refetch slides the window.
-      const span = PRESET_SECONDS[preset] ?? 3600;
-      const end = live ? Date.now() : (to as number);
-      const start = live ? end - span * 1000 : (from as number);
-      return apiGet<MetricsResponse>(`/infra/${kind}/${id}/metrics/`, {
-        start: new Date(start).toISOString(),
-        end: new Date(end).toISOString(),
-      });
-    },
+    queryFn: () => apiGet<MetricsResponse>(`/infra/${kind}/${id}/metrics/`, rangeParams(preset, from, to)),
     refetchInterval: live ? 30_000 : false,
   });
 }
 
 const PRESET_SECONDS: Record<string, number> = Object.fromEntries(PRESETS.map((p) => [p.id, p.seconds]));
+
+/** start/end query params; relative presets are resolved at fetch time so each refetch slides the window. */
+function rangeParams(preset: string, from: number | null, to: number | null) {
+  const live = preset !== "custom";
+  const span = PRESET_SECONDS[preset] ?? 3600;
+  const end = live ? Date.now() : (to as number);
+  const start = live ? end - span * 1000 : (from as number);
+  return { start: new Date(start).toISOString(), end: new Date(end).toISOString() };
+}
 
 export function useDeviceMetrics(deviceId: string | undefined, preset: string, from: number | null, to: number | null) {
   return useMetrics("devices", deviceId, preset, from, to);
@@ -563,5 +565,84 @@ export function useDeviceRelationships(deviceId?: string) {
     queryKey: ["device-relationships", tenant, deviceId],
     queryFn: () => apiGet<DeviceRelationships>(`/infra/devices/${deviceId}/relationships/`),
     refetchInterval: 60_000,
+  });
+}
+
+// ── Device inventory: processes, services, filesystems (Prometheus, now) ───
+
+export interface DeviceProcess { name: string; cpu: number; mem_bytes: number | null; threads: number | null }
+
+export interface DeviceInventory {
+  family: string | null;
+  source: "prometheus" | "unavailable" | "unsupported";
+  message?: string;
+  processes: DeviceProcess[];
+  services: { running: number; stopped: number; other: number; problems: { name: string; state: string; start_mode: string }[] } | null;
+  filesystems: { mount: string; size_bytes: number; used_bytes: number | null; used_pct: number | null }[];
+}
+
+export function useDeviceInventory(deviceId?: string, top = 10) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-inventory", tenant, deviceId, top],
+    queryFn: () => apiGet<DeviceInventory>(`/infra/devices/${deviceId}/inventory/`, { top: String(top) }),
+    refetchInterval: 30_000,
+  });
+}
+
+// ── Hardware: iDRAC / iLO via the Redfish exporter ─────────────────────────
+
+export interface BmcController {
+  id: string;
+  kind: "idrac" | "ilo" | string;
+  vendor: string;
+  model: string;
+  ip: string;
+  firmware: string;
+  health: "ok" | "warn" | "crit" | "unknown";
+  /** temperature (°C), fan (RPM), power (W) over the selected range */
+  sensors: MetricSeries[];
+}
+
+export interface DeviceHardware {
+  source: "prometheus" | "unavailable" | "none";
+  message?: string;
+  start: string;
+  end: string;
+  controllers: BmcController[];
+}
+
+export function useDeviceHardware(deviceId: string | undefined, preset: string, from: number | null, to: number | null) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-hardware", tenant, deviceId, preset, from, to],
+    queryFn: () => apiGet<DeviceHardware>(`/infra/devices/${deviceId}/hardware/`, rangeParams(preset, from, to)),
+    refetchInterval: preset !== "custom" ? 60_000 : false,
+  });
+}
+
+// ── Device logs (Windows Event Logs / journal) from Loki ────────────────────
+
+export interface LogEntry { ts: string; level: "critical" | "error" | "warning" | "info" | "debug"; source: string; event_id?: string | number | null; message: string }
+
+export interface DeviceLogs {
+  source: "loki" | "unavailable";
+  message?: string;
+  query: string;
+  entries: LogEntry[];
+}
+
+export function useDeviceLogs(deviceId: string | undefined, preset: string, from: number | null, to: number | null, search: string, level: string) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-logs", tenant, deviceId, preset, from, to, search, level],
+    queryFn: () => apiGet<DeviceLogs>(`/infra/devices/${deviceId}/logs/`, { ...rangeParams(preset, from, to), search, level, limit: "200" }),
+    refetchInterval: preset !== "custom" ? 30_000 : false,
   });
 }
