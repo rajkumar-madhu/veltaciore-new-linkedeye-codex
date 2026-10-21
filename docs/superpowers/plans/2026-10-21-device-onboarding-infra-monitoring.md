@@ -1,7 +1,7 @@
 # Device Onboarding + Infra/Application Monitoring — implementation plan
 
 Source: `LinkedEye_DeviceOnboarding_InfraMonitoring_ClaudeCode_Prompt.md` (R. Madhu).
-Status: **draft — waiting on the open decisions at the end before code is written.**
+Status: **approved — decisions recorded below; Phase 1 done.**
 
 ## What already exists (verified in the repo)
 
@@ -44,3 +44,17 @@ Each phase ships with Django tests (and `opa test` for policy) before the next s
 4. Existing SNMP/agent discovery mechanism in the fleet, if any, to reuse.
 5. Client data from the trackers: seed client/site names into fixtures? (Credentials and passwords in the trackers are never copied into the repo.)
 6. Confirm "auto-discovery never auto-commits" (human approval required).
+
+## Decisions (2026-10-21)
+
+1. Visual direction: keep the light LinkedEye style shown in the latest references (not the dark command-center theme).
+2. Keep plain CSS (`ld-*`) + Font Awesome; no Tailwind / Lucide migration.
+3. Trackers: client and site **names only** go into seed data — no IPs, URLs or credentials.
+4. Prometheus / Grafana / Loki are provisioned (fs-le-dev-* endpoints, configured via settings); discovered devices always need human approval.
+5. Order: backend phases 1–3, then the VM Details and switch device-detail screens, then onboarding / import / discovery.
+
+## Progress
+
+- **Phase 1 — done.** Tenant scope (`apps/tenants/context.py`) set per request by `TenantScopePermission`; `TenantScopedModel.objects` applies it when a query executes (fetch, count, exists, aggregate, update, delete, subquery) and raises with no scope. Unknown tenant → 400; no header → all-tenants scope that OPA restricts to admins (fails closed without OPA in production). Celery tasks and seed commands run under `system_task` / `all_tenants()`.
+  - Fixed: the Rego cross-tenant guard used `not input.tenant`, which is false for JSON `null` — the value the API sends — so it never fired. Reads without a tenant now also require admin.
+  - Open: `test_viewer_cannot_write` contradicts the "any authenticated user may create work items" rule; failing before this change, left for a product decision.

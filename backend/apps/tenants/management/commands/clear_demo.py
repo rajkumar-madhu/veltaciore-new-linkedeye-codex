@@ -8,6 +8,8 @@ reversible: run `python manage.py seed_demo` to restore the demo dataset.
     python manage.py clear_demo --yes      # skip the confirmation prompt
 """
 from django.core.management.base import BaseCommand
+
+from apps.tenants.context import system_task
 from django.db import transaction
 
 
@@ -18,6 +20,7 @@ class Command(BaseCommand):
         parser.add_argument("--yes", action="store_true", help="Skip confirmation.")
 
     @transaction.atomic
+    @system_task  # seeds / clears every tenant's data
     def handle(self, *args, **opts):
         from apps.apm.models import Service
         from apps.changes.models import ChangeRequest, SnChangeRecord

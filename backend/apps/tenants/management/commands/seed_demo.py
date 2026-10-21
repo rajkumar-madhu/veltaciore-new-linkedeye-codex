@@ -12,6 +12,8 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
+from apps.tenants.context import system_task
+
 FIXTURES = Path(__file__).resolve().parents[4] / "fixtures" / "seed.json"
 
 SN_INCIDENTS = [
@@ -178,6 +180,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--flush", action="store_true", help="Delete existing rows first")
 
+    @system_task  # seeds / clears every tenant's data
     def handle(self, *args, **opts):
         from datetime import date
 

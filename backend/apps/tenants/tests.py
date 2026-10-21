@@ -74,7 +74,7 @@ class SeededApiTests(TestCase):
         self.assertTrue(body["critical"])
         self.assertEqual(body["state"], "New")
         fyers = self.client.get("/api/incidents/records/", HTTP_X_TENANT_ID="fyers").json()["count"]
-        other = self.client.get("/api/incidents/records/", HTTP_X_TENANT_ID="zerodha").json()["count"]
+        other = self.client.get("/api/incidents/records/", HTTP_X_TENANT_ID="indmoney").json()["count"]
         self.assertEqual(fyers, before + 1)
         self.assertEqual(other, before)  # not visible to a different tenant
 
@@ -90,7 +90,7 @@ class SeededApiTests(TestCase):
         self.assertTrue(body["id"].startswith("PRB-"))
         self.assertTrue(body["critical"])
         after = self.client.get("/api/problems/records/", HTTP_X_TENANT_ID="fyers").json()["count"]
-        other = self.client.get("/api/problems/records/", HTTP_X_TENANT_ID="zerodha").json()["count"]
+        other = self.client.get("/api/problems/records/", HTTP_X_TENANT_ID="indmoney").json()["count"]
         self.assertEqual(after, before + 1)
         self.assertEqual(other, before)
 
@@ -112,7 +112,7 @@ class SeededApiTests(TestCase):
         self.assertTrue(body["critical"])
         self.assertEqual(body["risk"], "High")
         after = self.client.get("/api/changes/records/", HTTP_X_TENANT_ID="fyers").json()["count"]
-        other = self.client.get("/api/changes/records/", HTTP_X_TENANT_ID="zerodha").json()["count"]
+        other = self.client.get("/api/changes/records/", HTTP_X_TENANT_ID="indmoney").json()["count"]
         self.assertEqual(after, before + 1)
         self.assertEqual(other, before)
 

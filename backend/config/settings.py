@@ -129,6 +129,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
+        "apps.tenants.permissions.TenantScopePermission",
         "apps.policy.permissions.OpaPermission",
     ],
     "DEFAULT_FILTER_BACKENDS": [
@@ -165,3 +166,8 @@ KEYCLOAK_VERIFY_AUD = os.environ.get("KEYCLOAK_VERIFY_AUD", "0") == "1"
 # ── OPA ─────────────────────────────────────────────────────────────────────
 OPA_URL = os.environ.get("OPA_URL", "")  # e.g. http://opa:8181/v1/data/veltacore/authz/allow
 OPA_FAIL_OPEN = os.environ.get("OPA_FAIL_OPEN", "1" if DEBUG else "0") == "1"
+
+# ── Tenancy ─────────────────────────────────────────────────────────────────
+# Strict: querying a tenant-scoped model with no tenant scope raises instead of
+# returning every tenant's rows (see apps/tenants/context.py).
+TENANT_STRICT = os.environ.get("TENANT_STRICT", "1") == "1"

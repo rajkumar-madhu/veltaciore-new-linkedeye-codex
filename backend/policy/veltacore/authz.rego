@@ -102,9 +102,16 @@ grant_by_role if {
 }
 
 # ── Tenant guard ─────────────────────────────────────────────────────────────
-# Cross-tenant writes (no X-Tenant-ID header) require admin.
+# A request without X-Tenant-ID spans every tenant (the API scopes it to all
+# tenants), so both reads and writes across tenants require admin. Requests
+# with a tenant are scoped to that tenant by the ORM (apps/tenants/context.py).
 deny_cross_tenant if {
-    not input.tenant
+    no_tenant
     not "admin" in input.groups
-    not input.method in read_methods
 }
+
+# The API sends a missing tenant as JSON null; `not input.tenant` alone is
+# false for null, so check absent, null and empty explicitly.
+no_tenant if not input.tenant
+no_tenant if input.tenant == null
+no_tenant if input.tenant == ""

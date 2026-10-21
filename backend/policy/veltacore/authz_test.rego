@@ -62,3 +62,15 @@ test_level_is_personal_for_owner_only if {
         "resource": {"assignee": "priya"},
     }
 }
+
+test_cross_tenant_read_denied_for_non_admin if {
+    not authz.allow with input as {"path": "/api/incidents/records/", "method": "GET", "user": "v", "groups": ["viewer"], "tenant": null, "resource": {}}
+}
+
+test_cross_tenant_read_allowed_for_admin if {
+    authz.allow with input as {"path": "/api/incidents/records/", "method": "GET", "user": "a", "groups": ["admin"], "tenant": null, "resource": {}}
+}
+
+test_tenant_scoped_read_allowed_for_viewer if {
+    authz.allow with input as {"path": "/api/incidents/records/", "method": "GET", "user": "v", "groups": ["viewer"], "tenant": "fyers", "resource": {}}
+}
