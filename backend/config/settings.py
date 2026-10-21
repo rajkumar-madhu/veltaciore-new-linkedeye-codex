@@ -171,3 +171,17 @@ OPA_FAIL_OPEN = os.environ.get("OPA_FAIL_OPEN", "1" if DEBUG else "0") == "1"
 # Strict: querying a tenant-scoped model with no tenant scope raises instead of
 # returning every tenant's rows (see apps/tenants/context.py).
 TENANT_STRICT = os.environ.get("TENANT_STRICT", "1") == "1"
+
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+# Audit events (apps.audit.events) go to stdout as one JSON object per line,
+# for Filebeat to ship to Loki. Other loggers keep Django's defaults.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"raw": {"format": "%(message)s"}},
+    "handlers": {"audit_stdout": {"class": "logging.StreamHandler", "formatter": "raw"}},
+    "loggers": {
+        "linkedeye.audit": {"handlers": ["audit_stdout"], "level": "INFO", "propagate": False},
+    },
+}
