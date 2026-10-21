@@ -3111,3 +3111,12 @@ a.ld-btn { text-decoration: none; }
 .ld-inline-label { font-size: 13px; color: var(--fg-muted); }
 .ld-textarea { min-height: 76px; padding: 8px 10px; resize: vertical; line-height: 1.4; }
 .ld-desc { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ── Entity detail pages (VM, devices) ── */
+.ld-crumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-muted); }
+.ld-crumbs i { font-size: 10px; }
+.ld-entity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.ld-entity .ld-tile { width: 56px; height: 56px; font-size: 26px; }
+.ld-entity-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ld-head h1.ld-entity-title { font-size: 26px; }
+.ld-entity-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px; }
+.ld-entity-meta span + span::before { content: "|"; margin-right: 14px; color: var(--border-strong); }

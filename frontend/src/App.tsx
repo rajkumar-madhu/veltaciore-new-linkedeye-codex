@@ -75,6 +75,7 @@ const InfraVMsScreen = React.lazy(() => import("@/screens/InfraVMsScreen"));
 const InfraRackScreen = React.lazy(() => import("@/screens/InfraRackScreen"));
 const InfraExportersScreen = React.lazy(() => import("@/screens/InfraExportersScreen"));
 const MonitoringTemplatesScreen = React.lazy(() => import("@/screens/MonitoringTemplatesScreen"));
+const VmDetailScreen = React.lazy(() => import("@/screens/VmDetailScreen"));
 const DomainsScreen = React.lazy(() => import("@/screens/DomainsScreen"));
 const UrlCheckerScreen = React.lazy(() => import("@/screens/UrlCheckerScreen"));
 const TelnetMonitoringScreen = React.lazy(() => import("@/screens/TelnetMonitoringScreen"));
@@ -226,6 +227,7 @@ export default function App() {
             <Route path="/infra-rack" element={<InfraRackScreen />} />
             <Route path="/infra-exporters" element={<InfraExportersScreen />} />
             <Route path="/infra-templates" element={<MonitoringTemplatesScreen />} />
+            <Route path="/vm-detail" element={<VmDetailScreen />} />
             <Route path="/domains" element={<DomainsScreen />} />
             <Route path="/url-checker" element={<UrlCheckerScreen />} />
             <Route path="/telnet-monitoring" element={<TelnetMonitoringScreen />} />

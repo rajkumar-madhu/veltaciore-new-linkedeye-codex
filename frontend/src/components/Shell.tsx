@@ -309,6 +309,7 @@ function crumbsFor(route: string, tenant: Tenant): Crumb[] {
     "ups-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "UPS" }],
     "infra-exporters": [...base, { label: "Infrastructure", to: "infra" }, { label: "Exporters" }],
     "infra-templates": [...base, { label: "Infrastructure", to: "infra" }, { label: "Monitoring templates" }],
+    "vm-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Virtual machines", to: "infra-vms" }, { label: "VM details" }],
     domains: [...base, { label: "Monitoring" }, { label: "Domains" }],
     "url-checker": [...base, { label: "Monitoring" }, { label: "URL Checker" }],
     "telnet-monitoring": [...base, { label: "Monitoring" }, { label: "Telnet monitoring" }],
