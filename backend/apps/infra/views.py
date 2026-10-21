@@ -112,6 +112,19 @@ class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         )
 
     @action(detail=True)
+    def relationships(self, request, pk=None):
+        """GET /api/infra/devices/{id}/relationships/ — the device's family.
+
+        Where it lives (site, rack and U position), what runs on it (VMs),
+        and what each NIC is cabled to (topology links matched on port name).
+        Peers are looked up through the tenant-scoped manager, so a link to
+        a device the caller may not see is returned without its details.
+        """
+        from .relationships import device_relationships
+
+        return Response(device_relationships(self.get_object()))
+
+    @action(detail=True)
     def metrics(self, request, pk=None):
         """GET /api/infra/devices/{id}/metrics/ — real time series from Prometheus.
 

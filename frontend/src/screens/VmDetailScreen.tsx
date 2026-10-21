@@ -11,6 +11,7 @@ import { useDevice, useInfraAlerts, useVms } from "@/api/hooks";
 import { DEVICES, VMS } from "@/data/infra";
 import { Empty, Panel, Pill, StatCard } from "@/components/ld";
 import { VmMetrics } from "@/components/MetricCharts";
+import { NetworkPath } from "@/components/DeviceFamily";
 import type { Tone } from "@/components/ld";
 
 const STATE_TONE: Record<string, Tone> = { running: "ok", stopped: "muted", suspended: "warn", error: "crit" };
@@ -132,6 +133,8 @@ export default function VmDetailScreen() {
           )}
         </Panel>
       </div>
+
+      <NetworkPath vmId={vm.id} hostId={vm.host} />
 
       <VmMetrics vmId={vm.id} />
 

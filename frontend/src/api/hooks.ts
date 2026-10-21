@@ -518,3 +518,50 @@ export function useDeviceMetrics(deviceId: string | undefined, preset: string, f
 export function useVmMetrics(vmId: string | undefined, preset: string, from: number | null, to: number | null) {
   return useMetrics("vms", vmId, preset, from, to);
 }
+
+// ── Device relationships (site / rack / VMs / NIC → switch port) ───────────
+
+export interface PeerRef {
+  id: string | null;
+  /** true when the linked device belongs to a tenant the caller can't see */
+  restricted: boolean;
+  name?: string;
+  kind?: string;
+  model?: string;
+  ip?: string;
+  status?: string;
+}
+
+export interface NicLink {
+  name: string;
+  description: string;
+  mac: string;
+  speed: string;
+  admin_status: string;
+  oper_status: string;
+  vlan: string;
+  mtu: number;
+  rx_mbps: number;
+  tx_mbps: number;
+  connected_to: { peer: PeerRef; port: string; bandwidth: string; status: string } | null;
+}
+
+export interface DeviceRelationships {
+  device: { id: string; kind: string; model: string; ip: string };
+  site: { id: string; name: string };
+  rack: { id: string; name: string; u_top: number; u_bottom: number } | null;
+  vms: Vm[];
+  nics: NicLink[];
+  other_links: { local_port: string; peer_port: string; peer: PeerRef; bandwidth: string; status: string }[];
+}
+
+export function useDeviceRelationships(deviceId?: string) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-relationships", tenant, deviceId],
+    queryFn: () => apiGet<DeviceRelationships>(`/infra/devices/${deviceId}/relationships/`),
+    refetchInterval: 60_000,
+  });
+}

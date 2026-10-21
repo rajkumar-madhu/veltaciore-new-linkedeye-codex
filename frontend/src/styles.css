@@ -3139,3 +3139,21 @@ a.ld-btn { text-decoration: none; }
 .ld-metrics-off { display: flex; align-items: flex-start; gap: 14px; padding: 18px; }
 .ld-metrics-off i { font-size: 22px; color: #8a4b00; margin-top: 2px; }
 .ld-metrics-off b { color: var(--fg); }
+/* ── Device family / relationships ── */
+.ld-family { display: grid; grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr) 40px minmax(0, 1fr); align-items: center; gap: 0; padding: 16px 18px; }
+.ld-family-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ld-family-label { font-size: 12px; font-weight: 600; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .04em; }
+.ld-family-link { height: 2px; background: repeating-linear-gradient(90deg, var(--border-strong) 0 6px, transparent 6px 10px); }
+.ld-family-node { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-raised); text-align: left; font: inherit; color: var(--fg); min-width: 0; }
+.ld-family-node > i { font-size: 18px; color: var(--accent); width: 22px; text-align: center; flex: none; }
+.ld-family-node > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ld-family-node b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ld-family-self { border: 2px solid var(--accent); box-shadow: 0 0 0 3px var(--info-bg); }
+.ld-family-vm { cursor: pointer; }
+.ld-family-vm:hover { border-color: var(--border-strong); }
+.ld-family-vm:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 900px) { .ld-family { grid-template-columns: minmax(0, 1fr); gap: 12px; } .ld-family-link { display: none; } }
+.ld-path { list-style: none; display: flex; flex-direction: column; gap: 0; }
+.ld-path li { position: relative; padding: 8px 0 8px 28px; font-size: 13px; color: var(--fg); }
+.ld-path li i { position: absolute; left: 0; top: 10px; width: 18px; text-align: center; color: var(--accent); }
+.ld-path li:not(:last-child)::after { content: ""; position: absolute; left: 8px; top: 30px; bottom: -6px; border-left: 2px dashed var(--border-strong); }

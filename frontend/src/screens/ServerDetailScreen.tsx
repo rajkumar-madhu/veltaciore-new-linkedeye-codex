@@ -7,6 +7,7 @@ import { useUiStore } from "@/store/ui";
 import { useDevice, useInfraAlerts } from "@/api/hooks";
 import { Panel, Pill } from "@/components/ld";
 import { DeviceMetrics } from "@/components/MetricCharts";
+import { DeviceFamily } from "@/components/DeviceFamily";
 import { DEVICES, VMS } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import {
@@ -286,7 +287,7 @@ export default function ServerDetailScreen() {
           {(tab === "Overview" || tab === "Performance") && <DeviceMetrics deviceId={d.id} title="Performance" />}
 
           {(tab === "Overview" || tab === "Storage") && mountTable}
-          {(tab === "Overview" || tab === "Network") && nicTable}
+          {(tab === "Overview" || tab === "Network" || tab === "Topology") && <DeviceFamily deviceId={d.id} />}
           {tab === "Overview" && (
             <div className="ld-grid ld-grid-2">
               {infoPanel}

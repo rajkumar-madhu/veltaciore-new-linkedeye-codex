@@ -83,3 +83,32 @@ class LifecycleTests(TestCase):
         res = self._post("active", tenant="indmoney")
         self.assertEqual(res.status_code, 404)
         self.assertEqual(self._state(), "pending_review")
+
+
+class RelationshipTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo")
+
+    def test_hypervisor_family(self):
+        res = APIClient().get("/api/infra/devices/ESX-BLR-01/relationships/", HTTP_X_TENANT_ID="fyers")
+        self.assertEqual(res.status_code, 200, res.content)
+        body = res.json()
+        self.assertEqual(len(body["vms"]), 4)
+        self.assertTrue(all(v["host"] == "ESX-BLR-01" for v in body["vms"]))
+        names = [n["name"] for n in body["nics"]]
+        self.assertIn("eno1", names)
+        linked = [n for n in body["nics"] if n["connected_to"]]
+        self.assertEqual(len(linked), 1)
+        self.assertEqual(linked[0]["name"], "ens2f0")
+        self.assertEqual(linked[0]["connected_to"]["peer"]["id"], "SW-BLR-TOR-12")
+        self.assertTrue(linked[0]["connected_to"]["port"].startswith("Te1/0/"))
+        self.assertEqual(body["other_links"], [])
+
+    def test_peer_in_other_tenant_is_restricted(self):
+        with all_tenants():
+            InfraDevice.objects.filter(pk="ESX-BLR-01").update(tenant_id="fyers")
+            InfraDevice.objects.filter(pk="SW-BLR-TOR-12").update(tenant_id="indmoney")
+        body = APIClient().get("/api/infra/devices/ESX-BLR-01/relationships/", HTTP_X_TENANT_ID="fyers").json()
+        peer = next(n for n in body["nics"] if n["connected_to"])["connected_to"]["peer"]
+        self.assertEqual(peer, {"id": None, "restricted": True})
