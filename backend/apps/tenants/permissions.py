@@ -21,6 +21,10 @@ class TenantScopePermission(BasePermission):
     message = "X-Tenant-ID header required."
 
     def has_permission(self, request, view) -> bool:
+        if getattr(view, "tenant_scope_exempt", False):
+            # View reads no tenant-scoped data; leave the scope unset so any
+            # accidental scoped query still raises.
+            return True
         tenant_id = getattr(request, "tenant_id", None)
         if tenant_id:
             if not Tenant.objects.filter(pk=tenant_id).exists():

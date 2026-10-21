@@ -91,3 +91,16 @@ class ApiScopeTests(TestCase):
     def test_scope_does_not_leak_after_request(self):
         self.client.get("/api/incidents/records/", HTTP_X_TENANT_ID="fyers")
         self.assertIsNone(current_scope())
+
+
+class TenantListExemptTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo")
+
+    def test_tenant_list_works_with_unknown_tenant_header(self):
+        # A fresh deployment's default tenant id may not exist; the UI must
+        # still be able to load the real tenant list.
+        res = APIClient().get("/api/tenants/", HTTP_X_TENANT_ID="no-such-tenant")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["count"], 6)
