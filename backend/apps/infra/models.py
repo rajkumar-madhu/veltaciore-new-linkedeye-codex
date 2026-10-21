@@ -41,6 +41,10 @@ class InfraDevice(TenantScopedModel):
     lifecycle_state = models.CharField(max_length=16, choices=LIFECYCLE, default="active", db_index=True)
     criticality_tier = models.CharField(max_length=8, choices=CRITICALITY, default="tier3")
     owning_team = models.CharField(max_length=128, blank=True, default="")
+    # Prometheus label matchers for this device's series, e.g.
+    # {"instance": "10.10.1.21:9100", "job": "node"}. Empty → derived from
+    # the device (apps.monitoring.prometheus.device_selector).
+    metrics_labels = models.JSONField(default=dict, blank=True)
     health_status = models.CharField(max_length=12, choices=STATUS, default="unknown")
     monitoring_enabled = models.BooleanField(default=True)
     snmp_version = models.CharField(max_length=8, blank=True, default="")

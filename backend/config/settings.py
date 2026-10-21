@@ -185,3 +185,10 @@ LOGGING = {
         "linkedeye.audit": {"handlers": ["audit_stdout"], "level": "INFO", "propagate": False},
     },
 }
+
+# ── Prometheus (device metrics) ─────────────────────────────────────────────
+# Metrics are read from the provisioned Prometheus, not stored locally.
+PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "")  # e.g. https://fs-le-dev-prometheus.finspot.in
+PROMETHEUS_TOKEN = os.environ.get("PROMETHEUS_TOKEN", "")
+PROMETHEUS_TENANT_LABEL = os.environ.get("PROMETHEUS_TENANT_LABEL", "")
+PROMETHEUS_TIMEOUT = float(os.environ.get("PROMETHEUS_TIMEOUT", "10"))
