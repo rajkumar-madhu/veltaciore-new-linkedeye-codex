@@ -46,7 +46,7 @@ def stream_selector(device) -> str:
     host_label = getattr(settings, "LOKI_HOST_LABEL", "host") or "host"
     if not _LABEL_NAME.match(host_label):
         raise ValueError(f"Invalid LOKI_HOST_LABEL {host_label!r}")
-    parts = [f'{host_label}="{_escape(device.hostname or device.id)}"']
+    parts = [f'{host_label}="{_escape(getattr(device, "hostname", "") or device.id)}"']
     tenant_label = getattr(settings, "LOKI_TENANT_LABEL", "")
     if tenant_label and device.tenant_id:
         if not _LABEL_NAME.match(tenant_label):

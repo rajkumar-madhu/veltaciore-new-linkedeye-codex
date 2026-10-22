@@ -229,16 +229,21 @@ export function HardwareSection({ hw, loading, detailed, onDetails }: { hw?: Dev
 const LEVEL_TONE: Record<LogEntry["level"], Tone> = { critical: "crit", error: "crit", warning: "warn", info: "info", debug: "muted" };
 const LEVEL_ICON: Record<LogEntry["level"], string> = { critical: "fa-circle-xmark", error: "fa-circle-xmark", warning: "fa-triangle-exclamation", info: "fa-circle-info", debug: "fa-bug" };
 
-export function EventLogs({ deviceId, title = "Event Logs" }: { deviceId: string; title?: string }) {
+export function EventLogs({ deviceId, title = "Event Logs", kind = "devices", compact = false, onViewAll }: {
+  deviceId: string; title?: string; kind?: "devices" | "vms";
+  /** a short "Recent Events" list: no filters, five rows, time / type / message */
+  compact?: boolean;
+  onViewAll?: () => void;
+}) {
   const { preset, from, to } = useTimeRange();
   const [draft, setDraft] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [level, setLevel] = React.useState("");
-  const q = useDeviceLogs(deviceId, preset, from, to, search, level);
+  const q = useDeviceLogs(deviceId, preset, from, to, search, level, kind);
   const id = React.useId();
   return (
-    <Panel title={title}>
-      <form className="ld-logbar" onSubmit={(e) => { e.preventDefault(); setSearch(draft.trim()); }}>
+    <Panel title={title} action={onViewAll ? { label: "View all", onClick: onViewAll } : undefined}>
+      {!compact && <form className="ld-logbar" onSubmit={(e) => { e.preventDefault(); setSearch(draft.trim()); }}>
         <label className="sr-only" htmlFor={`${id}-q`}>Search log text</label>
         <span className="ld-search">
           <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
@@ -254,7 +259,7 @@ export function EventLogs({ deviceId, title = "Event Logs" }: { deviceId: string
           <option value="debug">Debug</option>
         </select>
         <button type="submit" className="ld-btn">Search</button>
-      </form>
+      </form>}
       {q.isLoading ? <Empty>Loading logs…</Empty> : !q.data ? <Empty>The API is not reachable from this browser.</Empty> : q.data.source !== "loki" ? (
         <div className="ld-metrics-off" role="status">
           <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
@@ -262,6 +267,21 @@ export function EventLogs({ deviceId, title = "Event Logs" }: { deviceId: string
             <b>Loki is not connected</b>
             <p className="ld-muted ld-small">{q.data.message} Set LOKI_URL on the API to your Loki to read Windows Event Logs and the journal.</p>
           </div>
+        </div>
+      ) : q.data.entries.length && compact ? (
+        <div className="ld-table-wrap">
+          <table className="ld-table">
+            <thead><tr><th scope="col">Time</th><th scope="col">Type</th><th scope="col">Message</th></tr></thead>
+            <tbody>
+              {q.data.entries.slice(0, 5).map((e, i) => (
+                <tr key={`${e.ts}-${i}`}>
+                  <td className="ld-nowrap ld-small">{new Date(e.ts).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
+                  <td className={`ld-nowrap ld-small ld-text-${LEVEL_TONE[e.level]}`}><i className={`fa-solid ${LEVEL_ICON[e.level]}`} aria-hidden="true" /> {e.level === "info" ? "Info" : e.level[0].toUpperCase() + e.level.slice(1)}</td>
+                  <td className="ld-wrap ld-small">{e.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : q.data.entries.length ? (
         <div className="ld-table-wrap">
@@ -283,7 +303,7 @@ export function EventLogs({ deviceId, title = "Event Logs" }: { deviceId: string
       ) : (
         <Empty>No log lines in this range{search ? ` matching “${search}”` : ""}.</Empty>
       )}
-      {q.data?.source === "loki" && <p className="ld-muted ld-small">Query <code className="ld-mono">{q.data.query}</code> · newest first, up to 200 lines.</p>}
+      {q.data?.source === "loki" && !compact && <p className="ld-muted ld-small">Query <code className="ld-mono">{q.data.query}</code> · newest first, up to 200 lines.</p>}
     </Panel>
   );
 }

@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.monitoring.loki import device_logs
-from apps.monitoring.prometheus import device_hardware, device_inventory, device_timeseries, vm_timeseries
+from apps.monitoring.prometheus import device_hardware, device_inventory, device_timeseries, vm_inventory, vm_timeseries
 from apps.sites.models import Rack, Site
 from apps.tenants.mixins import TenantScopedQuerysetMixin
 from .models import (
@@ -192,6 +192,23 @@ class VmViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     def metrics(self, request, pk=None):
         """GET /api/infra/vms/{id}/metrics/ — VMware exporter series for one VM."""
         return _timeseries(request, lambda **kw: vm_timeseries(self.get_object(), **kw))
+
+    @action(detail=True)
+    def inventory(self, request, pk=None):
+        """GET /api/infra/vms/{id}/inventory/ — VMware Tools, snapshots, guest disks, datastore (now)."""
+        return Response(vm_inventory(self.get_object()))
+
+    @action(detail=True)
+    def logs(self, request, pk=None):
+        """GET /api/infra/vms/{id}/logs/ — guest logs from Loki (host label = VM name)."""
+        q = request.query_params
+        try:
+            return Response(device_logs(
+                self.get_object(), start=q.get("start"), end=q.get("end"),
+                search=q.get("search", ""), level=q.get("level", ""), limit=q.get("limit", 200),
+            ))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
 
 
 class ExporterViewSet(viewsets.ReadOnlyModelViewSet):

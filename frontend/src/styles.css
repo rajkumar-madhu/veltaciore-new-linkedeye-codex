@@ -3291,3 +3291,12 @@ a.ld-btn { text-decoration: none; }
 .ld-live-btn.on { color: #137a3f; }
 [data-theme="dark"] .ld-live-btn.on { color: #6ee7b7; }
 .ld-rangesel-menu .ld-range-custom { width: 290px; padding: 8px; }
+.ld-vm-row { grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1200px) { .ld-vm-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); } }
+.ld-vm-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ld-vm-stack .ld-chart-grid { grid-template-columns: minmax(0, 1fr); }
+.ld-vm-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.ld-vm-actions .ld-btn { justify-content: flex-start; }
+.ld-vmware { margin: 0 0 8px; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: #1d428a; }
+.ld-vmware span { color: #1d428a; font-weight: 500; }
+[data-theme="dark"] .ld-vmware, [data-theme="dark"] .ld-vmware span { color: #8fb3ff; }

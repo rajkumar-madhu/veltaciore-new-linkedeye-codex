@@ -154,3 +154,50 @@ class HardwareApiTests(TestCase):
         with override_settings(LOKI_URL=""):
             res = self.client.get(f"/api/infra/devices/{self.server.pk}/logs/", HTTP_X_TENANT_ID=self.server.tenant_id)
         self.assertEqual(res.json()["source"], "unavailable")
+
+
+class FakeVm:
+    id = "VM-APP-01"
+    tenant_id = "fyers"
+
+
+@override_settings(PROMETHEUS_URL=PROM)
+class VmInventoryTests(SimpleTestCase):
+    def _get(self, url, params, **kw):
+        q = params["query"]
+        if q.startswith("vmware_vm_power_state"):
+            return _vector([({"vm_name": "VM-APP-01", "host_name": "esxi-host-01", "ds_name": "DS01", "cluster_name": "Compute-01", "dc_name": "MUM"}, 1)])
+        if "guest_tools_running_status" in q:
+            return _vector([({"tools_status": "toolsOk"}, 1)])
+        if "guest_tools_version" in q:
+            return _vector([({"tools_version": "12.4.5"}, 1)])
+        if "boot_timestamp" in q:
+            return _vector([({}, 1758000000)])
+        if "snapshot_timestamp" in q:
+            return _vector([({"vm_snapshot_name": "weekly-backup"}, 1750723200), ({"vm_snapshot_name": "pre-upgrade"}, 1750846500)])
+        if "guest_disk_capacity" in q:
+            return _vector([({"partition": "/"}, 200e9), ({"partition": "/data"}, 0)])
+        if "guest_disk_free" in q:
+            return _vector([({"partition": "/"}, 50e9)])
+        if "vmware_datastore_" in q:
+            self.assertIn('ds_name="DS01"', q)
+            return _vector([({}, 1.2e12)])
+        raise AssertionError(q)
+
+    def test_vm_inventory(self):
+        with mock.patch("apps.monitoring.prometheus.requests.get", side_effect=self._get):
+            out = prom.vm_inventory(FakeVm())
+        self.assertEqual((out["source"], out["found"], out["host"], out["cluster"]), ("prometheus", True, "esxi-host-01", "Compute-01"))
+        self.assertEqual(out["tools"], {"status": "toolsOk", "version": "12.4.5"})
+        self.assertEqual([s["name"] for s in out["snapshots"]], ["pre-upgrade", "weekly-backup"])
+        self.assertEqual(out["disks"], [{"partition": "/", "capacity_bytes": 200e9, "free_bytes": 50e9, "used_pct": 75.0}])
+        self.assertEqual(out["datastore"]["name"], "DS01")
+
+    def test_vm_not_in_prometheus(self):
+        with mock.patch("apps.monitoring.prometheus.requests.get", return_value=_vector([])):
+            out = prom.vm_inventory(FakeVm())
+        self.assertEqual((out["source"], out["found"]), ("prometheus", False))
+
+    @override_settings(PROMETHEUS_URL="")
+    def test_unconfigured(self):
+        self.assertEqual(prom.vm_inventory(FakeVm())["source"], "unavailable")

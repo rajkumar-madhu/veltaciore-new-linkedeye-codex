@@ -636,13 +636,41 @@ export interface DeviceLogs {
   entries: LogEntry[];
 }
 
-export function useDeviceLogs(deviceId: string | undefined, preset: string, from: number | null, to: number | null, search: string, level: string) {
+export function useDeviceLogs(deviceId: string | undefined, preset: string, from: number | null, to: number | null, search: string, level: string, kind: "devices" | "vms" = "devices") {
   const tenant = useTenantId();
   return useQuery({
     ...quiet,
     enabled: !!deviceId,
-    queryKey: ["device-logs", tenant, deviceId, preset, from, to, search, level],
-    queryFn: () => apiGet<DeviceLogs>(`/infra/devices/${deviceId}/logs/`, { ...rangeParams(preset, from, to), search, level, limit: "200" }),
+    queryKey: ["logs", kind, tenant, deviceId, preset, from, to, search, level],
+    queryFn: () => apiGet<DeviceLogs>(`/infra/${kind}/${deviceId}/logs/`, { ...rangeParams(preset, from, to), search, level, limit: "200" }),
     refetchInterval: preset !== "custom" ? 30_000 : false,
+  });
+}
+
+// ── VM inventory: VMware Tools, snapshots, guest disks, datastore ──────────
+
+export interface VmInventory {
+  source: "prometheus" | "unavailable";
+  message?: string;
+  found?: boolean;
+  host?: string;
+  cluster?: string;
+  datacenter?: string;
+  powered_on?: boolean;
+  boot_time?: string | null;
+  tools?: { status: string; version: string };
+  snapshots?: { name: string; created: string }[];
+  disks?: { partition: string; capacity_bytes: number; free_bytes: number | null; used_pct: number | null }[];
+  datastore?: { name: string; capacity: number | null; free: number | null; provisioned: number | null; accessible: number | null } | null;
+}
+
+export function useVmInventory(vmId?: string) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!vmId,
+    queryKey: ["vm-inventory", tenant, vmId],
+    queryFn: () => apiGet<VmInventory>(`/infra/vms/${vmId}/inventory/`),
+    refetchInterval: 60_000,
   });
 }

@@ -164,6 +164,9 @@ VMWARE_VM = [
     MetricDef("net_tx", "Outbound", "Mbps", "network",
               'sum(vmware_vm_net_transmitted_average{{{sel}}}) * 8 / 1000'),
     MetricDef("power", "Powered on", "count", "state", 'max(vmware_vm_power_state{{{sel}}})'),
+    MetricDef("disk", "Guest disk used", "%", "disk",
+              '100 * (1 - sum(vmware_vm_guest_disk_free{{{sel}}}) / sum(vmware_vm_guest_disk_capacity{{{sel}}}))'),
+    MetricDef("uptime", "Uptime", "days", "uptime", '(time() - max(vmware_vm_boot_timestamp_seconds{{{sel}}})) / 86400'),
 ]
 
 CATALOG: dict[str, list[MetricDef]] = {
@@ -528,3 +531,62 @@ def device_hardware(device, *, start=None, end=None, step=None) -> dict:
                                  "ip": str(b.ip_address or ""), "firmware": b.os_version,
                                  "health": "unknown", "sensors": []} for b in bmcs]}
     return {**base, "source": "prometheus", "controllers": controllers}
+
+
+# ── VM inventory: VMware Tools, snapshots, guest disks, datastore ──────────
+# pryorda/vmware_exporter: VM series carry vm_name, host_name, ds_name,
+# cluster_name and dc_name labels; datastore series are keyed by ds_name.
+def vm_inventory(vm) -> dict:
+    sel = vm_selector(vm)
+    tenant = _tenant_labels(vm.tenant_id)
+    try:
+        power = _query(f"vmware_vm_power_state{{{sel}}}")
+        labels = power[0][0] if power else {}
+        tools_status = _query(f"vmware_vm_guest_tools_running_status{{{sel}}}")
+        tools_version = _query(f"vmware_vm_guest_tools_version{{{sel}}}")
+        boot = _query(f"max(vmware_vm_boot_timestamp_seconds{{{sel}}})")
+        snaps = _query(f"vmware_vm_snapshot_timestamp_seconds{{{sel}}}")
+        cap = {m.get("partition"): v for m, v in _query(f"vmware_vm_guest_disk_capacity{{{sel}}}")}
+        free = {m.get("partition"): v for m, v in _query(f"vmware_vm_guest_disk_free{{{sel}}}")}
+        datastore = None
+        ds = labels.get("ds_name")
+        if ds:
+            ds_sel = _matchers({**tenant, "ds_name": ds})
+            ds_vals = {}
+            for key, metric in (("capacity", "vmware_datastore_capacity_size"), ("free", "vmware_datastore_freespace_size"),
+                                ("provisioned", "vmware_datastore_provisoned_size"), ("accessible", "vmware_datastore_accessible")):
+                rows = _query(f"max({metric}{{{ds_sel}}})")
+                ds_vals[key] = rows[0][1] if rows else None
+            datastore = {"name": ds, **ds_vals}
+    except PrometheusUnavailable as exc:
+        return {"source": "unavailable", "message": str(exc)}
+    if not power:
+        return {"source": "prometheus", "found": False,
+                "message": f"No vmware_vm_* series for vm_name={vm.id} — check the VMware exporter and the VM name."}
+    disks = []
+    for part, size in sorted(cap.items(), key=lambda kv: str(kv[0])):
+        if not size:
+            continue
+        f = free.get(part)
+        disks.append({"partition": part or "?", "capacity_bytes": size, "free_bytes": f,
+                      "used_pct": None if f is None else round(100 * (1 - f / size), 1)})
+    return {
+        "source": "prometheus",
+        "found": True,
+        "host": labels.get("host_name", ""),
+        "cluster": labels.get("cluster_name", ""),
+        "datacenter": labels.get("dc_name", ""),
+        "powered_on": bool(power[0][1] == 1),
+        "boot_time": datetime.fromtimestamp(boot[0][1], tz=timezone.utc).isoformat() if boot else None,
+        "tools": {
+            "status": tools_status[0][0].get("tools_status", "") if tools_status else "",
+            "version": tools_version[0][0].get("tools_version", "") if tools_version else "",
+        },
+        "snapshots": sorted(
+            ({"name": m.get("vm_snapshot_name", "?"),
+              "created": datetime.fromtimestamp(v, tz=timezone.utc).isoformat()} for m, v in snaps),
+            key=lambda x: x["created"], reverse=True,
+        ),
+        "disks": disks,
+        "datastore": datastore,
+    }
