@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
 import { useUiStore } from "@/store/ui";
+import { PRESETS } from "@/store/timeRange";
 import type {
   Tenant,
   Site,
@@ -461,5 +462,215 @@ export function useBrokers() {
     ...quiet,
     queryKey: ["brokers"],
     queryFn: () => apiGet<BrokerCtcl[]>("/trading/ctcl/brokers/"),
+  });
+}
+
+// ── Device / VM metrics (Prometheus via the API) ───────────────────────────
+
+export interface MetricSeries {
+  key: string;
+  label: string;
+  unit: string;
+  group: string;
+  /** parts of a whole (e.g. CPU modes) — drawn stacked */
+  stack?: boolean;
+  /** [unix seconds, value] */
+  points: [number, number][];
+}
+
+export interface MetricsResponse {
+  family: string | null;
+  /** "prometheus" = real data; "unavailable" / "unsupported" = no data, see message */
+  source: "prometheus" | "unavailable" | "unsupported";
+  message?: string;
+  start: string;
+  end: string;
+  step: number;
+  series: MetricSeries[];
+}
+
+function useMetrics(kind: "devices" | "vms", id: string | undefined, preset: string, from: number | null, to: number | null) {
+  const tenant = useTenantId();
+  const live = preset !== "custom";
+  return useQuery({
+    retry: 0,
+    refetchOnWindowFocus: false,
+    enabled: !!id,
+    queryKey: ["metrics", kind, tenant, id, preset, from, to],
+    queryFn: () => apiGet<MetricsResponse>(`/infra/${kind}/${id}/metrics/`, rangeParams(preset, from, to)),
+    refetchInterval: live ? 30_000 : false,
+  });
+}
+
+const PRESET_SECONDS: Record<string, number> = Object.fromEntries(PRESETS.map((p) => [p.id, p.seconds]));
+
+/** start/end query params; relative presets are resolved at fetch time so each refetch slides the window. */
+function rangeParams(preset: string, from: number | null, to: number | null) {
+  const live = preset !== "custom";
+  const span = PRESET_SECONDS[preset] ?? 3600;
+  const end = live ? Date.now() : (to as number);
+  const start = live ? end - span * 1000 : (from as number);
+  return { start: new Date(start).toISOString(), end: new Date(end).toISOString() };
+}
+
+export function useDeviceMetrics(deviceId: string | undefined, preset: string, from: number | null, to: number | null) {
+  return useMetrics("devices", deviceId, preset, from, to);
+}
+
+export function useVmMetrics(vmId: string | undefined, preset: string, from: number | null, to: number | null) {
+  return useMetrics("vms", vmId, preset, from, to);
+}
+
+// ── Device relationships (site / rack / VMs / NIC → switch port) ───────────
+
+export interface PeerRef {
+  id: string | null;
+  /** true when the linked device belongs to a tenant the caller can't see */
+  restricted: boolean;
+  name?: string;
+  kind?: string;
+  model?: string;
+  ip?: string;
+  status?: string;
+}
+
+export interface NicLink {
+  name: string;
+  description: string;
+  mac: string;
+  speed: string;
+  admin_status: string;
+  oper_status: string;
+  vlan: string;
+  mtu: number;
+  rx_mbps: number;
+  tx_mbps: number;
+  connected_to: { peer: PeerRef; port: string; bandwidth: string; status: string } | null;
+}
+
+export interface DeviceRelationships {
+  device: { id: string; kind: string; model: string; ip: string };
+  site: { id: string; name: string };
+  rack: { id: string; name: string; u_top: number; u_bottom: number } | null;
+  vms: Vm[];
+  nics: NicLink[];
+  other_links: { local_port: string; peer_port: string; peer: PeerRef; bandwidth: string; status: string }[];
+}
+
+export function useDeviceRelationships(deviceId?: string) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-relationships", tenant, deviceId],
+    queryFn: () => apiGet<DeviceRelationships>(`/infra/devices/${deviceId}/relationships/`),
+    refetchInterval: 60_000,
+  });
+}
+
+// ── Device inventory: processes, services, filesystems (Prometheus, now) ───
+
+export interface DeviceProcess { name: string; cpu: number; mem_bytes: number | null; threads: number | null }
+
+export interface DeviceInventory {
+  family: string | null;
+  source: "prometheus" | "unavailable" | "unsupported";
+  message?: string;
+  processes: DeviceProcess[];
+  services: { running: number; stopped: number; other: number; problems: { name: string; state: string; start_mode: string }[] } | null;
+  filesystems: { mount: string; size_bytes: number; used_bytes: number | null; used_pct: number | null }[];
+}
+
+export function useDeviceInventory(deviceId?: string, top = 10) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-inventory", tenant, deviceId, top],
+    queryFn: () => apiGet<DeviceInventory>(`/infra/devices/${deviceId}/inventory/`, { top: String(top) }),
+    refetchInterval: 30_000,
+  });
+}
+
+// ── Hardware: iDRAC / iLO via the Redfish exporter ─────────────────────────
+
+export interface BmcController {
+  id: string;
+  kind: "idrac" | "ilo" | string;
+  vendor: string;
+  model: string;
+  ip: string;
+  firmware: string;
+  health: "ok" | "warn" | "crit" | "unknown";
+  /** temperature (°C), fan (RPM), power (W) over the selected range */
+  sensors: MetricSeries[];
+}
+
+export interface DeviceHardware {
+  source: "prometheus" | "unavailable" | "none";
+  message?: string;
+  start: string;
+  end: string;
+  controllers: BmcController[];
+}
+
+export function useDeviceHardware(deviceId: string | undefined, preset: string, from: number | null, to: number | null) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["device-hardware", tenant, deviceId, preset, from, to],
+    queryFn: () => apiGet<DeviceHardware>(`/infra/devices/${deviceId}/hardware/`, rangeParams(preset, from, to)),
+    refetchInterval: preset !== "custom" ? 60_000 : false,
+  });
+}
+
+// ── Device logs (Windows Event Logs / journal) from Loki ────────────────────
+
+export interface LogEntry { ts: string; level: "critical" | "error" | "warning" | "info" | "debug"; source: string; event_id?: string | number | null; message: string }
+
+export interface DeviceLogs {
+  source: "loki" | "unavailable";
+  message?: string;
+  query: string;
+  entries: LogEntry[];
+}
+
+export function useDeviceLogs(deviceId: string | undefined, preset: string, from: number | null, to: number | null, search: string, level: string, kind: "devices" | "vms" = "devices") {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!deviceId,
+    queryKey: ["logs", kind, tenant, deviceId, preset, from, to, search, level],
+    queryFn: () => apiGet<DeviceLogs>(`/infra/${kind}/${deviceId}/logs/`, { ...rangeParams(preset, from, to), search, level, limit: "200" }),
+    refetchInterval: preset !== "custom" ? 30_000 : false,
+  });
+}
+
+// ── VM inventory: VMware Tools, snapshots, guest disks, datastore ──────────
+
+export interface VmInventory {
+  source: "prometheus" | "unavailable";
+  message?: string;
+  found?: boolean;
+  host?: string;
+  cluster?: string;
+  datacenter?: string;
+  powered_on?: boolean;
+  boot_time?: string | null;
+  tools?: { status: string; version: string };
+  snapshots?: { name: string; created: string }[];
+  disks?: { partition: string; capacity_bytes: number; free_bytes: number | null; used_pct: number | null }[];
+  datastore?: { name: string; capacity: number | null; free: number | null; provisioned: number | null; accessible: number | null } | null;
+}
+
+export function useVmInventory(vmId?: string) {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    enabled: !!vmId,
+    queryKey: ["vm-inventory", tenant, vmId],
+    queryFn: () => apiGet<VmInventory>(`/infra/vms/${vmId}/inventory/`),
+    refetchInterval: 60_000,
   });
 }

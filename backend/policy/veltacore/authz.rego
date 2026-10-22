@@ -18,6 +18,7 @@ write_methods := {"POST", "PATCH", "PUT", "DELETE"}
 allow if {
     grant
     not deny_cross_tenant
+    not deny_lifecycle
 }
 
 # ── Group capabilities ───────────────────────────────────────────────────────
@@ -47,6 +48,14 @@ grant if {
     "noc-engineer" in input.groups
     input.method in {"POST", "PATCH"}
     regex.match(`^/api/(infra/alerts|incidents)/`, input.path)
+}
+
+# noc-engineer may call the device lifecycle endpoint; which moves are allowed
+# is decided by the action-level rule below (deny_lifecycle).
+grant if {
+    "noc-engineer" in input.groups
+    input.method == "POST"
+    regex.match(`^/api/infra/devices/[^/]+/transition/$`, input.path)
 }
 
 # service-desk-agent: read all; create/update ITSM records
@@ -102,9 +111,34 @@ grant_by_role if {
 }
 
 # ── Tenant guard ─────────────────────────────────────────────────────────────
-# Cross-tenant writes (no X-Tenant-ID header) require admin.
+# A request without X-Tenant-ID spans every tenant (the API scopes it to all
+# tenants), so both reads and writes across tenants require admin. Requests
+# with a tenant are scoped to that tenant by the ORM (apps/tenants/context.py).
 deny_cross_tenant if {
-    not input.tenant
+    no_tenant
     not "admin" in input.groups
-    not input.method in read_methods
+}
+
+# The API sends a missing tenant as JSON null; `not input.tenant` alone is
+# false for null, so check absent, null and empty explicitly.
+no_tenant if not input.tenant
+no_tenant if input.tenant == null
+no_tenant if input.tenant == ""
+
+# ── Device lifecycle (action-level, from apps.infra.lifecycle) ───────────────
+# input.resource = {action: "device.transition", from, to, tenant, device}
+# Promoting a device to active or decommissioning it needs infra-admin/admin;
+# a NOC engineer may only send a device for review.
+deny_lifecycle if {
+    input.resource.action == "device.transition"
+    not lifecycle_allowed
+}
+
+lifecycle_allowed if "admin" in input.groups
+
+lifecycle_allowed if "infra-admin" in input.groups
+
+lifecycle_allowed if {
+    "noc-engineer" in input.groups
+    input.resource.to == "pending_review"
 }

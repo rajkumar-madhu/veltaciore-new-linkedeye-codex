@@ -10,8 +10,11 @@ import random
 
 from celery import shared_task
 
+from apps.tenants.context import system_task
+
 
 @shared_task
+@system_task  # polls every tenant's devices
 def poll_snmp_devices():
     from apps.infra.models import DeviceMetric, InfraDevice
 
@@ -24,6 +27,7 @@ def poll_snmp_devices():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def poll_node_exporters():
     from apps.infra.models import DeviceMetric, InfraDevice
 
@@ -36,6 +40,7 @@ def poll_node_exporters():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def run_blackbox_probes():
     from apps.infra.models import DeviceMetric, InfraDevice
 
@@ -48,6 +53,7 @@ def run_blackbox_probes():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def poll_oob_health():
     """iDRAC/iLO hardware health via Redfish when configured."""
     from apps.infra.models import InfraDevice
@@ -56,6 +62,7 @@ def poll_oob_health():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def collect_interface_metrics():
     from apps.infra.models import DeviceInterface
 
@@ -70,6 +77,7 @@ def collect_interface_metrics():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def evaluate_alert_rules():
     """CPU/mem thresholds → DeviceAlert rows (dedup on open alerts)."""
     from apps.infra.models import DeviceAlert, InfraDevice
@@ -88,6 +96,7 @@ def evaluate_alert_rules():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def refresh_topology():
     from apps.infra.models import TopologyConnection
 
@@ -95,12 +104,14 @@ def refresh_topology():
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def discover_devices():
     """Subnet sweep / LLDP discovery when a collector is configured."""
     return 0
 
 
 @shared_task
+@system_task  # polls every tenant's devices
 def cleanup_old_metrics(days: int = 30):
     from datetime import timedelta
 

@@ -4,6 +4,8 @@
 //          POST /api/infra/devices/test-connection/ · POST /api/infra/devices/discover/ · POST /api/infra/devices/
 import React from "react";
 import { useNav } from "@/hooks/useNav";
+import { useDevices } from "@/api/hooks";
+import { Panel, Pill } from "@/components/ld";
 import { SITES, DEVICES } from "@/data/infra";
 import {
   ONBOARD_DEVICE_TYPES,
@@ -14,7 +16,6 @@ import {
   CREDENTIAL_PROFILES,
 } from "@/data/deviceVendorModels";
 import { STATUS_COLORS, statusBadgeStyle } from "@/lib/statusColors";
-import { Field } from "@/components/primitives";
 import type { Site, OnboardDeviceType, MonitoringMethod, CredentialProfile } from "@/lib/types";
 
 interface OnboardForm {
@@ -139,58 +140,50 @@ export default function DeviceOnboardingWizard() {
   );
   const inputStyle = (k: string): React.CSSProperties => ({ width: "100%", boxSizing: "border-box", padding: "7px 10px", fontSize: 12.5, border: `1px solid ${errors[k] ? STATUS_COLORS.crit.border : "var(--border, #d5dbe1)"}`, borderRadius: 4, outline: "none", fontFamily: "inherit", background: "white" });
   const Card = ({ active, onClick, children, style }: { active?: boolean; onClick?: () => void; children?: React.ReactNode; style?: React.CSSProperties }) => (
-    <div onClick={onClick} style={{ border: `1.5px solid ${active ? "#0ea5e9" : "var(--border, #e5e8eb)"}`, boxShadow: active ? "0 0 0 3px rgba(14,165,233,.15)" : "none", borderRadius: 6, padding: "12px 14px", cursor: "pointer", background: "white", ...style }}>{children}</div>
+    <button type="button" className={`ld-choice${active ? " active" : ""}`} aria-pressed={!!active} onClick={onClick} style={style}>{children}</button>
   );
 
   const vendors = Object.keys(VENDOR_MODELS).filter(v => !vq || v.toLowerCase().includes(vq.toLowerCase()));
   const models = f.vendor ? (VENDOR_MODELS[f.vendor] || []).filter(m => (!f.type || m.type === f.type || f.type === "generic" || !["switch","router","firewall","loadbal","phys-srv"].includes(f.type)) && (!mq || m.model.toLowerCase().includes(mq.toLowerCase()))) : [];
   const methodOK = (m: MonitoringMethod) => !profile || profile.methods.includes(m.id);
+  const liveDevices = useDevices().data;
+  // Newest first; exporter agents are listed on the Exporters screen, not here.
+  const recent = (liveDevices ?? DEVICES).filter((d) => d.kind !== "exporter").slice(-5).reverse();
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra")}>Infrastructure</a><span className="sn-bc-sep">›</span>
-        <span>Onboard Device</span>
-      </div>
-
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">ONBOARD</span>
-          <span className="sn-pill state-neutral">{f.tenant}</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-building" /> {(SITES.find(s => s.id === f.site) || ({} as Site)).name}</span>
-          {draft && <span className="sn-pill state-mitigating"><i className="fa-solid fa-floppy-disk" /> Draft saved</span>}
+    <div className="ld-dash">
+      <div className="ld-head">
+        <div>
+          <h1>Onboarding Device</h1>
+          <p>Add a device to inventory, start monitoring, and place it in the site topology</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Onboard a Device</h1>
-            <div className="sn-form-sub">Add a device to inventory, start monitoring, and place it in the site topology</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn" onClick={() => { setDraft(true); setTimeout(() => setDraft(false), 2500); }}><i className="fa-solid fa-floppy-disk" /> Save as draft</button>
-            <button className="sn-btn" onClick={() => setRoute("infra-topology")}>Cancel</button>
-          </div>
+        <div className="ld-head-actions">
+          <Pill tone="info">{f.tenant}</Pill>
+          <Pill tone="muted"><i className="fa-solid fa-building" aria-hidden="true" /> {(SITES.find(s => s.id === f.site) || ({} as Site)).name}</Pill>
+          {draft && <Pill tone="warn"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Draft saved</Pill>}
+          <button type="button" className="ld-btn" onClick={() => { setDraft(true); setTimeout(() => setDraft(false), 2500); }}><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save as draft</button>
+          <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}>Cancel</button>
         </div>
       </div>
 
       {/* Stepper */}
-      <div style={{ display: "flex", alignItems: "center", background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, padding: "12px 16px", marginBottom: 14, overflowX: "auto", gap: 4 }}>
-        {STEPS.map((s, i) => (
-          <React.Fragment key={s}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0, opacity: i > step ? 0.45 : 1, cursor: i < step ? "pointer" : "default" }} onClick={() => i < step && setStep(i)}>
-              <span style={{ width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, background: i < step ? STATUS_COLORS.ok.line : i === step ? "#0c1726" : "#e2e8f0", color: i <= step ? "white" : "#64748b" }}>
-                {i < step ? <i className="fa-solid fa-check" /> : i + 1}
-              </span>
-              <span style={{ fontSize: 11.5, fontWeight: i === step ? 700 : 500, whiteSpace: "nowrap" }}>{s}</span>
-            </div>
-            {i < STEPS.length - 1 && <div style={{ flex: 1, minWidth: 14, height: 2, background: i < step ? STATUS_COLORS.ok.line : "#e2e8f0", borderRadius: 1 }} />}
-          </React.Fragment>
-        ))}
-      </div>
+      <ol className="ld-card ld-stepper" aria-label="Onboarding steps">
+        {STEPS.map((label, i) => {
+          const state = i < step ? "done" : i === step ? "current" : "todo";
+          return (
+            <li key={label} className={`ld-step ld-step-${state}`} aria-current={i === step ? "step" : undefined}>
+              <button type="button" className="ld-step-btn" onClick={() => i < step && setStep(i)} disabled={i >= step}>
+                <span className="ld-step-num" aria-hidden="true">{i < step ? <i className="fa-solid fa-check" /> : i + 1}</span>
+                <span className="ld-step-label">{label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, padding: 20 }}>
+      <div className="ld-split">
+        <div>
+          <div className="ld-card ld-panel ld-wizard">
 
             {/* STEP 0 — Tenant & Site */}
             {step === 0 && (
@@ -238,8 +231,8 @@ export default function DeviceOnboardingWizard() {
                     <input value={vq} onChange={e => setVq(e.target.value)} placeholder="Search vendors…" style={{ ...inputStyle("vendor"), marginBottom: 6 }} />
                     <div style={{ border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, maxHeight: 260, overflowY: "auto" }}>
                       {vendors.map(v => (
-                        <div key={v} onClick={() => { set("vendor", v); set("model", null); set("role", null); setMq(""); }}
-                          style={{ padding: "7px 11px", fontSize: 12.5, cursor: "pointer", background: f.vendor === v ? "#e0f2fe" : "white", fontWeight: f.vendor === v ? 700 : 400, borderBottom: "1px solid #f1f5f9" }}>{v}</div>
+                        <button type="button" key={v} className={`ld-list-option${f.vendor === v ? " active" : ""}`} aria-pressed={f.vendor === v}
+                          onClick={() => { set("vendor", v); set("model", null); set("role", null); setMq(""); }}>{v}</button>
                       ))}
                     </div>
                     <Err k="vendor" />
@@ -250,16 +243,16 @@ export default function DeviceOnboardingWizard() {
                     <div style={{ border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, maxHeight: 200, overflowY: "auto" }}>
                       {!f.vendor && <div style={{ padding: 14, fontSize: 12, color: "var(--fg-muted)" }}>Select a vendor first</div>}
                       {f.vendor && models.map(m => (
-                        <div key={m.model} onClick={() => { set("model", m.model); set("role", m.role); }}
-                          style={{ padding: "7px 11px", cursor: "pointer", background: f.model === m.model ? "#e0f2fe" : "white", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: 12.5, fontWeight: f.model === m.model ? 700 : 500 }}>{m.model}</span>
-                          <span style={{ fontSize: 10.5, color: "var(--fg-muted)" }}>{m.role} · {m.methods.join(" / ")}</span>
-                        </div>
+                        <button type="button" key={m.model} className={`ld-list-option ld-list-option-split${f.model === m.model ? " active" : ""}`} aria-pressed={f.model === m.model}
+                          onClick={() => { set("model", m.model); set("role", m.role); }}>
+                          <span>{m.model}</span>
+                          <span className="ld-muted ld-small">{m.role} · {m.methods.join(" / ")}</span>
+                        </button>
                       ))}
                       {f.vendor && (
-                        <div onClick={() => set("model", "__custom")} style={{ padding: "7px 11px", cursor: "pointer", background: f.model === "__custom" ? "#e0f2fe" : "#fafbfc", fontSize: 12.5, fontWeight: 600, color: "#0ea5e9" }}>
-                          <i className="fa-solid fa-plus" style={{ marginRight: 6 }} />Other / Custom model…
-                        </div>
+                        <button type="button" className={`ld-list-option ld-list-option-add${f.model === "__custom" ? " active" : ""}`} aria-pressed={f.model === "__custom"} onClick={() => set("model", "__custom")}>
+                          <i className="fa-solid fa-plus" aria-hidden="true" style={{ marginRight: 6 }} />Other / Custom model…
+                        </button>
                       )}
                     </div>
                     <Err k="model" />
@@ -274,7 +267,7 @@ export default function DeviceOnboardingWizard() {
                       <L>Layer / role in topology</L>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {[...new Set([...(f.type === "switch" ? SWITCH_ROLES : []), "Edge", "Firewall", "Load Balancer", "Server", "Unassigned", ...(profile ? [profile.role] : [])])].map(r => (
-                          <button key={r} className={`sn-btn${f.role === r ? " primary" : ""}`} style={{ padding: "3px 10px", fontSize: 11 }} onClick={() => set("role", r)}>{r}</button>
+                          <button type="button" key={r} className={`ld-btn ld-btn-sm${f.role === r ? " ld-btn-primary" : ""}`} aria-pressed={f.role === r} onClick={() => set("role", r)}>{r}</button>
                         ))}
                       </div>
                       <Err k="role" />
@@ -352,18 +345,20 @@ export default function DeviceOnboardingWizard() {
                       </div>
                     </Card>
                   ))}
-                  <Card active={f.cred === "__new"} onClick={() => set("cred", "__new")}>
-                    <b style={{ fontSize: 12.5, color: "#0ea5e9" }}><i className="fa-solid fa-plus" style={{ marginRight: 6 }} />Create new credential profile</b>
+                  <div className={`ld-choice ld-choice-static${f.cred === "__new" ? " active" : ""}`}>
+                    <button type="button" className="ld-link" aria-pressed={f.cred === "__new"} onClick={() => set("cred", "__new")}>
+                      <i className="fa-solid fa-plus" aria-hidden="true" style={{ marginRight: 6 }} />Create new credential profile
+                    </button>
                     {f.cred === "__new" && (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
                         <div><L>Profile name</L><input value={f.newCredName} onChange={e => set("newCredName", e.target.value)} placeholder="snmp-v3-branch" style={inputStyle("newCredName")} /><Err k="newCredName" /></div>
                         <div><L tip="SNMP community / v3 auth+priv pass / API token — depending on the monitoring method.">Secret</L><input type="password" value={f.newCredSecret} onChange={e => set("newCredSecret", e.target.value)} placeholder="••••••••••" style={inputStyle("newCredSecret")} /><Err k="newCredSecret" /></div>
                       </div>
                     )}
-                  </Card>
+                  </div>
                 </div>
                 <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12 }}>
-                  <button className="sn-btn" onClick={runTest} disabled={test === "testing"}>
+                  <button type="button" className="ld-btn" onClick={runTest} disabled={test === "testing"}>
                     {test === "testing" ? <><i className="fa-solid fa-circle-notch fa-spin" /> Testing…</> : <><i className="fa-solid fa-plug-circle-check" /> Test connection</>}
                   </button>
                   {test === "ok" && <span style={statusBadgeStyle("ok")}><i className="fa-solid fa-check" style={{ fontSize: 8 }} /> Reachable · SNMP OK · sysName matched in 84 ms</span>}
@@ -394,7 +389,7 @@ export default function DeviceOnboardingWizard() {
                           {state === "done" && <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{s[2]}</div>}
                           {state === "fail" && <div style={{ fontSize: 11, color: STATUS_COLORS.crit.fg }}>Sensor walk timed out — the device may filter SNMP hardware OIDs. You can retry or skip this step.</div>}
                         </div>
-                        {state === "fail" && <button className="sn-btn" style={{ fontSize: 11 }} onClick={() => runDiscovery(false)}><i className="fa-solid fa-rotate" /> Retry</button>}
+                        {state === "fail" && <button type="button" className="ld-btn ld-btn-sm" onClick={() => runDiscovery(false)}><i className="fa-solid fa-rotate" aria-hidden="true" /> Retry</button>}
                       </div>
                     );
                   })}
@@ -439,41 +434,62 @@ export default function DeviceOnboardingWizard() {
 
             {/* Nav buttons */}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 22, paddingTop: 14, borderTop: "1px solid var(--border, #e5e8eb)" }}>
-              <button className="sn-btn" onClick={back} disabled={step === 0 || saved}><i className="fa-solid fa-arrow-left" /> Back</button>
-              {step < 7 && <button className="sn-btn primary" onClick={next} disabled={step === 6 && (!disc || disc.failed || disc.stage < 6)}>
+              <button type="button" className="ld-btn" onClick={back} disabled={step === 0 || saved}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back</button>
+              {step < 7 && <button type="button" className="ld-btn ld-btn-primary" onClick={next} disabled={step === 6 && (!disc || disc.failed || disc.stage < 6)}>
                 {step === 6 && disc && !disc.failed && disc.stage < 6 ? <><i className="fa-solid fa-circle-notch fa-spin" /> Discovering…</> : <>Continue <i className="fa-solid fa-arrow-right" /></>}
               </button>}
-              {step === 7 && <button className="sn-btn primary" onClick={finish} disabled={saved}><i className="fa-solid fa-rocket" /> Save & start monitoring</button>}
+              {step === 7 && <button type="button" className="ld-btn ld-btn-primary" onClick={finish} disabled={saved}><i className="fa-solid fa-rocket" aria-hidden="true" /> Save & start monitoring</button>}
             </div>
           </div>
         </div>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Summary so far</div>
-            <div className="sn-side-body">
-              <Field label="Tenant" value={f.tenant} />
-              <Field label="Site" value={(SITES.find(s => s.id === f.site) || ({} as Site)).name} />
-              <Field label="Type" value={typeObj.label || "—"} />
-              <Field label="Vendor / model" value={f.vendor ? `${f.vendor} ${modelLabel || ""}` : "—"} />
-              <Field label="Role" value={f.role || "—"} />
-              <Field label="IP" value={f.ip ? <span className="mono">{f.ip}</span> : "—"} />
-              <Field label="Monitoring" value={(MONITORING_METHODS.find(m => m.id === f.method) || ({} as MonitoringMethod)).label || "—"} />
-              <Field label="Connection" value={test === "ok" ? <span style={{ color: STATUS_COLORS.ok.fg, fontWeight: 700 }}>Verified</span> : test === "fail" ? <span style={{ color: STATUS_COLORS.crit.fg, fontWeight: 700 }}>Failed</span> : "Not tested"} />
+        <div className="ld-rail">
+          <Panel title="Summary so far">
+            <dl className="ld-dl">
+              <dt>Tenant</dt><dd>{f.tenant}</dd>
+              <dt>Site</dt><dd>{(SITES.find(s => s.id === f.site) || ({} as Site)).name}</dd>
+              <dt>Type</dt><dd>{typeObj.label || "—"}</dd>
+              <dt>Vendor / model</dt><dd>{f.vendor ? `${f.vendor} ${modelLabel || ""}` : "—"}</dd>
+              <dt>Role</dt><dd>{f.role || "—"}</dd>
+              <dt>IP</dt><dd>{f.ip ? <span className="ld-mono">{f.ip}</span> : "—"}</dd>
+              <dt>Monitoring</dt><dd>{(MONITORING_METHODS.find(m => m.id === f.method) || ({} as MonitoringMethod)).label || "—"}</dd>
+              <dt>Connection</dt>
+              <dd>{test === "ok" ? <Pill tone="ok">Verified</Pill> : test === "fail" ? <Pill tone="crit">Failed</Pill> : "Not tested"}</dd>
+            </dl>
+          </Panel>
+          <Panel title="Tips">
+            <div className="ld-tips">
+              <p><b>SNMP v3</b> is preferred over v2c — v2c communities travel in clear text.</p>
+              <p><b>Test the connection</b> before discovery to catch VLAN/firewall issues early.</p>
+              <p>Can’t find the model? Use <b>Other / Custom model</b> — it still gets the generic MIB-2 profile and can be refined later.</p>
             </div>
-          </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">Tips</div>
-            <div className="sn-side-body">
-              <div style={{ padding: "10px 12px", fontSize: 11.5, color: "var(--fg-muted)", lineHeight: 1.5 }}>
-                <p style={{ margin: "0 0 8px" }}><b>SNMP v3</b> is preferred over v2c — v2c communities travel in clear text.</p>
-                <p style={{ margin: "0 0 8px" }}><b>Test the connection</b> before discovery to catch VLAN/firewall issues early.</p>
-                <p style={{ margin: 0 }}>Can’t find the model? Use <b>Other / Custom model</b> — it still gets the generic MIB-2 profile and can be refined later.</p>
-              </div>
-            </div>
-          </div>
-        </aside>
+          </Panel>
+        </div>
       </div>
+
+      <Panel title="Recent Devices" action={{ label: "View All", onClick: () => setRoute("infra-assets") }}>
+        <div className="ld-table-wrap">
+          <table className="ld-table">
+            <thead>
+              <tr><th scope="col">Device</th><th scope="col">IP Address</th><th scope="col">Model</th><th scope="col">Site</th><th scope="col">Status</th><th scope="col">Last seen</th></tr>
+            </thead>
+            <tbody>
+              {recent.map((d) => (
+                <tr key={d.id}>
+                  <td>
+                    <button type="button" className="ld-link ld-mono" onClick={() => setRoute("infra-device", { deviceId: d.id })}>{d.id}</button>
+                  </td>
+                  <td className="ld-mono">{d.ip}</td>
+                  <td className="ld-muted">{d.model}</td>
+                  <td className="ld-muted">{d.site}</td>
+                  <td><Pill tone={d.status === "ok" ? "ok" : d.status === "warn" ? "warn" : "crit"}><span className="ld-pill-dot" />{d.status === "ok" ? "Online" : d.status === "warn" ? "Warning" : "Offline"}</Pill></td>
+                  <td className="ld-muted">{d.lastSeen}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }

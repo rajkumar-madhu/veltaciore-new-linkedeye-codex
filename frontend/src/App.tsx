@@ -1,6 +1,6 @@
 // Root component: chrome + routing. Ported from app.jsx.
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Sidebar, Header, TenantSwitcher } from "@/components/Shell";
 import { useUiStore, NO_TENANT } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
@@ -74,6 +74,11 @@ const DeviceOnboardingWizard = React.lazy(() => import("@/screens/DeviceOnboardi
 const InfraVMsScreen = React.lazy(() => import("@/screens/InfraVMsScreen"));
 const InfraRackScreen = React.lazy(() => import("@/screens/InfraRackScreen"));
 const InfraExportersScreen = React.lazy(() => import("@/screens/InfraExportersScreen"));
+const MonitoringTemplatesScreen = React.lazy(() => import("@/screens/MonitoringTemplatesScreen"));
+const VmDetailScreen = React.lazy(() => import("@/screens/VmDetailScreen"));
+const DomainsScreen = React.lazy(() => import("@/screens/DomainsScreen"));
+const UrlCheckerScreen = React.lazy(() => import("@/screens/UrlCheckerScreen"));
+const TelnetMonitoringScreen = React.lazy(() => import("@/screens/TelnetMonitoringScreen"));
 const APMScreen = React.lazy(() => import("@/screens/APMScreen"));
 const APMCatalogScreen = React.lazy(() => import("@/screens/APMCatalogScreen"));
 const AppDetailScreen = React.lazy(() => import("@/screens/AppDetailScreen"));
@@ -105,9 +110,44 @@ function RouteLoading() {
   );
 }
 
+/**
+ * Catches render errors from a route, most often a lazy chunk that failed to
+ * download (e.g. its hashed file was removed by a newer deploy). Keeps the
+ * shell usable instead of letting React unmount the whole tree. Keyed by
+ * pathname so navigating elsewhere clears the error.
+ */
+class RouteErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("Route failed to render", error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="route-loading" role="alert">
+        <span>This page failed to load.</span>
+        <button className="btn" type="button" onClick={() => window.location.reload()}>
+          Reload
+        </button>
+      </div>
+    );
+  }
+}
+
 export default function App() {
   const { route } = useNav();
+  const location = useLocation();
   const tweaks = useUiStore((s) => s.tweaks);
+  const nav = useUiStore((s) => s.nav);
   const setSwitcher = useUiStore((s) => s.setSwitcher);
   useTenantBootstrap();
 
@@ -136,10 +176,11 @@ export default function App() {
 
   return (
     <>
-      <div className={`app${noChrome ? " no-chrome" : ""}`}>
+      <div className={`app${noChrome ? " no-chrome" : ""} nav-${nav}`}>
         {!noChrome && <Sidebar />}
         {!noChrome && <Header />}
         <main className="main">
+          <RouteErrorBoundary key={location.pathname}>
           <React.Suspense fallback={<RouteLoading />}>
             <Routes>
             <Route path="/" element={<DashboardScreen />} />
@@ -186,6 +227,11 @@ export default function App() {
             <Route path="/infra-vms" element={<InfraVMsScreen />} />
             <Route path="/infra-rack" element={<InfraRackScreen />} />
             <Route path="/infra-exporters" element={<InfraExportersScreen />} />
+            <Route path="/infra-templates" element={<MonitoringTemplatesScreen />} />
+            <Route path="/vm-detail" element={<VmDetailScreen />} />
+            <Route path="/domains" element={<DomainsScreen />} />
+            <Route path="/url-checker" element={<UrlCheckerScreen />} />
+            <Route path="/telnet-monitoring" element={<TelnetMonitoringScreen />} />
             <Route path="/apm" element={<APMScreen />} />
             <Route path="/apm-catalog" element={<APMCatalogScreen />} />
             <Route path="/app-detail" element={<AppDetailScreen />} />
@@ -211,6 +257,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </React.Suspense>
+          </RouteErrorBoundary>
         </main>
       </div>
       <TenantSwitcher />

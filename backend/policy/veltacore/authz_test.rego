@@ -62,3 +62,42 @@ test_level_is_personal_for_owner_only if {
         "resource": {"assignee": "priya"},
     }
 }
+
+test_cross_tenant_read_denied_for_non_admin if {
+    not authz.allow with input as {"path": "/api/incidents/records/", "method": "GET", "user": "v", "groups": ["viewer"], "tenant": null, "resource": {}}
+}
+
+test_cross_tenant_read_allowed_for_admin if {
+    authz.allow with input as {"path": "/api/incidents/records/", "method": "GET", "user": "a", "groups": ["admin"], "tenant": null, "resource": {}}
+}
+
+test_tenant_scoped_read_allowed_for_viewer if {
+    authz.allow with input as {"path": "/api/incidents/records/", "method": "GET", "user": "v", "groups": ["viewer"], "tenant": "fyers", "resource": {}}
+}
+
+# ── Device lifecycle ─────────────────────────────────────────────────────────
+lifecycle_input(groups, to) := {
+    "path": "/api/infra/devices/SW-01/transition/", "method": "POST", "user": "u",
+    "groups": groups, "tenant": "fyers",
+    "resource": {"action": "device.transition", "from": "pending_review", "to": to, "tenant": "fyers"},
+}
+
+test_infra_admin_can_activate_device if {
+    authz.allow with input as lifecycle_input(["infra-admin"], "active")
+}
+
+test_noc_can_send_device_for_review if {
+    authz.allow with input as lifecycle_input(["noc-engineer"], "pending_review")
+}
+
+test_noc_cannot_activate_device if {
+    not authz.allow with input as lifecycle_input(["noc-engineer"], "active")
+}
+
+test_viewer_cannot_transition_device if {
+    not authz.allow with input as lifecycle_input(["viewer"], "pending_review")
+}
+
+test_noc_can_reach_transition_endpoint if {
+    authz.allow with input as {"path": "/api/infra/devices/SW-01/transition/", "method": "POST", "user": "u", "groups": ["noc-engineer"], "tenant": "fyers", "resource": {}}
+}

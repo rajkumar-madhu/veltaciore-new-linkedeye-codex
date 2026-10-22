@@ -61,6 +61,10 @@ class DeviceSerializer(serializers.ModelSerializer):
     iface = serializers.CharField(source="iface_summary")
     lastSeen = serializers.CharField(source="last_seen")
     site = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Lifecycle changes only via POST …/transition/ (OPA-checked, audited).
+    lifecycleState = serializers.CharField(source="lifecycle_state", read_only=True)
+    criticalityTier = serializers.CharField(source="criticality_tier", read_only=True)
+    owningTeam = serializers.CharField(source="owning_team", read_only=True)
 
     class Meta:
         model = InfraDevice
@@ -69,6 +73,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "status", "role", "iface", "throughput", "sessions", "lastSeen",
             "agent", "vendor", "serial_number", "hostname", "location",
             "monitoring_enabled", "snmp_profile", "exporter_type",
+            "lifecycleState", "criticalityTier", "owningTeam",
         ]
 
     def get_os(self, obj: InfraDevice) -> str:

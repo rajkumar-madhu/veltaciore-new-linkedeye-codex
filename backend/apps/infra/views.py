@@ -1,9 +1,9 @@
-import random
-
-from rest_framework import viewsets
+from rest_framework import exceptions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.monitoring.loki import device_logs
+from apps.monitoring.prometheus import device_hardware, device_inventory, device_timeseries, vm_inventory, vm_timeseries
 from apps.sites.models import Rack, Site
 from apps.tenants.mixins import TenantScopedQuerysetMixin
 from .models import (
@@ -25,6 +25,16 @@ from .serializers import (
     TopologyConnectionSerializer,
     VmSerializer,
 )
+
+
+def _timeseries(request, fetch):
+    q = request.query_params
+    only = {m.strip() for m in q.get("metrics", "").split(",") if m.strip()} or None
+    try:
+        data = fetch(start=q.get("start"), end=q.get("end"), step=q.get("step"), metrics=only)
+    except ValueError as exc:
+        raise exceptions.ValidationError({"detail": str(exc)})
+    return Response(data)
 
 
 class SiteViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
@@ -54,9 +64,23 @@ class SiteViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
 class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     queryset = InfraDevice.objects.select_related("site").all()
     serializer_class = DeviceSerializer
-    filterset_fields = ["site", "device_type", "status", "vendor"]
     search_fields = ["id", "name", "hostname", "ip_address", "model", "vendor", "serial_number"]
     ordering_fields = ["id", "cpu", "mem", "status"]
+
+    filterset_fields = ["site", "device_type", "status", "vendor", "lifecycle_state", "criticality_tier"]
+
+    @action(detail=True, methods=["post"])
+    def transition(self, request, pk=None):
+        """POST /api/infra/devices/{id}/transition/ {"to": "...", "reason": "..."}"""
+        from .lifecycle import transition_device
+
+        device = transition_device(
+            self.get_object(),
+            str(request.data.get("to", "")),
+            request=request,
+            reason=str(request.data.get("reason", "")),
+        )
+        return Response(DeviceSerializer(device).data)
 
     @action(detail=True)
     def overview(self, request, pk=None):
@@ -81,7 +105,7 @@ class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
                 "status": "up" if up else "down",
                 "uptime": d.uptime,
                 "last_reboot": "2026-01-18 03:12 UTC",
-                "ping_ms": round(random.uniform(0.2, 2.4), 2) if up else None,
+                "ping_ms": None,  # real RTT comes from blackbox probes via /metrics, not invented here
                 "packet_loss_pct": 0.0 if up else 100.0,
                 "sla_pct": 99.98 if up else 97.2,
                 "blackbox": "ok" if up else "failing",
@@ -89,26 +113,66 @@ class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
         )
 
     @action(detail=True)
+    def relationships(self, request, pk=None):
+        """GET /api/infra/devices/{id}/relationships/ — the device's family.
+
+        Where it lives (site, rack and U position), what runs on it (VMs),
+        and what each NIC is cabled to (topology links matched on port name).
+        Peers are looked up through the tenant-scoped manager, so a link to
+        a device the caller may not see is returned without its details.
+        """
+        from .relationships import device_relationships
+
+        return Response(device_relationships(self.get_object()))
+
+    @action(detail=True)
     def metrics(self, request, pk=None):
-        """Recent metric series (24 points per metric) for graphs."""
-        d = self.get_object()
-        rng = random.Random(hash(d.id) & 0xFFFF)
+        """GET /api/infra/devices/{id}/metrics/ — real time series from Prometheus.
 
-        def series(base: float, spread: float) -> list[float]:
-            return [
-                max(0.0, min(100.0, base + rng.uniform(-spread, spread)))
-                for _ in range(24)
-            ]
+        Query: start, end (ISO 8601 or unix seconds; default last hour),
+        step (seconds; raised automatically to keep ≤600 points),
+        metrics (comma-separated keys to limit the response).
+        """
+        return _timeseries(request, lambda **kw: device_timeseries(self.get_object(), **kw))
 
-        return Response(
-            {
-                "cpu": series(d.cpu, 8),
-                "mem": series(d.mem, 5),
-                "disk": series(min(96.0, d.mem * 0.8 + 10), 3),
-                "rx_mbps": [round(rng.uniform(80, 940), 1) for _ in range(24)],
-                "tx_mbps": [round(rng.uniform(60, 720), 1) for _ in range(24)],
-            }
-        )
+    @action(detail=True)
+    def inventory(self, request, pk=None):
+        """GET /api/infra/devices/{id}/inventory/ — top processes, services, filesystems (now).
+
+        Query: top (processes to return, default 10, max 50).
+        """
+        try:
+            top = int(request.query_params.get("top", 10))
+        except ValueError:
+            raise exceptions.ValidationError({"detail": "top must be a number."})
+        try:
+            return Response(device_inventory(self.get_object(), top=top))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
+
+    @action(detail=True)
+    def hardware(self, request, pk=None):
+        """GET /api/infra/devices/{id}/hardware/ — iDRAC / iLO health and sensors (start, end, step)."""
+        q = request.query_params
+        try:
+            return Response(device_hardware(self.get_object(), start=q.get("start"), end=q.get("end"), step=q.get("step")))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
+
+    @action(detail=True)
+    def logs(self, request, pk=None):
+        """GET /api/infra/devices/{id}/logs/ — event logs from Loki.
+
+        Query: start, end, search (text), level (critical|error|warning|info|debug), limit (≤500).
+        """
+        q = request.query_params
+        try:
+            return Response(device_logs(
+                self.get_object(), start=q.get("start"), end=q.get("end"),
+                search=q.get("search", ""), level=q.get("level", ""), limit=q.get("limit", 200),
+            ))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
 
 
 class DeviceAlertViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
@@ -123,6 +187,28 @@ class VmViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     serializer_class = VmSerializer
     filterset_fields = ["cluster", "state"]
     search_fields = ["id", "os", "ip"]
+
+    @action(detail=True)
+    def metrics(self, request, pk=None):
+        """GET /api/infra/vms/{id}/metrics/ — VMware exporter series for one VM."""
+        return _timeseries(request, lambda **kw: vm_timeseries(self.get_object(), **kw))
+
+    @action(detail=True)
+    def inventory(self, request, pk=None):
+        """GET /api/infra/vms/{id}/inventory/ — VMware Tools, snapshots, guest disks, datastore (now)."""
+        return Response(vm_inventory(self.get_object()))
+
+    @action(detail=True)
+    def logs(self, request, pk=None):
+        """GET /api/infra/vms/{id}/logs/ — guest logs from Loki (host label = VM name)."""
+        q = request.query_params
+        try:
+            return Response(device_logs(
+                self.get_object(), start=q.get("start"), end=q.get("end"),
+                search=q.get("search", ""), level=q.get("level", ""), limit=q.get("limit", 200),
+            ))
+        except ValueError as exc:
+            raise exceptions.ValidationError({"detail": str(exc)})
 
 
 class ExporterViewSet(viewsets.ReadOnlyModelViewSet):

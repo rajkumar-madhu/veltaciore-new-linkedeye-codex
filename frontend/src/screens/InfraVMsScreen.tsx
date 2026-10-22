@@ -117,9 +117,9 @@ export default function InfraVMsScreen() {
               </thead>
               <tbody>
                 {filtered.map(v => (
-                  <tr key={v.id} onClick={() => setRoute("infra-device")} style={{ cursor: "pointer" }}>
+                  <tr key={v.id} onClick={() => setRoute("vm-detail", { vmId: v.id })} style={{ cursor: "pointer" }}>
                     <td onClick={e => e.stopPropagation()}><input type="checkbox" /></td>
-                    <td><a className="sn-link mono"><b>{v.id}</b></a></td>
+                    <td><button type="button" className="ld-link ld-mono" onClick={(e) => { e.stopPropagation(); setRoute("vm-detail", { vmId: v.id }); }}><b>{v.id}</b></button></td>
                     <td className="mono text-mute">{v.host}</td>
                     <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {v.cluster}</span></td>
                     <td><span style={{fontSize:11.5}}>{v.os}</span></td>

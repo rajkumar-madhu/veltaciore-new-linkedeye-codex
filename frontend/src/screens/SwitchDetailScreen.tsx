@@ -4,7 +4,9 @@
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
-import { useDevice } from "@/api/hooks";
+import { useDevice, useInfraAlerts } from "@/api/hooks";
+import { Panel, Pill } from "@/components/ld";
+import { DeviceMetrics } from "@/components/MetricCharts";
 import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import {
@@ -97,11 +99,91 @@ export default function SwitchDetailScreen() {
     setPop({ x: Math.min(r.left, window.innerWidth - 260), y: r.bottom + 8, p });
   };
 
+  const vendor = (d.model || "").split(" ")[0].toUpperCase();
+  const deviceAlerts = (useInfraAlerts().data ?? []).filter(a => a.device === d.id).slice(0, 5);
+  const neighbors = SW_PORTS.filter(p => p.peer).slice(0, 8);
+  const errorPorts = [...SW_PORTS].filter(p => p.err > 0 || p.status === "down").sort((a, b) => b.err - a.err).slice(0, 5);
+
+  const infoPanel = (
+    <Panel title="Device Information">
+      <dl className="ld-dl">
+        <dt>Hostname</dt><dd>{d.hostname || d.id}</dd>
+        <dt>IP address</dt><dd className="ld-mono">{d.ip}</dd>
+        <dt>Model</dt><dd>{d.model}</dd>
+        <dt>Vendor</dt><dd>{d.vendor || vendor}</dd>
+        <dt>Serial number</dt><dd className="ld-mono">{d.serial_number || "—"}</dd>
+        <dt>OS version</dt><dd>{d.os || "—"}</dd>
+        <dt>Site / location</dt><dd>{d.site}{d.location ? ` · ${d.location}` : ""}</dd>
+        <dt>Role</dt><dd>{d.role || "—"}</dd>
+        <dt>Monitoring</dt><dd>{d.agent || "—"}</dd>
+        <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+      </dl>
+    </Panel>
+  );
+
+  const errorsPanel = (
+    <Panel title="Interface Errors (Top 5)">
+      <div className="ld-table-wrap">
+        <table className="ld-table">
+          <thead><tr><th scope="col">Interface</th><th scope="col">Status</th><th scope="col">CRC errors</th><th scope="col">Utilization</th></tr></thead>
+          <tbody>
+            {errorPorts.map(p => (
+              <tr key={p.n}>
+                <td className="ld-mono">{p.name}</td>
+                <td><Pill tone={p.status === "down" ? "crit" : p.status === "warn" ? "warn" : "ok"}><span className="ld-pill-dot" />{p.status === "down" ? "Down" : p.status === "warn" ? "Warning" : "Up"}</Pill></td>
+                <td className={p.err > 0 ? "ld-text-crit" : "ld-muted"}>{p.err}</td>
+                <td>{p.util}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+
+  const neighborsPanel = (
+    <Panel title="Neighbors (CDP/LLDP)">
+      <div className="ld-table-wrap">
+        <table className="ld-table">
+          <thead><tr><th scope="col">Neighbor device</th><th scope="col">Local port</th><th scope="col">Mode</th></tr></thead>
+          <tbody>
+            {neighbors.map(p => (
+              <tr key={p.n}>
+                <td>
+                  <button type="button" className="ld-link" onClick={() => setRoute("infra-device", { deviceId: p.peer })}>{p.peer}</button>
+                </td>
+                <td className="ld-mono">{p.name}</td>
+                <td className="ld-muted">{p.mode}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+
+  const alertsPanel = (
+    <Panel title="Recent Alerts" action={{ label: "View All", onClick: () => setRoute("alerts") }}>
+      {deviceAlerts.length ? (
+        <ul className="ld-activity">
+          {deviceAlerts.map(a => (
+            <li key={a.id}>
+              <span className={`ld-tile ld-tile-sm ld-${a.sev === "critical" ? "crit" : a.sev === "warning" || a.sev === "warn" ? "warn" : "info"}`} aria-hidden="true"><i className="fa-solid fa-bell" /></span>
+              <span className="ld-activity-text">{a.title} · <span className="ld-muted">{a.detail}</span></span>
+              <span className="ld-muted ld-nowrap">{a.since}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="ld-empty">No active alerts on {d.id}.</div>
+      )}
+    </Panel>
+  );
+
   const upCount = SW_PORTS.filter(p => p.status === "up" || p.status === "warn").length;
   const poeUsed = SW_PORTS.reduce((s, p) => s + p.poeW, 0);
   const poeBudget = 740;
 
-  const vendor = (d.model || "").split(" ")[0].toUpperCase();
 
   const frontPanel = (
     <Card
@@ -247,27 +329,30 @@ export default function SwitchDetailScreen() {
             </div>
           )}
 
-          {(tab === "Overview" || tab === "Performance") && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              <Card title="CPU & Memory" right={<span style={{ fontSize: 10.5, color: "#6b7785" }}><span style={{ color: "#2563eb" }}>●</span> CPU <span style={{ color: "#16a34a" }}>●</span> Memory</span>} pad={14}>
-                <LineChart series={[MEM, CPU]} colors={["#16a34a", "#2563eb"]} yTicks={["100%", "75%", "50%", "25%", "0%"]} />
-              </Card>
-              <Card title="Throughput (bps)" right={<span style={{ fontSize: 10.5 }}><b className="mono" style={{ color: "#16a34a" }}>8.8G in</b> <b className="mono" style={{ color: "#2563eb" }}>7.2G out</b></span>} pad={14}>
-                <LineChart series={[THR_IN, THR_OUT]} colors={["#16a34a", "#2563eb"]} yTicks={["10G", "7.5G", "5G", "2.5G", "0"]} />
-              </Card>
-              <Card title="Broadcast Storms (%)" right={<b className="mono" style={{ fontSize: 12.5, color: "#f59e0b" }}>peak 1.9%</b>} pad={14}>
-                <LineChart series={[BCAST]} colors={["#f59e0b"]} yTicks={["4%", "3%", "2%", "1%", "0"]} />
-              </Card>
+          {(tab === "Overview" || tab === "Performance") && <DeviceMetrics deviceId={d.id} title="Performance" />}
+
+          {tab === "Overview" && (
+            <div className="ld-grid ld-grid-2">
+              {infoPanel}
+              {errorsPanel}
             </div>
           )}
 
           {(tab === "Overview") && portTable(SW_PORTS.filter(p => p.status !== "disabled").slice(0, 8))}
+
+          {(tab === "Overview" || tab === "Topology") && (
+            <div className="ld-grid ld-grid-2">
+              {neighborsPanel}
+              {alertsPanel}
+            </div>
+          )}
           {(tab === "Ports" || tab === "Network") && portTable(SW_PORTS)}
           {tab === "VLANs" && vlanPanel}
           {tab === "PoE" && poePanel}
           {tab === "Stack" && stackPanel}
 
-          {(tab === "Logs" || tab === "Alerts" || tab === "Settings") && (
+          {tab === "Alerts" && alertsPanel}
+          {(tab === "Logs" || tab === "Settings") && (
             <Card>
               <div style={{ textAlign: "center", color: "#6b7785", fontSize: 13, padding: 8 }}>
                 <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 8 }} />

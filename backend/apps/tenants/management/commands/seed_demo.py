@@ -8,9 +8,12 @@ Usage: python manage.py seed_demo [--flush]
 """
 import json
 import random
+import zlib
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
+
+from apps.tenants.context import system_task
 
 FIXTURES = Path(__file__).resolve().parents[4] / "fixtures" / "seed.json"
 
@@ -178,6 +181,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--flush", action="store_true", help="Delete existing rows first")
 
+    @system_task  # seeds / clears every tenant's data
     def handle(self, *args, **opts):
         from datetime import date
 
@@ -359,6 +363,59 @@ class Command(BaseCommand):
                 )
                 for upos, u in enumerate(rk["units"])
             ])
+
+        # Server NICs and which switch port each one is cabled to. The seed's
+        # links carry no port names, so give every server-side link a NIC
+        # (ens2f0, ens2f1, …) and a switch port, plus a management NIC and an
+        # out-of-band (iDRAC/iLO) port that are not linked.
+        server_kinds = ("hypervisor", "phys-srv", "win-srv", "linux-srv")
+        switch_ports: dict[str, int] = {}
+        for srv in InfraDevice.objects.filter(device_type__in=server_kinds).order_by("id"):
+            links = list(TopologyConnection.objects.filter(dst=srv, dst_port="")) + list(
+                TopologyConnection.objects.filter(src=srv, src_port="")
+            )
+            nics = [("eno1", "1G", "management", "10")]
+            for n, _ in enumerate(links or [None]):
+                nics.append((f"ens2f{n}", "25G" if srv.device_type == "hypervisor" else "10G", f"data uplink {n + 1}", "100"))
+            nics.append(("idrac" if "Dell" in srv.model else "ilo", "1G", "out-of-band management", "99"))
+            for idx, (name, speed, desc, vlan) in enumerate(nics):
+                DeviceInterface.objects.update_or_create(
+                    device=srv, name=name,
+                    defaults={
+                        "description": desc, "mac_address": f"B0:26:28:{zlib.crc32(srv.id.encode()) & 0xFF:02X}:{idx:02X}:1{idx}",
+                        "admin_status": "up", "oper_status": "up", "speed": speed, "duplex": "full",
+                        "mtu": 9000 if name.startswith("ens") else 1500, "vlan": vlan,
+                        "rx_mbps": rng.uniform(5, 900), "tx_mbps": rng.uniform(5, 700),
+                    },
+                )
+            # Physical servers get their out-of-band controller as a device of
+            # its own, linked back with managed_by (read by …/hardware/).
+            if srv.device_type in ("hypervisor", "phys-srv") and not srv.model.startswith("VM"):
+                dell = "Dell" in srv.model
+                ip = None
+                if srv.ip_address:
+                    octets = str(srv.ip_address).split(".")
+                    ip = ".".join(octets[:3] + [str((int(octets[3]) + 100) % 254 + 1)])
+                InfraDevice.objects.update_or_create(
+                    id=f"{srv.id}-{'IDRAC' if dell else 'ILO'}",
+                    defaults={
+                        "tenant_id": srv.tenant_id, "site": srv.site, "managed_by": srv,
+                        "name": f"{srv.id} {'iDRAC' if dell else 'iLO'}",
+                        "device_type": "idrac" if dell else "ilo", "vendor": "Dell" if dell else "HPE",
+                        "model": srv.model, "ip_address": ip, "os_name": "iDRAC9" if dell else "iLO 5",
+                        "os_version": "6.10.30" if dell else "2.77", "status": "ok", "agent": "redfish-exporter",
+                    },
+                )
+            for n, link in enumerate(links):
+                peer = link.src if link.dst_id == srv.id else link.dst
+                switch_ports[peer.id] = switch_ports.get(peer.id, 0) + 1
+                port = f"Te1/0/{switch_ports[peer.id]}"
+                if link.dst_id == srv.id:
+                    link.dst_port, link.src_port = f"ens2f{n}", port
+                else:
+                    link.src_port, link.dst_port = f"ens2f{n}", port
+                link.bandwidth = "25G" if srv.device_type == "hypervisor" else "10G"
+                link.save()
 
         # Interfaces for the hero switch (device-detail endpoints)
         hero = InfraDevice.objects.filter(id="SW-BLR-TOR-13").first()

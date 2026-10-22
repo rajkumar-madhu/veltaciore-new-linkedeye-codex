@@ -55,3 +55,16 @@ class OpaPermission(BasePermission):
             "tenant": getattr(getattr(obj, "tenant", None), "id", None),
         }
         return self._decide(self._input(request, resource), request)
+
+
+def opa_allows(request, resource: dict) -> bool:
+    """Action-level OPA decision for service code (e.g. a lifecycle transition).
+
+    Sends the same input document as OpaPermission, with ``resource`` naming
+    the action (``{"action": "device.transition", "from": ..., "to": ...}``).
+    With OPA unconfigured: allowed only when OPA_FAIL_OPEN (dev).
+    """
+    perm = OpaPermission()
+    if not settings.OPA_URL:
+        return bool(settings.OPA_FAIL_OPEN)
+    return perm._decide(perm._input(request, resource), request)

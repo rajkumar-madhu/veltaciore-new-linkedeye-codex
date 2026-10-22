@@ -31,7 +31,22 @@ class InfraDevice(TenantScopedModel):
     serial_number = models.CharField(max_length=64, blank=True, default="")
     os_name = models.CharField(max_length=64, blank=True, default="")
     os_version = models.CharField(max_length=64, blank=True, default="")
+    LIFECYCLE = [("discovered", "Discovered"), ("pending_review", "Pending review"),
+                 ("active", "Active"), ("decommissioned", "Decommissioned")]
+    CRITICALITY = [("tier1", "Tier 1 — business critical"), ("tier2", "Tier 2 — high"),
+                   ("tier3", "Tier 3 — standard"), ("tier4", "Tier 4 — low")]
+
     status = models.CharField(max_length=12, choices=STATUS, default="unknown")
+    # Change only through apps.infra.lifecycle.transition_device (OPA + audit).
+    lifecycle_state = models.CharField(max_length=16, choices=LIFECYCLE, default="active", db_index=True)
+    criticality_tier = models.CharField(max_length=8, choices=CRITICALITY, default="tier3")
+    owning_team = models.CharField(max_length=128, blank=True, default="")
+    # Prometheus label matchers for this device's series, e.g.
+    # {"instance": "10.10.1.21:9100", "job": "node"}. Empty → derived from
+    # the device (apps.monitoring.prometheus.device_selector).
+    metrics_labels = models.JSONField(default=dict, blank=True)
+    # Set on an iDRAC / iLO device: the server this controller manages.
+    managed_by = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="bmcs")
     health_status = models.CharField(max_length=12, choices=STATUS, default="unknown")
     monitoring_enabled = models.BooleanField(default=True)
     snmp_version = models.CharField(max_length=8, blank=True, default="")

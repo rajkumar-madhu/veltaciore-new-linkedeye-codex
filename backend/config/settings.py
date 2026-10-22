@@ -129,6 +129,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
+        "apps.tenants.permissions.TenantScopePermission",
         "apps.policy.permissions.OpaPermission",
     ],
     "DEFAULT_FILTER_BACKENDS": [
@@ -165,3 +166,37 @@ KEYCLOAK_VERIFY_AUD = os.environ.get("KEYCLOAK_VERIFY_AUD", "0") == "1"
 # ── OPA ─────────────────────────────────────────────────────────────────────
 OPA_URL = os.environ.get("OPA_URL", "")  # e.g. http://opa:8181/v1/data/veltacore/authz/allow
 OPA_FAIL_OPEN = os.environ.get("OPA_FAIL_OPEN", "1" if DEBUG else "0") == "1"
+
+# ── Tenancy ─────────────────────────────────────────────────────────────────
+# Strict: querying a tenant-scoped model with no tenant scope raises instead of
+# returning every tenant's rows (see apps/tenants/context.py).
+TENANT_STRICT = os.environ.get("TENANT_STRICT", "1") == "1"
+
+
+# ── Logging ─────────────────────────────────────────────────────────────────
+# Audit events (apps.audit.events) go to stdout as one JSON object per line,
+# for Filebeat to ship to Loki. Other loggers keep Django's defaults.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"raw": {"format": "%(message)s"}},
+    "handlers": {"audit_stdout": {"class": "logging.StreamHandler", "formatter": "raw"}},
+    "loggers": {
+        "linkedeye.audit": {"handlers": ["audit_stdout"], "level": "INFO", "propagate": False},
+    },
+}
+
+# ── Prometheus (device metrics) ─────────────────────────────────────────────
+# Metrics are read from the provisioned Prometheus, not stored locally.
+PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "")  # e.g. https://fs-le-dev-prometheus.finspot.in
+PROMETHEUS_TOKEN = os.environ.get("PROMETHEUS_TOKEN", "")
+PROMETHEUS_TENANT_LABEL = os.environ.get("PROMETHEUS_TENANT_LABEL", "")
+PROMETHEUS_TIMEOUT = float(os.environ.get("PROMETHEUS_TIMEOUT", "10"))
+
+# Logs (Windows Event Logs, syslog, journald) from the provisioned Loki.
+LOKI_URL = os.environ.get("LOKI_URL", "")  # e.g. https://fs-le-dev-loki.finspot.in
+LOKI_TOKEN = os.environ.get("LOKI_TOKEN", "")
+LOKI_ORG_ID = os.environ.get("LOKI_ORG_ID", "")  # X-Scope-OrgID for multi-tenant Loki
+LOKI_HOST_LABEL = os.environ.get("LOKI_HOST_LABEL", "host")  # stream label holding the hostname
+LOKI_TENANT_LABEL = os.environ.get("LOKI_TENANT_LABEL", "")
+LOKI_TIMEOUT = float(os.environ.get("LOKI_TIMEOUT", "10"))

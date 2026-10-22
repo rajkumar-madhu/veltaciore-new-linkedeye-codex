@@ -72,6 +72,16 @@ services:
       KEYCLOAK_SERVER_URL: http://keycloak:8080
       OPA_URL: http://opa:8181/v1/data/veltacore/authz/allow
       OPA_FAIL_OPEN: "1"
+      # Live monitoring sources — set these in a local .env (see .env.example);
+      # tokens never go in this file or the repository.
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-}
+      PROMETHEUS_TOKEN: ${PROMETHEUS_TOKEN:-}
+      PROMETHEUS_TENANT_LABEL: ${PROMETHEUS_TENANT_LABEL:-}
+      LOKI_URL: ${LOKI_URL:-}
+      LOKI_TOKEN: ${LOKI_TOKEN:-}
+      LOKI_ORG_ID: ${LOKI_ORG_ID:-}
+      LOKI_HOST_LABEL: ${LOKI_HOST_LABEL:-host}
+      LOKI_TENANT_LABEL: ${LOKI_TENANT_LABEL:-}
     ports: ["8000:8000"]
     depends_on:
       postgres: { condition: service_healthy }
