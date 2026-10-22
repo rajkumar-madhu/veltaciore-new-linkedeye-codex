@@ -33,6 +33,7 @@ export const GROUP_TITLE: Record<string, string> = {
   state: "Power State",
   uptime: "Uptime",
 };
+const CHART_NOTE: Record<string, string> = { disk_io: "(all disks)", network: "(all interfaces)" };
 const GROUP_ORDER = ["cpu", "memory_gb", "memory", "disk", "disk_io", "network", "virtualization", "load", "errors", "ports", "state", "uptime"];
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -69,15 +70,21 @@ function niceMax(v: number, unit: string) {
 }
 
 // ── time range picker ───────────────────────────────────────────────────────
-export function TimeRangePicker() {
-  const { preset, from, to, setPreset, setCustom } = useTimeRange();
-  const [open, setOpen] = React.useState(false);
+const fmtWhen = (ms: number) => new Date(ms).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+
+export function rangeLabel(preset: string, from: number | null, to: number | null) {
+  return preset === "custom" && from != null && to != null
+    ? `${fmtWhen(from)} – ${fmtWhen(to)}`
+    : PRESETS.find((p) => p.id === preset)?.label ?? "";
+}
+
+/** Start/end form shared by both pickers; validates against the API's limits. */
+function CustomRangeForm({ id, onDone }: { id: string; onDone: () => void }) {
+  const { from, to, setCustom } = useTimeRange();
   const now = Date.now();
   const [start, setStart] = React.useState(toLocalInput(from ?? now - 86400_000));
   const [end, setEnd] = React.useState(toLocalInput(to ?? now));
   const [error, setError] = React.useState("");
-  const id = React.useId();
-
   const apply = (e: React.FormEvent) => {
     e.preventDefault();
     const s = new Date(start).getTime();
@@ -88,14 +95,28 @@ export function TimeRangePicker() {
     if (t > Date.now() + 60_000) return setError("End can't be in the future.");
     setError("");
     setCustom(s, t);
-    setOpen(false);
+    onDone();
   };
+  return (
+    <form id={`${id}-custom`} className="ld-card ld-range-custom" onSubmit={apply}>
+      <div className="ld-form-field">
+        <label htmlFor={`${id}-start`}>Start</label>
+        <input id={`${id}-start`} className="ld-input" type="datetime-local" value={start} max={end} onChange={(e) => setStart(e.target.value)} required />
+      </div>
+      <div className="ld-form-field">
+        <label htmlFor={`${id}-end`}>End</label>
+        <input id={`${id}-end`} className="ld-input" type="datetime-local" value={end} min={start} max={toLocalInput(Date.now())} onChange={(e) => setEnd(e.target.value)} required />
+      </div>
+      <button type="submit" className="ld-btn ld-btn-primary">Apply</button>
+      {error && <p className="ld-text-crit ld-small" role="alert">{error}</p>}
+    </form>
+  );
+}
 
-  const label =
-    preset === "custom" && from != null && to != null
-      ? `${new Date(from).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} – ${new Date(to).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`
-      : PRESETS.find((p) => p.id === preset)?.label;
-
+export function TimeRangePicker() {
+  const { preset, from, to, setPreset } = useTimeRange();
+  const [open, setOpen] = React.useState(false);
+  const id = React.useId();
   return (
     <div className="ld-range">
       <div className="ld-range-presets" role="group" aria-label="Time range">
@@ -109,24 +130,65 @@ export function TimeRangePicker() {
         </button>
       </div>
       <span className="ld-muted ld-small" aria-live="polite">
-        {label}
+        {rangeLabel(preset, from, to)}
         {preset !== "custom" && <span className="ld-live"><span className="ld-pill-dot" /> Live · refresh 30s</span>}
       </span>
+      {open && <CustomRangeForm id={id} onDone={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+/** Compact header control: "Last 1 hour ▾" with presets and a custom range. */
+export function RangeSelect() {
+  const { preset, from, to, setPreset } = useTimeRange();
+  const [open, setOpen] = React.useState(false);
+  const [custom, setCustomOpen] = React.useState(false);
+  const id = React.useId();
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) { setOpen(false); setCustomOpen(false); } };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); setCustomOpen(false); } };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div className="ld-rangesel" ref={ref}>
+      <button type="button" className="ld-btn" aria-haspopup="true" aria-expanded={open} aria-controls={`${id}-menu`} onClick={() => setOpen(!open)}>
+        <i className="fa-regular fa-clock" aria-hidden="true" />
+        <span className="ld-rangesel-label">{preset === "custom" ? "Custom range" : rangeLabel(preset, from, to)}</span>
+        <i className="fa-solid fa-chevron-down ld-small" aria-hidden="true" />
+      </button>
       {open && (
-        <form id={`${id}-custom`} className="ld-card ld-range-custom" onSubmit={apply}>
-          <div className="ld-form-field">
-            <label htmlFor={`${id}-start`}>Start</label>
-            <input id={`${id}-start`} className="ld-input" type="datetime-local" value={start} max={end} onChange={(e) => setStart(e.target.value)} required />
-          </div>
-          <div className="ld-form-field">
-            <label htmlFor={`${id}-end`}>End</label>
-            <input id={`${id}-end`} className="ld-input" type="datetime-local" value={end} min={start} max={toLocalInput(Date.now())} onChange={(e) => setEnd(e.target.value)} required />
-          </div>
-          <button type="submit" className="ld-btn ld-btn-primary">Apply</button>
-          {error && <p className="ld-text-crit ld-small" role="alert">{error}</p>}
-        </form>
+        <div id={`${id}-menu`} className="ld-rangesel-menu">
+          {PRESETS.map((p) => (
+            <button key={p.id} type="button" aria-pressed={preset === p.id} className={preset === p.id ? "on" : ""}
+              onClick={() => { setPreset(p.id); setOpen(false); setCustomOpen(false); }}>
+              {p.label}{preset === p.id && <i className="fa-solid fa-check" aria-hidden="true" />}
+            </button>
+          ))}
+          <button type="button" aria-expanded={custom} className={preset === "custom" ? "on" : ""} onClick={() => setCustomOpen(!custom)}>
+            Custom range…{preset === "custom" && <i className="fa-solid fa-check" aria-hidden="true" />}
+          </button>
+          {preset === "custom" && from != null && to != null && <span className="ld-muted ld-small ld-rangesel-now">{rangeLabel(preset, from, to)}</span>}
+          {custom && <CustomRangeForm id={id} onDone={() => { setOpen(false); setCustomOpen(false); }} />}
+        </div>
       )}
     </div>
+  );
+}
+
+/** "● Live" while a relative range auto-refreshes; on a fixed range, a button back to live. */
+export function LiveButton() {
+  const { preset, setPreset } = useTimeRange();
+  const live = preset !== "custom";
+  return (
+    <button type="button" className={`ld-btn ld-live-btn${live ? " on" : ""}`} aria-pressed={live}
+      title={live ? "Refreshing every 30 seconds" : "Return to the last hour, refreshing live"}
+      onClick={() => { if (!live) setPreset("1h"); }}>
+      <span className="ld-pill-dot" aria-hidden="true" /> {live ? "Live" : "Go live"}
+    </button>
   );
 }
 
@@ -143,8 +205,14 @@ function stackSeries(series: MetricSeries[]) {
   );
 }
 
-export function TimeChart({ series, startSec, endSec, stacked = false }: { series: MetricSeries[]; startSec: number; endSec: number; stacked?: boolean }) {
-  const W = 560, H = 210, L = 44, R = 10, T = 20, B = 26;
+export function TimeChart({ series, startSec, endSec, stacked = false, compact = false, legendOnly = [] }: {
+  series: MetricSeries[]; startSec: number; endSec: number; stacked?: boolean;
+  /** shorter plot and a one-line legend (last values) instead of the last/avg/max table */
+  compact?: boolean;
+  /** series listed in the legend but not drawn (e.g. CPU idle on a stacked chart) */
+  legendOnly?: MetricSeries[];
+}) {
+  const W = 560, H = compact ? 170 : 210, L = 44, R = 10, T = 20, B = 26;
   const unit = series[0]?.unit ?? "";
   const bands = stacked ? stackSeries(series) : null;
   const all = bands ? bands.flatMap((b) => b.map((p) => p[2])) : series.flatMap((s) => s.points.map((p) => p[1]));
@@ -213,7 +281,7 @@ export function TimeChart({ series, startSec, endSec, stacked = false }: { serie
               return (
                 <g key={s.key}>
                   {first && last && (
-                    <polygon points={`${x(first[0]).toFixed(1)},${y(0)} ${line} ${x(last[0]).toFixed(1)},${y(0)}`} fill={colorOf(s, i)} fillOpacity={0.08} />
+                    <polygon points={`${x(first[0]).toFixed(1)},${y(0)} ${line} ${x(last[0]).toFixed(1)},${y(0)}`} fill={colorOf(s, i)} fillOpacity={compact ? 0.16 : 0.08} />
                   )}
                   <polyline points={line} fill="none" stroke={colorOf(s, i)} strokeWidth={1.8} strokeLinejoin="round" />
                 </g>
@@ -242,6 +310,16 @@ export function TimeChart({ series, startSec, endSec, stacked = false }: { serie
           })}
         </div>
       )}
+      {compact ? (
+        <ul className="ld-legend-inline">
+          {[...summary, ...legendOnly.map((s) => ({ s, last: s.points.length ? s.points[s.points.length - 1][1] : null }))].map(({ s, last }, i) => (
+            <li key={s.key}>
+              <span className="ld-dot" style={{ background: i < series.length ? colorOf(s, i) : SERIES_COLOR[s.key] ?? "var(--fg-faint)" }} />
+              {s.label} <b>{last == null ? "—" : fmtValue(last, s.unit)}</b>
+            </li>
+          ))}
+        </ul>
+      ) : (
       <table className="ld-legend-table">
         <thead><tr><th scope="col">Series</th><th scope="col">Last</th><th scope="col">Avg</th><th scope="col">Max</th></tr></thead>
         <tbody>
@@ -255,6 +333,7 @@ export function TimeChart({ series, startSec, endSec, stacked = false }: { serie
           ))}
         </tbody>
       </table>
+      )}
     </div>
   );
 }
@@ -277,11 +356,14 @@ export function Sparkline({ points, color = COLORS[0], label }: { points: [numbe
   );
 }
 
-export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenOff }: {
+export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenOff, compact }: {
   data?: MetricsResponse; isLoading: boolean; isError: boolean; groups?: string[];
+  /** Netdata-style cards: short plots, one-line legends, range shown in the card header */
+  compact?: boolean;
   /** the page already explains a missing source (e.g. a banner above) */
   quietWhenOff?: boolean;
 }) {
+  const { preset: rangePreset, from: rangeFrom, to: rangeTo } = useTimeRange();
   if (isLoading) return <div className="ld-card"><Empty>Loading metrics…</Empty></div>;
   if (isError || !data) {
     return <div className="ld-card"><Empty>Metrics service is not reachable from this browser.</Empty></div>;
@@ -314,12 +396,23 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
         // stacked area of the parts; the total is shown on the KPI card.
         const parts = inGroup.filter((s) => s.stack && s.points.length);
         const stacked = parts.length > 1;
-        const series = stacked ? parts : inGroup;
+        // Idle is the remainder of 100%; drawing it would bury the busy modes.
+        const idle = stacked ? parts.filter((s) => s.key.endsWith("_idle")) : [];
+        const series = stacked ? parts.filter((s) => !idle.includes(s)) : inGroup;
         const hasData = series.some((s) => s.points.length);
-        return (
-          <Panel key={g} title={GROUP_TITLE[g] ?? g}>
-            {hasData ? <TimeChart series={series} startSec={startSec} endSec={endSec} stacked={stacked} /> : <Empty>No samples in this range.</Empty>}
-          </Panel>
+        const chart = hasData
+          ? <TimeChart series={series} startSec={startSec} endSec={endSec} stacked={stacked} compact={compact} legendOnly={idle} />
+          : <Empty>No samples in this range.</Empty>;
+        return compact ? (
+          <section key={g} className="ld-card ld-chart-card" aria-label={GROUP_TITLE[g] ?? g}>
+            <header>
+              <h3>{GROUP_TITLE[g] ?? g}{CHART_NOTE[g] && <span className="ld-muted"> {CHART_NOTE[g]}</span>}</h3>
+              <span className="ld-muted ld-small"><i className="fa-regular fa-clock" aria-hidden="true" /> {rangeLabel(rangePreset, rangeFrom, rangeTo)}</span>
+            </header>
+            {chart}
+          </section>
+        ) : (
+          <Panel key={g} title={GROUP_TITLE[g] ?? g}>{chart}</Panel>
         );
       })}
     </div>

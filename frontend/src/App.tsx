@@ -147,6 +147,7 @@ export default function App() {
   const { route } = useNav();
   const location = useLocation();
   const tweaks = useUiStore((s) => s.tweaks);
+  const nav = useUiStore((s) => s.nav);
   const setSwitcher = useUiStore((s) => s.setSwitcher);
   useTenantBootstrap();
 
@@ -175,7 +176,7 @@ export default function App() {
 
   return (
     <>
-      <div className={`app${noChrome ? " no-chrome" : ""}`}>
+      <div className={`app${noChrome ? " no-chrome" : ""} nav-${nav}`}>
         {!noChrome && <Sidebar />}
         {!noChrome && <Header />}
         <main className="main">

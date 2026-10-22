@@ -4,7 +4,7 @@ import { ORG, TENANTS, INCIDENTS } from "@/data/core";
 import { Avatar, Pill } from "@/components/primitives";
 import { useUiStore } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
-import { useTenants, useIncidents, useIncidentRecords, useProblemRecords, useChangeRecords, useDevices } from "@/api/hooks";
+import { useTenants, useIncidents, useIncidentRecords, useProblemRecords, useChangeRecords, useDevices, useInfraAlerts } from "@/api/hooks";
 import { useAuth } from "@/auth/auth";
 import type { Tenant } from "@/lib/types";
 
@@ -22,76 +22,92 @@ interface NavItem {
   label: string;
   icon: string;
   kbd?: string;
-  hidden?: boolean;
   badge?: { n: number | string; kind: string };
 }
 
-const NAV: { section: string; items: NavItem[] }[] = [
-  { section: "Operate", items: [
-    { id: "dashboard", label: "Dashboard", icon: "fa-gauge-high", kbd: "G D" },
-    { id: "incidents", label: "Incidents", icon: "fa-triangle-exclamation", kbd: "G I", badge: { n: 4, kind: "critical" } },
-    { id: "incident-detail", label: "Sev-1 Active", icon: "fa-fire", hidden: true },
+interface NavGroup {
+  group: string;
+  label: string;
+  icon: string;
+  items: NavItem[];
+  /** detail routes that belong to this group (keeps it open and highlighted) */
+  also?: string[];
+}
+
+type NavNode = NavItem | NavGroup;
+const isGroup = (n: NavNode): n is NavGroup => "group" in n;
+
+// Grouped like the LinkedEye reference: one entry per area, sub-pages inside.
+const NAV: NavNode[] = [
+  { id: "dashboard", label: "Dashboard", icon: "fa-gauge-high", kbd: "G D" },
+  { group: "service-desk", label: "Service Desk", icon: "fa-headset", also: ["incident-detail", "incident-new", "problem-detail", "change-detail", "change-new", "catalog-request", "knowledge-article", "retro"], items: [
+    { id: "incidents", label: "Incidents", icon: "fa-triangle-exclamation", badge: { n: 4, kind: "critical" } },
     { id: "problems", label: "Problems", icon: "fa-magnifying-glass-chart", badge: { n: 12, kind: "warning" } },
     { id: "changes", label: "Changes", icon: "fa-code-branch", badge: { n: 7, kind: "info" } },
-    { id: "status-page", label: "Status page", icon: "fa-bullhorn" },
-    { id: "retro", label: "Retrospectives", icon: "fa-clipboard-check" },
-    { id: "cross-tenant", label: "Cross-tenant", icon: "fa-grip-vertical" },
-  ]},
-  { section: "Service", items: [
     { id: "catalog", label: "Service catalog", icon: "fa-bag-shopping" },
     { id: "knowledge", label: "Knowledge base", icon: "fa-book-open" },
-    { id: "cmdb", label: "CMDB · CIs", icon: "fa-sitemap" },
     { id: "slas", label: "SLA definitions", icon: "fa-stopwatch" },
-    { id: "runbooks", label: "Runbooks", icon: "fa-book", badge: { n: 184, kind: "neutral" } },
+    { id: "status-page", label: "Status page", icon: "fa-bullhorn" },
   ]},
-  { section: "Observe", items: [
-    { id: "metrics", label: "Metrics Explorer", icon: "fa-chart-line" },
-    { id: "apm", label: "APM & traces", icon: "fa-gauge-high" },
-    { id: "apm-catalog", label: "Applications Catalog", icon: "fa-cubes" },
-    { id: "synthetics", label: "Synthetics", icon: "fa-globe" },
-    { id: "url-checker", label: "URL Checker", icon: "fa-link" },
-    { id: "telnet-monitoring", label: "Telnet monitoring", icon: "fa-terminal" },
-    { id: "domains", label: "Domains", icon: "fa-earth-asia" },
-    { id: "slos", label: "SLOs", icon: "fa-bullseye" },
-    { id: "logs", label: "Logs", icon: "fa-list-ul", badge: { n: "2.8B", kind: "neutral" } },
-    { id: "monitors", label: "Monitors", icon: "fa-bell" },
-    { id: "alerts", label: "Alert conditions", icon: "fa-bell-concierge" },
-    { id: "alert-grouping", label: "Alert grouping", icon: "fa-layer-group" },
+  { group: "assets", label: "Assets", icon: "fa-boxes-stacked", also: ["firewall-detail", "storage-detail", "loadbal-detail", "ups-detail"], items: [
+    { id: "infra-assets", label: "Asset inventory", icon: "fa-boxes-stacked", badge: { n: 1599, kind: "neutral" } },
+    { id: "infra-rack", label: "Datacenter rack", icon: "fa-server" },
+    { id: "site-detail", label: "Sites", icon: "fa-location-dot" },
+    { id: "infra-onboarding", label: "Onboard device", icon: "fa-plus" },
+  ]},
+  { group: "cmdb", label: "CMDB", icon: "fa-sitemap", items: [
+    { id: "cmdb", label: "Configuration items", icon: "fa-sitemap" },
     { id: "entity-map", label: "Entity map", icon: "fa-circle-nodes" },
   ]},
-  { section: "Trading Ops", items: [
+  { group: "monitoring", label: "Monitoring", icon: "fa-desktop", also: ["server-detail", "switch-detail", "vm-detail", "infra-device", "node"], items: [
+    { id: "infra", label: "Overview", icon: "fa-chart-pie" },
+    { id: "host-map", label: "Infrastructure", icon: "fa-hexagon-nodes" },
+    { id: "infra-vms", label: "Virtual Machines", icon: "fa-cube" },
+    { id: "infra-topology", label: "Network Devices", icon: "fa-network-wired" },
+    { id: "url-checker", label: "URL Checker", icon: "fa-link" },
+    { id: "telnet-monitoring", label: "Telnet Monitoring", icon: "fa-terminal" },
+    { id: "domains", label: "Domains", icon: "fa-earth-asia" },
+    { id: "synthetics", label: "Uptime Checks", icon: "fa-globe" },
+    { id: "infra-templates", label: "Templates", icon: "fa-layer-group" },
+    { id: "infra-exporters", label: "All Exporters", icon: "fa-tower-broadcast" },
+    { id: "metrics", label: "Metrics", icon: "fa-chart-line" },
+    { id: "logs", label: "Logs & Events", icon: "fa-list-ul" },
+    { id: "alerts", label: "Alerts", icon: "fa-bell" },
+  ]},
+  { group: "apm", label: "Applications", icon: "fa-cubes", also: ["app-detail"], items: [
+    { id: "apm", label: "APM & traces", icon: "fa-gauge-high" },
+    { id: "apm-catalog", label: "Applications Catalog", icon: "fa-cubes" },
+    { id: "slos", label: "SLOs", icon: "fa-bullseye" },
+    { id: "monitors", label: "Monitors", icon: "fa-bell" },
+    { id: "alert-grouping", label: "Alert grouping", icon: "fa-layer-group" },
+  ]},
+  { group: "bod", label: "BOD / EOD", icon: "fa-clipboard-check", items: [
     { id: "bod-checks", label: "BOD checks", icon: "fa-clipboard-check", badge: { n: 2, kind: "critical" } },
     { id: "bod-eod", label: "BOD/EOD status", icon: "fa-timeline" },
     { id: "order-latency", label: "Order latency", icon: "fa-stopwatch-20", badge: { n: 1, kind: "critical" } },
     { id: "ctcl-monitor", label: "CTCL data monitor", icon: "fa-wave-square", badge: { n: 2, kind: "warning" } },
     { id: "market-calendar", label: "Market calendar", icon: "fa-calendar-days" },
   ]},
-  { section: "Infrastructure", items: [
-    { id: "infra", label: "Overview", icon: "fa-server" },
-    { id: "site-detail", label: "LE Sites", icon: "fa-location-dot" },
-    { id: "host-map", label: "Host map", icon: "fa-hexagon-nodes" },
-    { id: "infra-assets", label: "Asset inventory", icon: "fa-boxes-stacked", badge: { n: 1599, kind: "neutral" } },
-    { id: "node", label: "Node view", icon: "fa-microchip" },
-    { id: "infra-topology", label: "Network topology", icon: "fa-circle-nodes" },
-    { id: "infra-vms", label: "Virtual machines", icon: "fa-cube" },
-    { id: "infra-rack", label: "Datacenter rack", icon: "fa-server" },
-    { id: "infra-device", label: "Device detail", icon: "fa-microchip", hidden: true },
-    { id: "infra-exporters", label: "Exporters", icon: "fa-tower-broadcast" },
-    { id: "infra-templates", label: "Monitoring templates", icon: "fa-layer-group" },
-  ]},
-  { section: "Build", items: [
+  { group: "automation", label: "Automation", icon: "fa-robot", also: ["integration-detail"], items: [
+    { id: "runbooks", label: "Runbooks", icon: "fa-book", badge: { n: 184, kind: "neutral" } },
     { id: "flow", label: "Flow Designer", icon: "fa-diagram-project" },
-    { id: "reports", label: "Reports", icon: "fa-chart-column" },
     { id: "integrations", label: "Integrations", icon: "fa-plug" },
   ]},
-  { section: "Admin", items: [
-    { id: "admin-tenants", label: "Tenants", icon: "fa-building" },
+  { group: "analytics", label: "Analytics", icon: "fa-chart-simple", items: [
+    { id: "cross-tenant", label: "Cross-client view", icon: "fa-grip-vertical" },
+  ]},
+  { id: "reports", label: "Reports", icon: "fa-chart-column" },
+  { group: "admin", label: "Administration", icon: "fa-gear", also: ["admin-usage"], items: [
+    { id: "admin-tenants", label: "Clients", icon: "fa-building" },
+    { id: "users", label: "People & roles", icon: "fa-user-gear" },
     { id: "admin-billing", label: "Billing & plans", icon: "fa-credit-card" },
     { id: "admin-usage", label: "Usage & quotas", icon: "fa-gauge-high" },
-    { id: "users", label: "People & roles", icon: "fa-user-gear" },
     { id: "settings", label: "Settings", icon: "fa-sliders" },
   ]},
 ];
+
+const groupOf = (route: string) =>
+  NAV.find((n): n is NavGroup => isGroup(n) && (n.items.some((i) => i.id === route) || !!n.also?.includes(route)))?.group;
 
 export function colorFor(name: string): string {
   return (
@@ -110,8 +126,9 @@ export function Sidebar() {
   const { route, setRoute } = useNav();
   const tenant = useUiStore((s) => s.tenant);
   const setSwitcher = useUiStore((s) => s.setSwitcher);
-  const identity = useAuth((s) => s.identity);
-  // Live counts for the ITSM nav badges; undefined (offline) keeps the seed badge.
+  const setNav = useUiStore((s) => s.setNav);
+  const apiUp = useTenants().isSuccess;
+  // Live counts for the nav badges; undefined (offline) keeps the seed badge.
   const counts: Record<string, number | undefined> = {
     incidents: useIncidentRecords().data?.length,
     problems: useProblemRecords().data?.length,
@@ -123,6 +140,33 @@ export function Sidebar() {
     if (n === undefined) return i.badge;          // offline → keep seed badge
     return n > 0 ? { n, kind: i.badge?.kind ?? "neutral" } : undefined;
   };
+  const activeGroup = groupOf(route);
+  const [open, setOpen] = React.useState<Record<string, boolean>>({});
+  const isOpen = (g: string) => open[g] ?? g === activeGroup;
+  const go = (id: string) => {
+    setRoute(id);
+    if (window.matchMedia("(max-width: 900px)").matches) setNav("auto");
+  };
+
+  const leaf = (i: NavItem, sub = false) => {
+    const badge = badgeFor(i);
+    return (
+      <button
+        type="button"
+        key={i.id}
+        className={`sb-item${sub ? " sb-sub" : ""}${route === i.id ? " active" : ""}`}
+        aria-current={route === i.id ? "page" : undefined}
+        title={i.label}
+        onClick={() => go(i.id)}
+      >
+        {!sub && <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${i.icon}`} /></span>}
+        <span className="sb-label">{i.label}</span>
+        {badge && <span className={`sb-badge ${badge.kind}`}>{badge.n}</span>}
+        {!badge && i.kbd && <kbd>{i.kbd}</kbd>}
+      </button>
+    );
+  };
+
   return (
     <aside className="sidebar">
       <div className="sb-head">
@@ -133,28 +177,29 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="sb-nav">
-        {NAV.map((sec) => (
-          <div key={sec.section} className="sb-section">
-            <div className="sb-section-title">{sec.section}</div>
-            {sec.items.filter((i) => !i.hidden).map((i) => {
-              const badge = badgeFor(i);
-              return (
+      <nav className="sb-nav" aria-label="Main">
+        {NAV.map((n) => {
+          if (!isGroup(n)) return leaf(n);
+          const expanded = isOpen(n.group);
+          const here = activeGroup === n.group;
+          return (
+            <div key={n.group} className={`sb-group${here ? " here" : ""}`}>
               <button
                 type="button"
-                key={i.id}
-                className={`sb-item${route === i.id ? " active" : ""}`}
-                aria-current={route === i.id ? "page" : undefined}
-                onClick={() => setRoute(i.id)}
+                className={`sb-item sb-group-head${here ? " active-group" : ""}`}
+                aria-expanded={expanded}
+                aria-controls={`sb-${n.group}`}
+                title={n.label}
+                onClick={() => setOpen((o) => ({ ...o, [n.group]: !expanded }))}
               >
-                <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${i.icon}`} /></span>
-                <span className="sb-label">{i.label}</span>
-                {badge && <span className={`sb-badge ${badge.kind}`}>{badge.n}</span>}
-                {!badge && i.kbd && <kbd>{i.kbd}</kbd>}
+                <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${n.icon}`} /></span>
+                <span className="sb-label">{n.label}</span>
+                <i className={`fa-solid fa-chevron-${expanded ? "down" : "right"} sb-caret`} aria-hidden="true" />
               </button>
-            );})}
-          </div>
-        ))}
+              {expanded && <div id={`sb-${n.group}`} className="sb-children">{n.items.map((i) => leaf(i, true))}</div>}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="sb-foot">
@@ -166,18 +211,12 @@ export function Sidebar() {
           </span>
           <i className="fa-solid fa-chevron-down" aria-hidden="true" />
         </button>
-        <div className="sb-env">
-          <span className="env-dot" />
-          <span>Production · us-east-1</span>
-          <i className="fa-solid fa-bolt" />
-        </div>
-        <div className="sb-user">
-          <Avatar name={identity.name} color="amber" />
-          <div className="sb-user-info">
-            <b>{identity.name}</b>
-            <span>{identity.email}</span>
-          </div>
-          <i className="fa-solid fa-chevron-up" style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }} />
+        <div className="sb-version">
+          <b>LinkedEye v9.0</b>
+          <span>Full-Stack Observability</span>
+          <span className={`sb-api ${apiUp ? "up" : "down"}`}>
+            <i className={`fa-solid ${apiUp ? "fa-circle-check" : "fa-circle-exclamation"}`} aria-hidden="true" /> {apiUp ? "API connected" : "API not reachable"}
+          </span>
         </div>
       </div>
     </aside>
@@ -186,42 +225,39 @@ export function Sidebar() {
 
 export function Header() {
   const { route, setRoute } = useNav();
-  const tenant = useUiStore((s) => s.tenant);
   const setSearch = useUiStore((s) => s.setSearch);
+  const nav = useUiStore((s) => s.nav);
+  const setNav = useUiStore((s) => s.setNav);
   const [q, setQ] = React.useState("");
-  const crumbs = crumbsFor(route, tenant);
+  const [menu, setMenu] = React.useState(false);
   const identity = useAuth((s) => s.identity);
   const logout = useAuth((s) => s.logout);
   const liveIncidents = useIncidents().data;
   const activeSev1 = (liveIncidents ?? INCIDENTS).filter((i) => i.sev === 1 && i.status === "active").length;
+  const alertCount = (useInfraAlerts().data ?? []).filter((a) => a.sev === "critical" || a.sev === "warning" || a.sev === "warn").length;
+  const toggleNav = () => {
+    const narrow = window.matchMedia("(max-width: 900px)").matches;
+    setNav(narrow ? (nav === "expanded" ? "auto" : "expanded") : (nav === "collapsed" ? "auto" : "collapsed"));
+  };
   return (
     <header className="header">
-      <div className="hdr-crumbs">
-        {crumbs.map((c, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && <i className="fa-solid fa-chevron-right" />}
-            <span
-              className={`crumb${i === crumbs.length - 1 ? " current" : ""}`}
-              onClick={c.to ? () => setRoute(c.to!) : undefined}
-            >
-              {c.label}
-            </span>
-          </React.Fragment>
-        ))}
-      </div>
+      <button type="button" className="icon-btn hdr-burger" aria-label="Toggle navigation" onClick={toggleNav}>
+        <i className="fa-solid fa-bars" aria-hidden="true" />
+      </button>
 
       <div className="hdr-command">
-        <i className="fa-solid fa-magnifying-glass" />
+        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
         <input
           className="hdr-command-input"
-          placeholder="Search incidents by number, title, caller…"
+          aria-label="Search"
+          placeholder="Search incidents, devices, VMs, services or runbooks…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               setSearch(q.trim());
               // Search the list you're on; otherwise default to incidents.
-              setRoute(route === "problems" || route === "changes" ? route : "incidents");
+              setRoute(route === "problems" || route === "changes" || route === "infra-assets" ? route : "incidents");
             } else if (e.key === "Escape") {
               setQ("");
               setSearch("");
@@ -229,12 +265,9 @@ export function Header() {
           }}
         />
         {q ? (
-          <i
-            className="fa-solid fa-xmark"
-            style={{ cursor: "pointer" }}
-            title="Clear"
-            onClick={() => { setQ(""); setSearch(""); }}
-          />
+          <button type="button" className="hdr-clear" aria-label="Clear search" onClick={() => { setQ(""); setSearch(""); }}>
+            <i className="fa-solid fa-xmark" aria-hidden="true" />
+          </button>
         ) : (
           <kbd>↵</kbd>
         )}
@@ -242,100 +275,42 @@ export function Header() {
 
       <div className="hdr-right">
         {activeSev1 > 0 && (
-          <div className="hdr-incident-pill" onClick={() => setRoute("incident-detail")}>
+          <button type="button" className="hdr-incident-pill" onClick={() => setRoute("incidents")}>
             <span className="pulse-dot" />
             <span>{activeSev1} active Sev 1</span>
-          </div>
+          </button>
         )}
-        <div className="hdr-divider" />
         <button type="button" className="hdr-new" onClick={() => setRoute("incident-new")}>
           <i className="fa-solid fa-plus" aria-hidden="true" /> New
         </button>
-        <button className="icon-btn" title="Automation"><i className="fa-solid fa-robot" /></button>
-        <button className="icon-btn" title="Notifications"><i className="fa-solid fa-bell" /><span className="dot" /></button>
-        <button className="icon-btn" title="Help"><i className="fa-solid fa-circle-question" /></button>
-        <button className="icon-btn" title="Sign out" onClick={() => { logout(); setRoute("sign-in"); }}><i className="fa-solid fa-right-from-bracket" /></button>
-        <div className="hdr-divider" />
-        <div className="hdr-user" title={`${identity.name} · ${identity.email}\nroles: ${identity.roles.join(", ") || "none"}`}>
-          <Avatar name={identity.name} color="amber" />
-          <div>
-            <b>{identity.name.split(" ")[0]}</b>
-            <span>{identity.roles[0] ? roleLabel(identity.roles[0]) : "no role"}</span>
-          </div>
-          <i className="fa-solid fa-chevron-down" />
+        <button type="button" className="icon-btn" title="Alerts" aria-label={`Alerts (${alertCount})`} onClick={() => setRoute("alerts")}>
+          <i className="fa-solid fa-bell" aria-hidden="true" />
+          {alertCount > 0 && <span className="hdr-count">{alertCount > 99 ? "99+" : alertCount}</span>}
+        </button>
+        <button type="button" className="icon-btn" title="Help" aria-label="Help" onClick={() => setRoute("knowledge")}><i className="fa-solid fa-circle-question" aria-hidden="true" /></button>
+        <button type="button" className="icon-btn" title="Settings" aria-label="Settings" onClick={() => setRoute("settings")}><i className="fa-solid fa-gear" aria-hidden="true" /></button>
+        <div className="hdr-user-wrap">
+          <button type="button" className="hdr-user" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}
+            title={`${identity.name} · ${identity.email}\nroles: ${identity.roles.join(", ") || "none"}`}>
+            <Avatar name={identity.name} color="amber" />
+            <span className="hdr-user-text">
+              <b>{identity.name.split(" ")[0]}</b>
+              <span>{identity.roles[0] ? roleLabel(identity.roles[0]) : "no role"}</span>
+            </span>
+            <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+          </button>
+          {menu && (
+            <div className="hdr-menu" role="menu">
+              <div className="hdr-menu-id"><b>{identity.name}</b><span>{identity.email}</span></div>
+              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("users"); }}><i className="fa-solid fa-user" aria-hidden="true" /> Profile &amp; roles</button>
+              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("settings"); }}><i className="fa-solid fa-sliders" aria-hidden="true" /> Settings</button>
+              <button type="button" role="menuitem" onClick={() => { setMenu(false); logout(); setRoute("sign-in"); }}><i className="fa-solid fa-right-from-bracket" aria-hidden="true" /> Sign out</button>
+            </div>
+          )}
         </div>
       </div>
     </header>
   );
-}
-
-interface Crumb {
-  label: string;
-  to?: string;
-}
-
-function crumbsFor(route: string, tenant: Tenant): Crumb[] {
-  const base: Crumb[] = [{ label: ORG.name }, { label: tenant.name }];
-  const map: Record<string, Crumb[]> = {
-    dashboard: [...base, { label: "Operations", to: "dashboard" }, { label: `${tenant.name} Dashboard` }],
-    incidents: [...base, { label: "Incidents" }],
-    "incident-detail": [...base, { label: "Incidents", to: "incidents" }, { label: "INC-48291" }],
-    "cross-tenant": [{ label: ORG.name }, { label: "Cross-tenant view" }],
-    services: [...base, { label: "Services" }],
-    runbooks: [...base, { label: "Runbooks" }],
-    problems: [...base, { label: "Problem management" }],
-    "problem-detail": [...base, { label: "Problems", to: "problems" }, { label: "PRB-3912" }],
-    changes: [...base, { label: "Change management" }],
-    "status-page": [...base, { label: "Status page & comms" }],
-    retro: [...base, { label: "Incidents", to: "incidents" }, { label: "Retrospective · INC-48279" }],
-    "alert-grouping": [...base, { label: "Alert grouping & noise reduction" }],
-    "change-detail": [...base, { label: "Changes", to: "changes" }, { label: "CHG-2219" }],
-    "change-new": [...base, { label: "Changes", to: "changes" }, { label: "New change" }],
-    catalog: [...base, { label: "Service catalog" }],
-    "catalog-request": [...base, { label: "Service catalog", to: "catalog" }, { label: "New request" }],
-    knowledge: [...base, { label: "Knowledge base" }],
-    "knowledge-article": [...base, { label: "Knowledge base", to: "knowledge" }, { label: "Article" }],
-    infra: [...base, { label: "Infrastructure" }],
-    "infra-assets": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory" }],
-    "infra-topology": [...base, { label: "Infrastructure", to: "infra" }, { label: "Topology" }],
-    "infra-vms": [...base, { label: "Infrastructure", to: "infra" }, { label: "Virtual machines" }],
-    "infra-rack": [...base, { label: "Infrastructure", to: "infra" }, { label: "Datacenter rack" }],
-    "infra-device": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "SW-BLR-TOR-13" }],
-    "firewall-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "Firewall" }],
-    "switch-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "Switch" }],
-    "server-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "Server" }],
-    "storage-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "Storage" }],
-    "loadbal-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "Load balancer" }],
-    "ups-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Asset inventory", to: "infra-assets" }, { label: "UPS" }],
-    "infra-exporters": [...base, { label: "Infrastructure", to: "infra" }, { label: "Exporters" }],
-    "infra-templates": [...base, { label: "Infrastructure", to: "infra" }, { label: "Monitoring templates" }],
-    "vm-detail": [...base, { label: "Infrastructure", to: "infra" }, { label: "Virtual machines", to: "infra-vms" }, { label: "VM details" }],
-    domains: [...base, { label: "Monitoring" }, { label: "Domains" }],
-    "url-checker": [...base, { label: "Monitoring" }, { label: "URL Checker" }],
-    "telnet-monitoring": [...base, { label: "Monitoring" }, { label: "Telnet monitoring" }],
-    "infra-onboarding": [...base, { label: "Infrastructure", to: "infra" }, { label: "Onboard device" }],
-    "order-latency": [...base, { label: "Trading Ops" }, { label: "Order latency" }],
-    "ctcl-monitor": [...base, { label: "Trading Ops" }, { label: "CTCL data monitor" }],
-    cmdb: [...base, { label: "CMDB" }],
-    slas: [...base, { label: "SLA definitions" }],
-    flow: [...base, { label: "Flow Designer" }],
-    reports: [...base, { label: "Reports & analytics" }],
-    apm: [...base, { label: "APM & traces" }],
-    "apm-catalog": [...base, { label: "Applications Catalog" }],
-    "app-detail": [...base, { label: "Applications Catalog", to: "apm-catalog" }, { label: "Application" }],
-    logs: [...base, { label: "Logs" }],
-    alerts: [...base, { label: "Alert conditions" }],
-    "entity-map": [...base, { label: "Entity map" }],
-    "admin-tenants": [{ label: ORG.name }, { label: "Super-admin" }, { label: "Tenants" }],
-    "admin-billing": [{ label: ORG.name }, { label: "Super-admin" }, { label: "Billing & plans" }],
-    "admin-usage": [{ label: ORG.name }, { label: "Super-admin" }, { label: "Usage & quotas" }],
-    users: [...base, { label: "People & roles" }],
-    settings: [...base, { label: "Settings" }],
-    integrations: [...base, { label: "Integrations" }],
-    "integration-detail": [...base, { label: "Integrations", to: "integrations" }, { label: "Integration" }],
-    onboarding: [{ label: ORG.name }, { label: "Onboarding" }],
-  };
-  return map[route] || base;
 }
 
 export function TenantSwitcher() {

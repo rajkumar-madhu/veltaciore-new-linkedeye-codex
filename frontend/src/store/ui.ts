@@ -35,6 +35,9 @@ interface UiState {
   /** Global search query submitted from the header search box. */
   search: string;
   setSearch: (q: string) => void;
+  /** Sidebar: auto (full on wide screens, icon rail on narrow), collapsed rail, or expanded overlay. */
+  nav: "auto" | "collapsed" | "expanded";
+  setNav: (nav: "auto" | "collapsed" | "expanded") => void;
   tweaks: Tweaks;
   setTweak: <K extends keyof Tweaks>(key: K, value: Tweaks[K]) => void;
 }
@@ -54,6 +57,8 @@ export const useUiStore = create<UiState>((set) => ({
   setParams: (params) => set((s) => ({ params: { ...s.params, ...params } })),
   search: "",
   setSearch: (search) => set({ search }),
+  nav: "auto",
+  setNav: (nav) => set({ nav }),
   tweaks: TWEAK_DEFAULTS,
   setTweak: (key, value) => set((s) => ({ tweaks: { ...s.tweaks, [key]: value } })),
 }));

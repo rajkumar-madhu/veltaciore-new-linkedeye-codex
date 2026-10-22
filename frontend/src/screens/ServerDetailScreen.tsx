@@ -16,9 +16,9 @@ import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import { Donut, Empty, Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
-import { MetricsBody, Sparkline, TimeRangePicker, fmtValue } from "@/components/MetricCharts";
+import { LiveButton, MetricsBody, RangeSelect, Sparkline, fmtValue } from "@/components/MetricCharts";
 import { DeviceFamily } from "@/components/DeviceFamily";
-import { EventLogs, FilesystemTable, HardwareSection, ProcessTable, ServicesPanel, fmtBytes, serviceSlices } from "@/components/HostPanels";
+import { EventLogs, FilesystemTable, HardwareSection, ProcessTable, ServicesPanel, serviceSlices } from "@/components/HostPanels";
 
 const SERVER_KINDS = ["hypervisor", "phys-srv", "linux-srv", "win-srv"];
 
@@ -147,14 +147,14 @@ export default function ServerDetailScreen() {
       {alerts.length ? (
         <div className="ld-table-wrap">
           <table className="ld-table">
-            <thead><tr><th scope="col">Since</th><th scope="col">Severity</th><th scope="col">Rule</th><th scope="col">Message</th></tr></thead>
+            <thead><tr><th scope="col">Time</th><th scope="col">Severity</th><th scope="col">Source</th><th scope="col">Message</th></tr></thead>
             <tbody>
               {alerts.slice(0, limit).map((a) => (
                 <tr key={a.id}>
                   <td className="ld-nowrap ld-muted">{a.since}</td>
                   <td><Pill tone={sevTone(a.sev)}><i className={`fa-solid ${a.sev === "critical" ? "fa-circle-xmark" : a.sev === "warning" || a.sev === "warn" ? "fa-triangle-exclamation" : "fa-circle-info"}`} aria-hidden="true" /> {sevLabel(a.sev)}</Pill></td>
-                  <td className="ld-mono ld-muted">{a.rule || "—"}</td>
-                  <td className="ld-wrap">{a.title}{a.detail ? <span className="ld-sub">{a.detail}</span> : null}</td>
+                  <td className="ld-muted">{a.detail || a.device}</td>
+                  <td className="ld-wrap">{a.title}</td>
                 </tr>
               ))}
             </tbody>
@@ -193,7 +193,7 @@ export default function ServerDetailScreen() {
     </div>
   );
 
-  const charts = (groups: string[]) => <MetricsBody data={m} isLoading={metrics.isLoading} isError={metrics.isError} groups={groups} quietWhenOff />;
+  const charts = (groups: string[]) => <MetricsBody data={m} isLoading={metrics.isLoading} isError={metrics.isError} groups={groups} quietWhenOff compact />;
   const memGroup = m?.series.some((s) => s.group === "memory_gb" && s.points.length) ? "memory_gb" : "memory";
 
   return (
@@ -229,6 +229,8 @@ export default function ServerDetailScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
+            <RangeSelect />
+            <LiveButton />
             <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> View in map</button>
             <button type="button" className="ld-btn" onClick={() => goTab("Event Logs")}><i className="fa-solid fa-file-lines" aria-hidden="true" /> Logs</button>
           </div>
@@ -239,8 +241,6 @@ export default function ServerDetailScreen() {
           </ul>
         </div>
       </div>
-
-      <div className="ld-range-bar"><TimeRangePicker /></div>
 
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
@@ -265,15 +265,15 @@ export default function ServerDetailScreen() {
         <Kpi icon="fa-gears" tone="info" label="Processes" value={procs ? String(Math.round(lastOf(procs)!)) : na} points={procs?.points} />
         <Kpi icon="fa-cubes" tone="purple" label="Services">
           {svc && svcTotal ? (
-            <div className="ld-kpi-donut">
-              <div>
-                <div className="ld-kpi-value"><b>{Math.round((svc.running / svcTotal) * 100)}%</b><span className="ld-kpi-sub">running</span></div>
+            <>
+              <div className="ld-kpi-value"><b>{Math.round((svc.running / svcTotal) * 100)}% running</b></div>
+              <div className="ld-kpi-donut">
+                <Donut slices={serviceSlices(inv)} center="" label={`${svc.running} of ${svcTotal} services running`} />
                 <ul className="ld-kpi-legend">
                   {serviceSlices(inv).map((s) => <li key={s.label}><span className="ld-dot" style={{ background: s.color }} /> {s.label} <b>{s.value}</b></li>)}
                 </ul>
               </div>
-              <Donut slices={serviceSlices(inv)} center="" label={`${svc.running} of ${svcTotal} services running`} />
-            </div>
+            </>
           ) : (
             <div className="ld-kpi-value"><b>{na}</b><span className="ld-kpi-sub">{inv?.source === "unsupported" ? "not collected" : inventory.isLoading ? "loading" : "no data"}</span></div>
           )}
@@ -294,7 +294,6 @@ export default function ServerDetailScreen() {
             {alertsTable(5)}
             <ProcessTable inv={inv} loading={inventory.isLoading} limit={5} onViewAll={() => goTab("Processes")} />
           </div>
-          <DeviceFamily deviceId={d.id} />
         </>
       )}
       {is("CPU") && charts(["cpu", "load"])}
@@ -308,12 +307,6 @@ export default function ServerDetailScreen() {
       {is("Alerts") && alertsTable()}
       {is("Relationships") && <DeviceFamily deviceId={d.id} />}
       {is("Configuration") && configPanel}
-
-      {inv?.source === "prometheus" && is("Overview") && inv.filesystems.length > 0 && (
-        <p className="ld-muted ld-small">
-          Volumes: {inv.filesystems.map((f) => `${f.mount} ${f.used_pct ?? "?"}% of ${fmtBytes(f.size_bytes)}`).join(" · ")}
-        </p>
-      )}
     </div>
   );
 }
