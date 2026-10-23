@@ -5,7 +5,7 @@
 // frontend remains fully demoable standalone. Screens read `data` and fall
 // back to their local constant when it is undefined.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiGetAllClients, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
+import { apiGet, apiGetAllClients, apiGetAllPages, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
 import { useUiStore } from "@/store/ui";
 import { PRESETS } from "@/store/timeRange";
 import type {
@@ -114,7 +114,7 @@ export function useInfraAlerts() {
   return useQuery({
     ...quiet,
     queryKey: ["infra-alerts", tenant],
-    queryFn: () => apiGet<Paginated<InfraAlert> | InfraAlert[]>("/infra/alerts/").then(unwrap),
+    queryFn: () => apiGetAllPages<InfraAlert>("/infra/alerts/"),
     refetchInterval: 30_000,
   });
 }

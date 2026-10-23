@@ -6,12 +6,12 @@
 import React from "react";
 import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
+import { deviceRoute } from "@/lib/deviceRoute";
 import { useDevices, useInfraAlerts } from "@/api/hooks";
 import type { InfraAlert } from "@/lib/types";
 import { Empty, PALETTE, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
-const SERVER_KINDS = new Set(["hypervisor", "phys-srv", "linux-srv", "win-srv"]);
 
 type Sev = "critical" | "warning" | "info";
 const sevOf = (s: string): Sev => (s === "critical" ? "critical" : s === "warning" || s === "warn" ? "warning" : "info");
@@ -36,9 +36,7 @@ export default function AlertsScreen() {
 
   const kindOf = React.useMemo(() => new Map(devices.map((d) => [d.id, d.kind])), [devices]);
   const openDevice = (a: InfraAlert) => {
-    const kind = kindOf.get(a.device);
-    const route = kind === "switch" ? "switch-detail" : kind && SERVER_KINDS.has(kind) ? "server-detail" : "infra-device";
-    setRoute(route, { deviceId: a.device });
+    setRoute(deviceRoute(kindOf.get(a.device)), { deviceId: a.device });
   };
 
   const bySev = (s: Sev) => alerts.filter((a) => sevOf(a.sev) === s).length;

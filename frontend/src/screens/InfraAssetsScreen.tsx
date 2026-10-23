@@ -3,6 +3,7 @@
 // Each device opens its detail page (server, switch, firewall, … or the
 // generic device monitoring page) with { deviceId }.
 import React from "react";
+import { deviceRoute } from "@/lib/deviceRoute";
 import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
 import { useDevices } from "@/api/hooks";
@@ -11,18 +12,7 @@ import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import type { DeviceKind } from "@/lib/types";
 
-const SERVER_KINDS = ["hypervisor", "phys-srv", "linux-srv", "win-srv"];
 
-/** Detail route for a device, by kind. */
-function deviceRoute(kind: string) {
-  if (SERVER_KINDS.includes(kind)) return "server-detail";
-  if (kind === "switch") return "switch-detail";
-  if (kind === "firewall") return "firewall-detail";
-  if (kind === "storage") return "storage-detail";
-  if (kind === "loadbal") return "loadbal-detail";
-  if (kind === "ups") return "ups-detail";
-  return "infra-device";
-}
 
 const statusTone = (s: string): Tone => (s === "ok" ? "ok" : s === "warn" ? "warn" : s === "critical" || s === "down" ? "crit" : "muted");
 const statusLabel = (s: string) => (s === "ok" ? "Healthy" : s === "warn" ? "Warning" : s === "down" ? "Down" : s === "critical" ? "Critical" : "Unknown");

@@ -4,24 +4,14 @@
 // devices / sites / alerts hooks.
 import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
+import { deviceRoute } from "@/lib/deviceRoute";
 import { useInfraAlerts, useSites, useDevices } from "@/api/hooks";
 import { DEVICE_KINDS } from "@/data/infra";
 import { Donut, Empty, Legend, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
 import type { Device } from "@/lib/types";
 
-const SERVER_KINDS = ["hypervisor", "phys-srv", "linux-srv", "win-srv"];
 
-/** Detail route for a device, by kind. */
-function deviceRoute(kind: string) {
-  if (SERVER_KINDS.includes(kind)) return "server-detail";
-  if (kind === "switch") return "switch-detail";
-  if (kind === "firewall") return "firewall-detail";
-  if (kind === "storage") return "storage-detail";
-  if (kind === "loadbal") return "loadbal-detail";
-  if (kind === "ups") return "ups-detail";
-  return "infra-device";
-}
 
 const siteTone = (h: number): Tone => (h > 95 ? "ok" : h > 90 ? "warn" : "crit");
 const siteLabel = (h: number) => (h > 95 ? "Healthy" : h > 90 ? "Degraded" : "Critical");

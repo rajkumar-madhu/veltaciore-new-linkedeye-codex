@@ -6,6 +6,7 @@
 // log rows are generated placeholders until those endpoints are wired, so every
 // panel that shows them is labelled "Sample data".
 import React from "react";
+import { deviceRoute } from "@/lib/deviceRoute";
 import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
@@ -20,19 +21,7 @@ type BarProps = { pct: number; warn?: number; crit?: number; width?: number };
 
 type IfaceRow = [string, string, string, string, string, number, number, number, string, string, number, number, number, number, number, string, string];
 
-const SERVER_KINDS = ["hypervisor", "phys-srv", "linux-srv", "win-srv"];
 
-/** Detail route for a device, by kind (generic monitoring page otherwise). */
-function deviceRoute(kind?: string) {
-  if (!kind) return "infra-device";
-  if (SERVER_KINDS.includes(kind)) return "server-detail";
-  if (kind === "switch") return "switch-detail";
-  if (kind === "firewall") return "firewall-detail";
-  if (kind === "storage") return "storage-detail";
-  if (kind === "loadbal") return "loadbal-detail";
-  if (kind === "ups") return "ups-detail";
-  return "infra-device";
-}
 
 const C = { ok: "#16a34a", warn: "#f5a524", crit: "#e5383b", info: "#2f6bff", purple: "#7c4dff", cyan: "#0ea5e9" };
 const toneOf = (pct: number, warn = 70, crit = 85): Tone => (pct >= crit ? "crit" : pct >= warn ? "warn" : "ok");
