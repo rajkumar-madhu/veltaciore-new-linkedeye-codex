@@ -590,3 +590,60 @@ def vm_inventory(vm) -> dict:
         "disks": disks,
         "datastore": datastore,
     }
+
+
+# ── Fleet load: current CPU / memory for many devices in two queries per family
+FLEET = {
+    "node": (
+        '100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{{mode="idle"{t}}}[5m])))',
+        '100 * (1 - sum by (instance) (node_memory_MemAvailable_bytes{{{t0}}}) / sum by (instance) (node_memory_MemTotal_bytes{{{t0}}}))',
+    ),
+    "windows": (
+        '100 - 100 * avg by (instance) (rate(windows_cpu_time_total{{mode="idle"{t}}}[5m]))',
+        '100 * (1 - sum by (instance) (windows_memory_available_bytes{{{t0}}}) / sum by (instance) (windows_cs_physical_memory_bytes{{{t0}}}))',
+    ),
+}
+
+
+def _host(instance: str) -> str:
+    """'10.1.2.3:9100' → '10.1.2.3' (also handles [v6]:port)."""
+    if instance.startswith("["):
+        return instance[1:].split("]")[0]
+    return instance.rsplit(":", 1)[0] if instance.count(":") == 1 else instance
+
+
+def fleet_load(devices) -> dict:
+    """Current CPU / memory % for node / windows devices, matched by IP.
+
+    Devices with custom metrics_labels are matched by their `instance` label
+    when it is set; others by IP. Families without a fleet query (SNMP,
+    VMware) are left out — the caller keeps their inventory values.
+    """
+    if not getattr(settings, "PROMETHEUS_URL", ""):
+        return {"source": "unavailable", "message": "PROMETHEUS_URL is not configured.", "devices": []}
+    by_family: dict[str, dict[str, list]] = {}
+    for d in devices:
+        family = family_for_device(d)
+        if family not in FLEET:
+            continue
+        key = str((d.metrics_labels or {}).get("instance") or d.ip_address or "")
+        if key:
+            by_family.setdefault(family, {}).setdefault(_host(key), []).append(d)
+    out = []
+    try:
+        for family, index in by_family.items():
+            cpu_q, mem_q = FLEET[family]
+            label = getattr(settings, "PROMETHEUS_TENANT_LABEL", "")
+            tenants = {d.tenant_id for ds in index.values() for d in ds if d.tenant_id}
+            # Restrict to the caller's clients when series carry a tenant label.
+            tsel = f'{label}=~"{"|".join(re.escape(t) for t in sorted(tenants))}"' if label and tenants else ""
+            fmt_args = {"t": f",{tsel}" if tsel else "", "t0": tsel}
+            cpu = {_host(m.get("instance", "")): v for m, v in _query(cpu_q.format(**fmt_args))}
+            mem = {_host(m.get("instance", "")): v for m, v in _query(mem_q.format(**fmt_args))}
+            for host, ds in index.items():
+                if host in cpu or host in mem:
+                    for d in ds:
+                        out.append({"id": d.id, "cpu": cpu.get(host), "mem": mem.get(host)})
+    except PrometheusUnavailable as exc:
+        return {"source": "unavailable", "message": str(exc), "devices": []}
+    return {"source": "prometheus", "devices": out}

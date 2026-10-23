@@ -8,6 +8,7 @@
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import {
+  useDeviceLoad,
   useIncidents,
   useIncidentRecords,
   useChangeRecords,
@@ -16,7 +17,7 @@ import {
   useInfraAlerts,
 } from "@/api/hooks";
 import { DEVICE_KINDS } from "@/data/infra";
-import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, TrendChart, countBy, fmt, dailyTrend } from "@/components/ld";
+import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, TrendChart, countBy, fmt, dailyTrend, openedAt } from "@/components/ld";
 import type { Tone, Slice } from "@/components/ld";
 
 const RESOLVED_STATES = new Set(["Resolved", "Closed", "Cancelled", "Canceled"]);
@@ -50,12 +51,48 @@ const STATE_COLOR: Record<string, string> = {
   Closed: "#98a2b3",
 };
 
+// Period for ticket and change figures. "all" keeps every record and draws
+// the trend for the 14 days ending at the newest ticket.
+type Period = "all" | "24h" | "7d" | "30d" | "90d" | "custom";
+const PERIODS: { id: Period; label: string; days?: number }[] = [
+  { id: "all", label: "All time" },
+  { id: "24h", label: "Last 24 hours", days: 1 },
+  { id: "7d", label: "Last 7 days", days: 7 },
+  { id: "30d", label: "Last 30 days", days: 30 },
+  { id: "90d", label: "Last 90 days", days: 90 },
+  { id: "custom", label: "Custom range" },
+];
+const DAY = 86_400_000;
+const toDateInput = (ms: number) => new Date(ms - new Date(ms).getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+
 export default function DashboardScreen() {
   const { setRoute } = useNav();
+  const id = React.useId();
 
-  const tickets = useIncidentRecords().data ?? [];
+  const [period, setPeriod] = React.useState<Period>("all");
+  const [fromDay, setFromDay] = React.useState(toDateInput(Date.now() - 30 * DAY));
+  const [toDay, setToDay] = React.useState(toDateInput(Date.now()));
+  const window_ = React.useMemo(() => {
+    if (period === "all") return null;
+    if (period === "custom") {
+      const from = new Date(`${fromDay}T00:00`).getTime(), to = new Date(`${toDay}T23:59:59`).getTime();
+      return Number.isNaN(from) || Number.isNaN(to) || from > to ? null : { from, to };
+    }
+    const days = PERIODS.find((p) => p.id === period)?.days ?? 30;
+    return { from: Date.now() - days * DAY, to: Date.now() };
+  }, [period, fromDay, toDay]);
+  const inWindow = React.useCallback(
+    (opened: string) => { if (!window_) return true; const t = openedAt(opened); return t >= window_.from && t <= window_.to; },
+    [window_],
+  );
+  const customInvalid = period === "custom" && !window_;
+
+  const allTickets = useIncidentRecords().data ?? [];
+  const allChanges = useChangeRecords().data ?? [];
+  const tickets = React.useMemo(() => allTickets.filter((t) => inWindow(t.opened)), [allTickets, inWindow]);
+  const changes = React.useMemo(() => allChanges.filter((c) => inWindow(c.opened)), [allChanges, inWindow]);
   const incidents = useIncidents().data ?? [];
-  const changes = useChangeRecords().data ?? [];
+  const load = useDeviceLoad().data;
   const devices = useDevices().data ?? [];
   const services = useServices().data ?? [];
   const alerts = useInfraAlerts().data ?? [];
@@ -72,8 +109,14 @@ export default function DashboardScreen() {
   const healthyServices = services.filter((s) => s.status === "ok" || s.status === "healthy").length;
   const avgUptime = services.length ? services.reduce((s, x) => s + x.uptime, 0) / services.length : 0;
 
-  // ── Ticket trend: opened per day over the 14 days ending at the newest ticket
-  const days = React.useMemo(() => dailyTrend(tickets, RESOLVED_STATES), [tickets]);
+  // ── Ticket trend: one point per day of the period (all time → the 14 days
+  // ending at the newest ticket; a period longer than 90 days shows its last 90).
+  const days = React.useMemo(() => {
+    if (!window_) return dailyTrend(tickets, RESOLVED_STATES);
+    const n = Math.min(90, Math.max(1, Math.ceil((window_.to - window_.from) / DAY)));
+    return dailyTrend(tickets, RESOLVED_STATES, n, window_.to);
+  }, [tickets, window_]);
+  const periodLabel = period === "custom" ? (window_ ? `${fromDay} – ${toDay}` : "Custom range") : PERIODS.find((p) => p.id === period)!.label;
 
   const statusSlices: Slice[] = countBy(tickets, (t) => t.state).map(([label, value], i) => ({
     label,
@@ -115,7 +158,18 @@ export default function DashboardScreen() {
     .sort((a, b) => a.rank - b.rank)
     .slice(0, 7);
 
-  const busiest = [...devices].sort((a, b) => Math.max(b.cpu, b.mem) - Math.max(a.cpu, a.mem)).slice(0, 6);
+  // Live CPU / memory from Prometheus where the exporter reports it; the
+  // inventory's last known values otherwise (the panel says which).
+  const liveLoad = new Map((load?.source === "prometheus" ? load.devices : []).map((l) => [l.id, l]));
+  const loadOf = (d: (typeof devices)[number]) => {
+    const l = liveLoad.get(d.id);
+    return { cpu: l?.cpu ?? d.cpu, mem: l?.mem ?? d.mem, live: !!l };
+  };
+  const busiest = [...devices]
+    .map((d) => ({ d, ...loadOf(d) }))
+    .sort((a, b) => Math.max(b.cpu, b.mem) - Math.max(a.cpu, a.mem))
+    .slice(0, 6);
+  const liveCount = busiest.filter((b) => b.live).length;
   const loadTone = (v: number): Tone => (v >= 85 ? "crit" : v >= 70 ? "warn" : "ok");
 
   const categories = countBy(tickets, (t) => t.category || "Uncategorised").slice(0, 5);
@@ -134,7 +188,29 @@ export default function DashboardScreen() {
           <h1>Dashboard</h1>
           <p>Complete view of your IT infrastructure, services, and support operations</p>
         </div>
+        <div className="ld-head-actions ld-period">
+          <label className="ld-inline-label" htmlFor={`${id}-period`}><i className="fa-regular fa-calendar" aria-hidden="true" /> Period</label>
+          <select id={`${id}-period`} className="ld-select" value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
+            {PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+          {period === "custom" && (
+            <>
+              <label className="sr-only" htmlFor={`${id}-from`}>From</label>
+              <input id={`${id}-from`} type="date" className="ld-input" value={fromDay} max={toDay} onChange={(e) => setFromDay(e.target.value)} />
+              <span className="ld-muted" aria-hidden="true">–</span>
+              <label className="sr-only" htmlFor={`${id}-to`}>To</label>
+              <input id={`${id}-to`} type="date" className="ld-input" value={toDay} min={fromDay} max={toDateInput(Date.now())} onChange={(e) => setToDay(e.target.value)} />
+            </>
+          )}
+        </div>
       </div>
+      {customInvalid && <p className="ld-text-crit ld-small" role="alert">The start date must be on or before the end date. Showing all time.</p>}
+      {period !== "all" && (
+        <p className="ld-muted ld-small">
+          Tickets and changes opened in <b>{periodLabel}</b>: {fmt(tickets.length)} of {fmt(allTickets.length)} tickets, {fmt(changes.length)} of {fmt(allChanges.length)} changes.
+          Incidents, devices, alerts and services show the current state.
+        </p>
+      )}
 
       <div className="ld-grid ld-grid-stats">
         <StatCard
@@ -172,7 +248,7 @@ export default function DashboardScreen() {
       </div>
 
       <div className="ld-grid ld-grid-3">
-        <Panel title="Ticket Trend">
+        <Panel title={`Ticket Trend · ${periodLabel}`}>
           <div className="ld-chart-legend">
             <span><span className="ld-dot" style={{ background: "#2f6bff" }} />Opened</span>
             <span><span className="ld-dot" style={{ background: "#16a34a" }} />Since resolved</span>
@@ -293,6 +369,11 @@ export default function DashboardScreen() {
           )}
         </Panel>
         <Panel title="Busiest Devices" action={{ label: "View All", onClick: () => setRoute("infra-assets") }}>
+          <p className="ld-muted ld-small ld-load-src">
+            {liveCount ? <><span className="ld-live"><span className="ld-pill-dot" /> Live</span> from Prometheus for {liveCount} of {busiest.length}; others from the inventory.</>
+              : load?.source === "prometheus" ? "No live samples for these devices yet; values from the inventory."
+              : "Prometheus not connected; values from the inventory."}
+          </p>
           {busiest.length ? (
             <div className="ld-table-wrap">
               <table className="ld-table">
@@ -300,14 +381,14 @@ export default function DashboardScreen() {
                   <tr><th scope="col">Device</th><th scope="col">CPU</th><th scope="col">Memory</th></tr>
                 </thead>
                 <tbody>
-                  {busiest.map((d) => (
+                  {busiest.map(({ d, cpu, mem, live }) => (
                     <tr key={d.id}>
                       <td>
                         <span className="ld-strong">{d.hostname || d.id}</span>
-                        <span className="ld-sub">{kindLabel(d.kind)}</span>
+                        <span className="ld-sub">{kindLabel(d.kind)}{live ? " · live" : ""}</span>
                       </td>
-                      <td><Pill tone={loadTone(d.cpu)}>{Math.round(d.cpu)}%</Pill></td>
-                      <td><Pill tone={loadTone(d.mem)}>{Math.round(d.mem)}%</Pill></td>
+                      <td><Pill tone={loadTone(cpu)}>{Math.round(cpu)}%</Pill></td>
+                      <td><Pill tone={loadTone(mem)}>{Math.round(mem)}%</Pill></td>
                     </tr>
                   ))}
                 </tbody>

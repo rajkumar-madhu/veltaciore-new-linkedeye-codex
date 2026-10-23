@@ -3300,3 +3300,8 @@ a.ld-btn { text-decoration: none; }
 .ld-vmware { margin: 0 0 8px; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: #1d428a; }
 .ld-vmware span { color: #1d428a; font-weight: 500; }
 [data-theme="dark"] .ld-vmware, [data-theme="dark"] .ld-vmware span { color: #8fb3ff; }
+.ld-client { display: inline-flex; align-items: center; gap: 10px; }
+.ld-client-badge { flex: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+.ld-period { align-items: center; }
+.ld-period .ld-input { width: auto; }
+.ld-load-src { margin: -4px 0 8px; }
