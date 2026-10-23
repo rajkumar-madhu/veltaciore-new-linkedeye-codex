@@ -1,27 +1,39 @@
-// screens/integration-detail.jsx — Editable integration config + metrics
-// Ported from screens/integration-detail.jsx.
+// Integration detail — LinkedEye entity layout: header with actions, the
+// editable connection form (credentials always masked, never pre-filled) and
+// a rail with the current configuration. Traffic metrics, endpoint stats,
+// webhooks and permissions have no backend yet and are labelled sample data.
 import React from "react";
+import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { INTEGRATIONS } from "@/data/core";
-import { Kpi, FormSection, FormRow, Field } from "@/components/primitives";
+import { Panel, Pill } from "@/components/ld";
+
+const AUTH_LABEL: Record<string, string> = {
+  apikey: "API Key",
+  basic: "Username + Password",
+  oauth: "OAuth 2.0",
+  bearer: "Bearer Token",
+  mtls: "mTLS Certificate",
+};
+const STORED = "Stored — enter a new value to replace";
+
+function SampleTag() {
+  return <Pill tone="muted">Sample data</Pill>;
+}
 
 export default function IntegrationDetailScreen() {
   const { setRoute } = useNav();
   const integrationName = useUiStore((s) => s.params.integName as string | undefined);
   const integ = INTEGRATIONS.find(i => i.name === (integrationName || "Prometheus")) || INTEGRATIONS[0];
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
 
   const [authMode, setAuthMode] = React.useState("apikey");
   const [endpoint, setEndpoint] = React.useState(`https://${integ.name.toLowerCase().replace(/\s+/g, "-")}.finspot.in/api`);
-  const [apiKey, setApiKey] = React.useState("vc_sk_live_8f3a2c1e9d7b4520");
+  const [apiKey, setApiKey] = React.useState("");
   const [username, setUsername] = React.useState("svc-linkedeye");
   const [password, setPassword] = React.useState("");
   const [region, setRegion] = React.useState("us-east-1");
   const [scrapeInterval, setScrapeInterval] = React.useState(15);
-  const [showKey, setShowKey] = React.useState(false);
-  const [showPwd, setShowPwd] = React.useState(false);
   const [enabled, setEnabled] = React.useState(integ.connected);
   const [saved, setSaved] = React.useState(false);
 
@@ -30,321 +42,336 @@ export default function IntegrationDetailScreen() {
     setTimeout(() => setSaved(false), 2200);
   };
 
-  const test = () => alert(`Test connection to ${integ.name}\n\nEndpoint: ${endpoint}\nAuth: ${authMode}\n\n✓ TCP reachable · 12ms\n✓ TLS verified\n✓ API auth ok (200)\n✓ Rate limit headroom: 96%\n\nConnection healthy.`);
+  const test = () => alert(`Test connection to ${integ.name}\n\nEndpoint: ${endpoint}\nAuth: ${AUTH_LABEL[authMode] ?? authMode}\n\nConnection testing is not wired to the backend yet — no request was sent.`);
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("integrations")}>Integrations</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("integrations")}>Integrations</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>{integ.name}</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">{integ.name.toUpperCase().replace(/\s+/g, "-")}</span>
-          {enabled
-            ? <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle" /> Connected</span>
-            : <span className="sn-pill state-mitigating"><i className="fa-solid fa-circle" /> Disabled</span>}
-          <span className="sn-pill state-neutral"><i className={integ.icon} /> {integ.category}</span>
-          {saved && <span className="sn-pill svc-healthy" style={{ animation: "pulse 1s" }}><i className="fa-solid fa-check" /> Saved</span>}
-        </div>
-        <div className="sn-form-title-meta">
+      <div className="ld-head ld-entity-head">
+        <div className="ld-entity">
+          <span className="ld-tile ld-info" aria-hidden="true"><i className={integ.icon} /></span>
           <div>
-            <h1>{integ.name} Integration</h1>
-            <div className="sn-form-sub">{integ.meta} · last test 12s ago · region {region}</div>
+            <h1 className="ld-entity-title">
+              {integ.name} Integration
+              {enabled ? <Pill tone="ok"><span className="ld-pill-dot" />Connected</Pill> : <Pill tone="warn"><span className="ld-pill-dot" />Disabled</Pill>}
+            </h1>
+            <p className="ld-entity-meta ld-muted"><span>{integ.meta}</span><span>Region {region}</span></p>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn" onClick={() => setRoute("integrations")}><i className="fa-solid fa-arrow-left" /> Back</button>
-            <button className="sn-btn" onClick={test}><i className="fa-solid fa-vial" /> Test Connection</button>
-            <button className="sn-btn"><i className="fa-solid fa-trash" /> Disconnect</button>
-            <button className="sn-btn primary" onClick={save}><i className="fa-solid fa-floppy-disk" /> Save Changes</button>
+        </div>
+        <div className="ld-head-side">
+          <div className="ld-head-actions">
+            <span role="status" className="ld-admin-status">{saved && <><i className="fa-solid fa-check ld-text-ok" aria-hidden="true" /> Saved</>}</span>
+            <button type="button" className="ld-btn" onClick={() => setRoute("integrations")}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back</button>
+            <button type="button" className="ld-btn" onClick={test}><i className="fa-solid fa-vial" aria-hidden="true" /> Test Connection</button>
+            <button type="button" className="ld-btn"><i className="fa-solid fa-trash" aria-hidden="true" /> Disconnect</button>
+            <button type="button" className="ld-btn ld-btn-primary" onClick={save}><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Changes</button>
           </div>
+          <ul className="ld-tags">
+            <li className="ld-tag"><i className={integ.icon} aria-hidden="true" /> {integ.category}</li>
+          </ul>
         </div>
       </div>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="API calls (24h)" v="184k" s="+12% vs avg" tone="neutral" />
-        <Kpi l="Error rate" v="0.04%" s="74 of 184k" tone="ok" />
-        <Kpi l="P50 latency" v="42ms" s="endpoint healthy" tone="ok" />
-        <Kpi l="P95 latency" v="184ms" s="within SLO" tone="ok" />
-        <Kpi l="Last sync" v="12s" s="ago · auto" tone="ok" />
-        <Kpi l="Rate limit" v="96%" s="headroom remaining" tone="ok" />
-      </div>
-
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          {/* CONFIG SECTION — EDITABLE */}
-          <FormSection id="config" title="Connection Configuration" badge="editable" collapsed={collapsed.config} onToggle={toggle}>
-            <div className="sn-kind-hint"><i className="fa-solid fa-pen" /> All fields below are editable — change any value and click <b>Save Changes</b> to apply.</div>
-            <FormRow>
-              <Field label="Enabled" value={
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5 }}>
-                  <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} style={{ width: 14, height: 14 }} />
-                  {enabled ? <span className="tone-ok"><b>Active</b></span> : <span className="text-mute">Disabled</span>}
-                </label>
-              } required />
-              <Field label="Display name" value={<input className="select" defaultValue={integ.name} style={{ width: "100%" }} />} required />
-            </FormRow>
-            <FormRow>
-              <Field label="Endpoint URL" value={<input className="select" value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://api.example.com" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} required />
-              <Field label="Region" value={
-                <select className="select" value={region} onChange={e => setRegion(e.target.value)}>
-                  <option>us-east-1</option><option>us-west-2</option><option>eu-west-1</option><option>ap-south-1</option>
-                </select>
-              } />
-            </FormRow>
-            <FormRow>
-              <Field label="Auth method" value={
-                <select className="select" value={authMode} onChange={e => setAuthMode(e.target.value)}>
-                  <option value="apikey">API Key</option>
-                  <option value="basic">Username + Password</option>
-                  <option value="oauth">OAuth 2.0</option>
-                  <option value="bearer">Bearer Token</option>
-                  <option value="mtls">mTLS Certificate</option>
-                </select>
-              } required />
-              <Field label="Verify TLS" value={
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
-                  <input type="checkbox" defaultChecked /> Strict certificate validation
-                </label>
-              } />
-            </FormRow>
-
-            {authMode === "apikey" && (
-              <FormRow>
-                <Field label="API Key" value={
-                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
-                    <input className="select" type={showKey ? "text" : "password"} value={apiKey} onChange={e => setApiKey(e.target.value)} style={{ flex: 1, fontFamily: "var(--font-mono)" }} placeholder="vc_sk_live_..." />
-                    <button className="sn-btn" onClick={() => setShowKey(s => !s)} title={showKey ? "Hide" : "Show"}><i className={`fa-solid ${showKey ? "fa-eye-slash" : "fa-eye"}`} /></button>
-                    <button className="sn-btn" title="Rotate"><i className="fa-solid fa-rotate" /></button>
-                    <button className="sn-btn" title="Copy"><i className="fa-solid fa-copy" /></button>
-                  </div>
-                } required />
-                <Field label="Key scope" value={
-                  <select className="select"><option>Read + Write</option><option>Read only</option><option>Write only · webhooks</option></select>
-                } />
-              </FormRow>
-            )}
-
-            {authMode === "basic" && (
-              <FormRow>
-                <Field label="Username" value={
-                  <input className="select" value={username} onChange={e => setUsername(e.target.value)} style={{ width: "100%", fontFamily: "var(--font-mono)" }} placeholder="service-account-name" />
-                } required />
-                <Field label="Password" value={
-                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
-                    <input className="select" type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} style={{ flex: 1, fontFamily: "var(--font-mono)" }} placeholder="••••••••••••" />
-                    <button className="sn-btn" onClick={() => setShowPwd(s => !s)}><i className={`fa-solid ${showPwd ? "fa-eye-slash" : "fa-eye"}`} /></button>
-                  </div>
-                } required />
-              </FormRow>
-            )}
-
-            {authMode === "oauth" && (
-              <>
-                <FormRow>
-                  <Field label="Client ID" value={<input className="select" defaultValue="le-oauth-client-984af" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} required />
-                  <Field label="Client Secret" value={<input className="select" type="password" defaultValue="•••••••••••••••" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} required />
-                </FormRow>
-                <FormRow>
-                  <Field label="Authorization URL" value={<input className="select" defaultValue="https://idp.example.com/oauth/authorize" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} />
-                  <Field label="Token URL" value={<input className="select" defaultValue="https://idp.example.com/oauth/token" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} />
-                </FormRow>
-              </>
-            )}
-
-            {authMode === "bearer" && (
-              <FormRow>
-                <Field label="Bearer Token" value={
-                  <div style={{ display: "flex", gap: 6, width: "100%" }}>
-                    <input className="select" type={showKey ? "text" : "password"} defaultValue="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style={{ flex: 1, fontFamily: "var(--font-mono)" }} />
-                    <button className="sn-btn" onClick={() => setShowKey(s => !s)}><i className={`fa-solid ${showKey ? "fa-eye-slash" : "fa-eye"}`} /></button>
-                  </div>
-                } required />
-                <Field label="Refresh token" value={<input className="select" type="password" defaultValue="refresh_•••••" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} />
-              </FormRow>
-            )}
-
-            {authMode === "mtls" && (
-              <FormRow>
-                <Field label="Client cert" value={<button className="sn-btn" style={{ width: "100%" }}><i className="fa-solid fa-file-arrow-up" /> Upload client.crt</button>} required />
-                <Field label="Private key" value={<button className="sn-btn" style={{ width: "100%" }}><i className="fa-solid fa-file-arrow-up" /> Upload client.key</button>} required />
-              </FormRow>
-            )}
-
-            <FormRow>
-              <Field label="Scrape interval" value={
-                <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%" }}>
-                  <input className="select" type="number" min="5" max="300" value={scrapeInterval} onChange={e => setScrapeInterval(parseInt(e.target.value) || 15)} style={{ width: 80 }} />
-                  <span className="text-mute">seconds</span>
+      <div className="ld-split">
+        <div className="ld-rail">
+          <section className="ld-card ld-panel" aria-labelledby="ic-config-h">
+            <div className="ld-panel-head">
+              <h2 id="ic-config-h">Connection Configuration</h2>
+              <span className="ld-muted ld-small">Edit any value, then Save Changes</span>
+            </div>
+            <form className="ld-form" onSubmit={(e) => { e.preventDefault(); save(); }}>
+              <div className="ld-admin-form-grid">
+                <div className="ld-admin-switch-row">
+                  <button type="button" id="ic-enabled" role="switch" aria-checked={enabled} className="ld-admin-switch" onClick={() => setEnabled(v => !v)} />
+                  <label htmlFor="ic-enabled">{enabled ? "Enabled" : "Disabled"}</label>
                 </div>
-              } />
-              <Field label="Timeout" value={<input className="select" type="number" defaultValue="10" style={{ width: 80 }} />} />
-            </FormRow>
-            <FormRow>
-              <Field label="Retry policy" value={<select className="select"><option>Exponential backoff · max 5</option><option>Fixed · 3 retries</option><option>None</option></select>} />
-              <Field label="Proxy" value={<input className="select" placeholder="https://proxy.internal:8080 (optional)" style={{ width: "100%", fontFamily: "var(--font-mono)" }} />} />
-            </FormRow>
-          </FormSection>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-name">Display name <span className="ld-req">*</span></label>
+                  <input id="ic-name" className="ld-input" defaultValue={integ.name} />
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-endpoint">Endpoint URL <span className="ld-req">*</span></label>
+                  <input id="ic-endpoint" className="ld-input ld-mono" value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://api.example.com" />
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-region">Region</label>
+                  <select id="ic-region" className="ld-select" value={region} onChange={e => setRegion(e.target.value)}>
+                    <option>us-east-1</option><option>us-west-2</option><option>eu-west-1</option><option>ap-south-1</option>
+                  </select>
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-auth">Auth method <span className="ld-req">*</span></label>
+                  <select id="ic-auth" className="ld-select" value={authMode} onChange={e => setAuthMode(e.target.value)}>
+                    <option value="apikey">API Key</option>
+                    <option value="basic">Username + Password</option>
+                    <option value="oauth">OAuth 2.0</option>
+                    <option value="bearer">Bearer Token</option>
+                    <option value="mtls">mTLS Certificate</option>
+                  </select>
+                </div>
+                <label className="ld-admin-check" htmlFor="ic-tls">
+                  <input id="ic-tls" type="checkbox" defaultChecked /> Strict TLS certificate validation
+                </label>
 
-          {/* METRICS SECTION */}
-          <FormSection id="metrics" title="Live Metrics" badge="last 1h" collapsed={collapsed.metrics} onToggle={toggle}>
-            <div style={{ padding: 14 }}>
-              <IntegrationMetricsChart />
-              <div className="row row-16" style={{ marginTop: 12, fontSize: 11.5, gap: 18, flexWrap: "wrap" }}>
-                <span><i style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#2563eb", marginRight: 6, verticalAlign: "middle" }} /> API calls (k/min)</span>
-                <span><i style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#10b981", marginRight: 6, verticalAlign: "middle" }} /> Success</span>
-                <span><i style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#ef4444", marginRight: 6, verticalAlign: "middle" }} /> Errors</span>
-                <span><i style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#f59e0b", marginRight: 6, verticalAlign: "middle" }} /> Latency p95 (ms)</span>
+                {authMode === "apikey" && (
+                  <>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-key">API key <span className="ld-req">*</span></label>
+                      <span className="ld-admin-input-row">
+                        <input id="ic-key" className="ld-input ld-mono" type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={STORED} />
+                        <button type="button" className="ld-btn" aria-label="Rotate API key" title="Rotate"><i className="fa-solid fa-rotate" aria-hidden="true" /></button>
+                      </span>
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-scope">Key scope</label>
+                      <select id="ic-scope" className="ld-select"><option>Read + Write</option><option>Read only</option><option>Write only · webhooks</option></select>
+                    </div>
+                  </>
+                )}
+
+                {authMode === "basic" && (
+                  <>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-user">Username <span className="ld-req">*</span></label>
+                      <input id="ic-user" className="ld-input ld-mono" value={username} onChange={e => setUsername(e.target.value)} placeholder="service-account-name" />
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-pwd">Password <span className="ld-req">*</span></label>
+                      <input id="ic-pwd" className="ld-input ld-mono" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder={STORED} />
+                    </div>
+                  </>
+                )}
+
+                {authMode === "oauth" && (
+                  <>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-cid">Client ID <span className="ld-req">*</span></label>
+                      <input id="ic-cid" className="ld-input ld-mono" defaultValue="le-oauth-client-984af" />
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-csecret">Client secret <span className="ld-req">*</span></label>
+                      <input id="ic-csecret" className="ld-input ld-mono" type="password" autoComplete="new-password" placeholder={STORED} />
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-authurl">Authorization URL</label>
+                      <input id="ic-authurl" className="ld-input ld-mono" defaultValue="https://idp.example.com/oauth/authorize" />
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-tokenurl">Token URL</label>
+                      <input id="ic-tokenurl" className="ld-input ld-mono" defaultValue="https://idp.example.com/oauth/token" />
+                    </div>
+                  </>
+                )}
+
+                {authMode === "bearer" && (
+                  <>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-bearer">Bearer token <span className="ld-req">*</span></label>
+                      <input id="ic-bearer" className="ld-input ld-mono" type="password" autoComplete="new-password" placeholder={STORED} />
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-refresh">Refresh token</label>
+                      <input id="ic-refresh" className="ld-input ld-mono" type="password" autoComplete="new-password" placeholder={STORED} />
+                    </div>
+                  </>
+                )}
+
+                {authMode === "mtls" && (
+                  <>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-cert">Client certificate <span className="ld-req">*</span></label>
+                      <input id="ic-cert" className="ld-input" type="file" accept=".crt,.pem" />
+                    </div>
+                    <div className="ld-form-field">
+                      <label htmlFor="ic-pkey">Private key <span className="ld-req">*</span></label>
+                      <input id="ic-pkey" className="ld-input" type="file" accept=".key,.pem" />
+                    </div>
+                  </>
+                )}
+
+                <div className="ld-form-field">
+                  <label htmlFor="ic-interval">Scrape interval (seconds)</label>
+                  <input id="ic-interval" className="ld-input ld-admin-input-sm" type="number" min="5" max="300" value={scrapeInterval} onChange={e => setScrapeInterval(parseInt(e.target.value) || 15)} />
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-timeout">Timeout (seconds)</label>
+                  <input id="ic-timeout" className="ld-input ld-admin-input-sm" type="number" defaultValue="10" />
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-retry">Retry policy</label>
+                  <select id="ic-retry" className="ld-select"><option>Exponential backoff · max 5</option><option>Fixed · 3 retries</option><option>None</option></select>
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor="ic-proxy">Proxy</label>
+                  <input id="ic-proxy" className="ld-input ld-mono" placeholder="https://proxy.internal:8080 (optional)" />
+                </div>
               </div>
+              <div className="ld-admin-actions">
+                <span className="ld-admin-hint ld-admin-status">Secrets are write-only and never shown after saving.</span>
+                <button type="submit" className="ld-btn ld-btn-primary"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Changes</button>
+              </div>
+            </form>
+          </section>
+
+          <section className="ld-card ld-panel" aria-labelledby="ic-metrics-h">
+            <div className="ld-panel-head">
+              <h2 id="ic-metrics-h">Traffic · last 1h</h2>
+              <SampleTag />
             </div>
-          </FormSection>
+            <IntegrationMetricsChart />
+            <ul className="ld-legend ld-legend-inline">
+              {SERIES.map(s => (
+                <li key={s.label}><span className="ld-swatch" style={{ background: s.c }} /><span className="ld-legend-label">{s.label}</span></li>
+              ))}
+            </ul>
+          </section>
 
-          {/* METRICS TABLE */}
-          <FormSection id="table" title="Endpoint Metrics" badge="per route · last 1h" collapsed={collapsed.table} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead>
-                <tr>
-                  <th>Endpoint</th>
-                  <th style={{width:80}}>Method</th>
-                  <th style={{width:90}}>Calls</th>
-                  <th style={{width:90}}>2xx</th>
-                  <th style={{width:90}}>4xx</th>
-                  <th style={{width:90}}>5xx</th>
-                  <th style={{width:90}}>p50</th>
-                  <th style={{width:90}}>p95</th>
-                  <th style={{width:120}}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {([
-                  ["/api/v1/query","GET",84120,99.96,0.04,0.0,18,84,"ok"],
-                  ["/api/v1/query_range","GET",42380,99.92,0.08,0.0,42,184,"ok"],
-                  ["/api/v1/alerts","GET",12840,100,0,0,8,24,"ok"],
-                  ["/api/v1/series","GET",8420,99.84,0.16,0.0,184,684,"warn"],
-                  ["/api/v1/write","POST",184212,99.98,0,0.02,12,48,"ok"],
-                  ["/api/v1/labels","GET",2412,100,0,0,4,12,"ok"],
-                ] as [string, string, number, number, number, number, number, number, string][]).map((r, i) => (
-                  <tr key={i}>
-                    <td className="mono"><b>{r[0]}</b></td>
-                    <td><span className={`sn-state-pill ${r[1] === "GET" ? "state-investigating" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {r[1]}</span></td>
-                    <td className="mono">{r[2].toLocaleString()}</td>
-                    <td className="mono tone-ok"><b>{r[3]}%</b></td>
-                    <td className={`mono ${r[4] > 0.5 ? "tone-warn" : ""}`}>{r[4]}%</td>
-                    <td className={`mono ${r[5] > 0 ? "tone-crit" : ""}`}>{r[5]}%</td>
-                    <td className="mono">{r[6]}ms</td>
-                    <td className={`mono ${r[7] > 500 ? "tone-warn" : ""}`}>{r[7]}ms</td>
-                    <td><span className={`sn-state-pill ${r[8] === "ok" ? "svc-healthy" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {r[8] === "ok" ? "healthy" : "elevated"}</span></td>
+          <section className="ld-card ld-panel" aria-labelledby="ic-ep-h">
+            <div className="ld-panel-head">
+              <h2 id="ic-ep-h">Endpoint Metrics</h2>
+              <span className="ld-admin-head-tags"><SampleTag /><span className="ld-muted ld-small">per route · last 1h</span></span>
+            </div>
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Endpoint</th>
+                    <th scope="col">Method</th>
+                    <th scope="col">Calls</th>
+                    <th scope="col">2xx</th>
+                    <th scope="col">4xx</th>
+                    <th scope="col">5xx</th>
+                    <th scope="col">p50</th>
+                    <th scope="col">p95</th>
+                    <th scope="col">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+                </thead>
+                <tbody>
+                  {SAMPLE_ENDPOINTS.map((r) => (
+                    <tr key={r[0] + r[1]}>
+                      <td className="ld-mono ld-strong">{r[0]}</td>
+                      <td><Pill tone={r[1] === "GET" ? "info" : "warn"}>{r[1]}</Pill></td>
+                      <td className="ld-mono">{r[2].toLocaleString()}</td>
+                      <td className="ld-mono ld-text-ok">{r[3]}%</td>
+                      <td className={`ld-mono${r[4] > 0.5 ? " ld-text-warn" : ""}`}>{r[4]}%</td>
+                      <td className={`ld-mono${r[5] > 0 ? " ld-text-crit" : ""}`}>{r[5]}%</td>
+                      <td className="ld-mono">{r[6]}ms</td>
+                      <td className={`ld-mono${r[7] > 500 ? " ld-text-warn" : ""}`}>{r[7]}ms</td>
+                      <td><Pill tone={r[8] === "ok" ? "ok" : "warn"}><span className="ld-pill-dot" />{r[8] === "ok" ? "healthy" : "elevated"}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-          {/* WEBHOOKS */}
-          <FormSection id="hooks" title="Webhooks · Subscriptions" badge="3 active" collapsed={collapsed.hooks} onToggle={toggle}>
-            <table className="sn-list-table">
-              <tbody>
-                {[
-                  ["incident.declared","https://hooks.example.com/le/inc","ok","12s ago"],
-                  ["change.approved","https://ci.example.com/webhooks/le","ok","2m ago"],
-                  ["alert.resolved","https://chatops.example.com/le","warn","8h ago · 2 retries"],
-                ].map((r, i) => (
-                  <tr key={i}>
-                    <td style={{ width: 200 }}><b className="mono">{r[0]}</b></td>
-                    <td className="mono" style={{ fontSize: 11.5 }}>{r[1]}</td>
-                    <td style={{ width: 130 }}><span className={`sn-state-pill ${r[2] === "ok" ? "svc-healthy" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {r[2]}</span></td>
-                    <td style={{ width: 130 }} className="text-mute mono">{r[3]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+          <section className="ld-card ld-panel" aria-labelledby="ic-hooks-h">
+            <div className="ld-panel-head">
+              <h2 id="ic-hooks-h">Webhook Subscriptions</h2>
+              <SampleTag />
+            </div>
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr><th scope="col">Event</th><th scope="col">Target</th><th scope="col">Status</th><th scope="col">Last delivery</th></tr>
+                </thead>
+                <tbody>
+                  {SAMPLE_HOOKS.map((r) => (
+                    <tr key={r[0]}>
+                      <td className="ld-mono ld-strong">{r[0]}</td>
+                      <td className="ld-mono">{r[1]}</td>
+                      <td><Pill tone={r[2] === "ok" ? "ok" : "warn"}><span className="ld-pill-dot" />{r[2]}</Pill></td>
+                      <td className="ld-muted">{r[3]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Quick Stats</div>
-            <div className="sn-side-body">
-              <Field label="Status" value={enabled ? <span className="sn-state-pill svc-healthy"><i className="fa-solid fa-circle" /> Connected</span> : <span className="sn-state-pill state-mitigating"><i className="fa-solid fa-circle" /> Disabled</span>} />
-              <Field label="Calls (24h)" value={<span className="mono"><b>184k</b></span>} />
-              <Field label="Error rate" value={<span className="tone-ok"><b>0.04%</b></span>} />
-              <Field label="p95 latency" value={<span className="mono">184ms</span>} />
-              <Field label="Last test" value="12s ago" />
-              <Field label="Connected since" value="Mar 12, 2024" />
-            </div>
-          </div>
+        <div className="ld-rail">
+          <Panel title="Current Configuration">
+            <dl className="ld-dl">
+              <dt>Status</dt><dd>{enabled ? <Pill tone="ok"><span className="ld-pill-dot" />Connected</Pill> : <Pill tone="warn"><span className="ld-pill-dot" />Disabled</Pill>}</dd>
+              <dt>Category</dt><dd>{integ.category}</dd>
+              <dt>Auth method</dt><dd>{AUTH_LABEL[authMode] ?? authMode}</dd>
+              <dt>Region</dt><dd className="ld-mono">{region}</dd>
+              <dt>Scrape interval</dt><dd>{scrapeInterval}s</dd>
+              <dt>Endpoint</dt><dd className="ld-mono">{endpoint}</dd>
+            </dl>
+          </Panel>
 
-          <div className="sn-side-card">
-            <div className="sn-side-head">Auth Activity</div>
-            <div className="sn-side-body">
-              <Field label="Key rotated" value="14d ago" />
-              <Field label="Next rotation" value={<span className="tone-warn">in 16d</span>} />
-              <Field label="Failed auth (24h)" value={<span className="tone-ok">0</span>} />
-              <Field label="Token expires" value="Sep 12, 2026" />
+          <section className="ld-card ld-panel" aria-labelledby="ic-perm-h">
+            <div className="ld-panel-head">
+              <h2 id="ic-perm-h">Permissions</h2>
+              <SampleTag />
             </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Permissions</div>
-            <div className="sn-side-body">
-              {([
-                ["read.metrics", true],
-                ["write.alerts", true],
-                ["read.logs", true],
-                ["admin.config", false],
-                ["delete.data", false],
-              ] as [string, boolean][]).map(([k, on], i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title mono">{k}</div></div>
-                  <span className={`sn-state-pill ${on ? "svc-healthy" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {on ? "granted" : "off"}</span>
-                </div>
+            <ul className="ld-activity">
+              {SAMPLE_PERMS.map(([k, on]) => (
+                <li key={k}>
+                  <span className="ld-activity-text ld-mono">{k}</span>
+                  <Pill tone={on ? "ok" : "muted"}>{on ? "granted" : "off"}</Pill>
+                </li>
               ))}
-            </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Activity Log</div>
-            <div className="sn-side-body">
-              {[
-                ["API key tested", "12s ago", "ok"],
-                ["Config updated", "2h ago", "ok"],
-                ["Scrape interval changed", "1d ago", "ok"],
-                ["Key rotated", "14d ago", "ok"],
-              ].map((r, i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title">{r[0]}</div><div className="sn-related-meta">{r[1]}</div></div>
-                  <span className="sn-state-pill svc-healthy"><i className="fa-solid fa-circle" /> {r[2]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+            </ul>
+          </section>
+        </div>
       </div>
     </div>
   );
 }
 
+const SAMPLE_ENDPOINTS: [string, string, number, number, number, number, number, number, string][] = [
+  ["/api/v1/query", "GET", 84120, 99.96, 0.04, 0.0, 18, 84, "ok"],
+  ["/api/v1/query_range", "GET", 42380, 99.92, 0.08, 0.0, 42, 184, "ok"],
+  ["/api/v1/alerts", "GET", 12840, 100, 0, 0, 8, 24, "ok"],
+  ["/api/v1/series", "GET", 8420, 99.84, 0.16, 0.0, 184, 684, "warn"],
+  ["/api/v1/write", "POST", 184212, 99.98, 0, 0.02, 12, 48, "ok"],
+  ["/api/v1/labels", "GET", 2412, 100, 0, 0, 4, 12, "ok"],
+];
+
+const SAMPLE_HOOKS: [string, string, string, string][] = [
+  ["incident.declared", "https://hooks.example.com/le/inc", "ok", "12s ago"],
+  ["change.approved", "https://ci.example.com/webhooks/le", "ok", "2m ago"],
+  ["alert.resolved", "https://chatops.example.com/le", "warn", "8h ago · 2 retries"],
+];
+
+const SAMPLE_PERMS: [string, boolean][] = [
+  ["read.metrics", true],
+  ["write.alerts", true],
+  ["read.logs", true],
+  ["admin.config", false],
+  ["delete.data", false],
+];
+
+const SERIES = [
+  { label: "API calls (k/min)", c: "#2563eb", fn: (i: number) => 120 + 30 * Math.sin(i * 0.3) + 8 * Math.sin(i * 1.7) },
+  { label: "Success", c: "#10b981", fn: (i: number) => 118 + 28 * Math.sin(i * 0.3) + 6 * Math.sin(i * 1.5) },
+  { label: "Errors", c: "#ef4444", fn: (i: number) => 2 + Math.sin(i * 0.4) + (i > 45 && i < 50 ? 8 : 0) },
+  { label: "Latency p95 (ms)", c: "#f59e0b", fn: (i: number) => 40 + 12 * Math.sin(i * 0.4 + 1) + (i > 42 && i < 50 ? 30 : 0) },
+];
+
 function IntegrationMetricsChart() {
   const W = 880, H = 200, P = 30;
   const N = 60;
-  const series = [
-    { c: "#2563eb", fn: (i: number) => 120 + 30 * Math.sin(i*0.3) + 8 * Math.sin(i*1.7) },
-    { c: "#10b981", fn: (i: number) => 118 + 28 * Math.sin(i*0.3) + 6 * Math.sin(i*1.5) },
-    { c: "#ef4444", fn: (i: number) => 2 + Math.sin(i*0.4) + (i > 45 && i < 50 ? 8 : 0) },
-    { c: "#f59e0b", fn: (i: number) => 40 + 12 * Math.sin(i*0.4 + 1) + (i > 42 && i < 50 ? 30 : 0) },
-  ];
-  const data = series.map(s => Array.from({ length: N }, (_, i) => Math.max(0, s.fn(i))));
+  const data = SERIES.map(s => Array.from({ length: N }, (_, i) => Math.max(0, s.fn(i))));
   const max = Math.max(...data.flat()) * 1.15;
   const x = (i: number) => P + (i / (N - 1)) * (W - 2 * P);
   const y = (v: number) => H - P - (v / max) * (H - 2 * P);
   const path = (arr: number[]) => arr.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const area = (arr: number[]) => path(arr) + ` L ${x(N-1)} ${H-P} L ${x(0)} ${H-P} Z`;
+  const area = (arr: number[]) => path(arr) + ` L ${x(N - 1)} ${H - P} L ${x(0)} ${H - P} Z`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 200, display: "block", background: "#fafbfc", borderRadius: 3 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="ld-trend" role="img" aria-label="Sample traffic chart for the last hour: API calls, successes, errors and p95 latency">
       <defs>
-        {series.map((s, i) => (
+        {SERIES.map((s, i) => (
           <linearGradient key={i} id={`igrad${i}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={s.c} stopOpacity="0.18" />
             <stop offset="100%" stopColor={s.c} stopOpacity="0" />
@@ -353,14 +380,14 @@ function IntegrationMetricsChart() {
       </defs>
       {[0.25, 0.5, 0.75, 1].map((g, i) => (
         <g key={i}>
-          <line x1={P} x2={W - P} y1={P + g * (H - 2 * P)} y2={P + g * (H - 2 * P)} stroke="#e5e8eb" strokeDasharray="2 4" />
-          <text x={P - 6} y={P + g * (H - 2 * P) + 4} fontSize="9" fill="#94a3b8" textAnchor="end">{Math.round((1 - g) * max)}</text>
+          <line x1={P} x2={W - P} y1={P + g * (H - 2 * P)} y2={P + g * (H - 2 * P)} className="ld-gridline" />
+          <text x={P - 6} y={P + g * (H - 2 * P) + 4} textAnchor="end" className="ld-axis">{Math.round((1 - g) * max)}</text>
         </g>
       ))}
       {data.map((arr, i) => <path key={`a${i}`} d={area(arr)} fill={`url(#igrad${i})`} />)}
-      {data.map((arr, i) => <path key={`l${i}`} d={path(arr)} fill="none" stroke={series[i].c} strokeWidth="1.6" />)}
+      {data.map((arr, i) => <path key={`l${i}`} d={path(arr)} fill="none" stroke={SERIES[i].c} strokeWidth="1.6" />)}
       {[0, 15, 30, 45, 59].map(i => (
-        <text key={i} x={x(i)} y={H - P + 14} fontSize="9.5" fill="#94a3b8" textAnchor="middle" fontFamily="var(--font-mono)">{i === 59 ? "now" : `-${60 - i}m`}</text>
+        <text key={i} x={x(i)} y={H - P + 14} textAnchor="middle" className="ld-axis">{i === 59 ? "now" : `-${60 - i}m`}</text>
       ))}
     </svg>
   );

@@ -1,84 +1,137 @@
-// People & Roles in ServiceNow form-style
-// Ported from screens/users.jsx.
-import React from "react";
+// People & Roles — LinkedEye layout: people summary cards, the user inventory
+// table and a role-distribution rail. Users come from the local seed
+// (data/core); there is no directory endpoint yet.
+import "@/styles/admin.css";
+import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { USERS } from "@/data/core";
-import { Kpi, FormSection, Field, Avatar } from "@/components/primitives";
+import { colorFor } from "@/components/Shell";
+import { Empty, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+
+const ROLE_TONE: Record<string, Tone> = {
+  Admin: "crit",
+  "Incident Commander": "purple",
+  Manager: "warn",
+  Responder: "info",
+  Viewer: "muted",
+};
+const STATUS_TONE: Record<string, Tone> = { online: "ok", away: "warn" };
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join("");
+
+const onCall = (role: string) => role === "Incident Commander" || role === "Responder";
 
 export default function UsersScreen() {
+  const { setRoute } = useNav();
   const tenant = useUiStore((s) => s.tenant);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+
+  const roles = countBy(USERS, (u) => u.role);
+  const teams = new Set(USERS.map((u) => u.team)).size;
+  const online = USERS.filter((u) => u.status === "online").length;
+  const admins = USERS.filter((u) => u.role === "Admin").length;
+  const rotating = USERS.filter((u) => onCall(u.role)).length;
+  const roleMax = roles[0]?.[1] || 1;
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">{tenant.name}</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>{tenant.name}</span>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>People &amp; Roles</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">USERS</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {USERS.length * 52} users</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-user-gear" /> 8 roles</span>
+      </nav>
+
+      <div className="ld-head">
+        <div>
+          <h1>People &amp; Roles</h1>
+          <p>Who can sign in to {tenant.name}, what role they hold and whether they are in an on-call rotation</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>People &amp; Roles</h1>
-            <div className="sn-form-sub">{tenant.name} · {USERS.length * 52} users · 8 roles · provisioned via SCIM</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-user-gear" /> Role Matrix</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-user-plus" /> Invite People</button>
-          </div>
+        <div className="ld-head-actions">
+          <button type="button" className="ld-btn"><i className="fa-solid fa-user-gear" aria-hidden="true" /> Role Matrix</button>
+          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-user-plus" aria-hidden="true" /> Invite People</button>
         </div>
       </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Total users" v={USERS.length * 52} s="+12 this month" tone="ok" />
-        <Kpi l="On-call" v="14" s="3 teams rotating" tone="neutral" />
-        <Kpi l="Admins" v="8" s="audit via SSO" tone="neutral" />
-        <Kpi l="Pending invites" v="3" s="expires in 7d" tone="warn" />
-        <Kpi l="Roles" v="8" s="defined" tone="neutral" />
-        <Kpi l="Last sync" v="2m" s="SCIM ago" tone="ok" />
+
+      <div className="ld-grid ld-grid-5">
+        <StatCard icon="fa-users" tone="info" label="Total users" value={fmt(USERS.length)} note={`${teams} teams`} />
+        <StatCard icon="fa-circle-check" tone="ok" label="Online" value={fmt(online)} note={`${USERS.length - online} away or offline`} />
+        <StatCard icon="fa-user-shield" tone="crit" label="Admins" value={fmt(admins)} note="full workspace access" />
+        <StatCard icon="fa-bell" tone="purple" label="On-call" value={fmt(rotating)} note="commanders and responders" />
+        <StatCard icon="fa-user-gear" tone="muted" label="Roles" value={fmt(roles.length)} note="in use" />
       </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="users" title="User Inventory" badge={`${USERS.length} shown`} collapsed={collapsed.users} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>User</th><th style={{width:160}}>Role</th><th style={{width:140}}>Team</th><th style={{width:110}}>On-call</th><th style={{width:90}}>Auth</th><th style={{width:110}}>Last active</th><th style={{width:100}}>State</th></tr></thead>
-              <tbody>
-                {USERS.map(u => (
-                  <tr key={u.id}>
-                    <td>
-                      <div className="row row-8">
-                        <Avatar name={u.name} color={u.color} />
-                        <div><a className="sn-link"><b>{u.name}</b></a><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>{u.email}</div></div>
-                      </div>
-                    </td>
-                    <td><span className={`sn-state-pill ${u.role === "Admin" ? "state-investigating" : u.role === "Incident Commander" ? "state-active" : u.role === "Manager" ? "state-mitigating" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {u.role}</span></td>
-                    <td>{u.team}</td>
-                    <td>{(u.role === "Incident Commander" || u.role === "Responder") ? <span className="sn-state-pill state-investigating"><i className="fa-solid fa-circle" /> Rotating</span> : <span className="text-mute mono">—</span>}</td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-key" /> SSO</span></td>
-                    <td className="text-mute mono" style={{ fontSize: 11 }}>{u.last}</td>
-                    <td><span className={`sn-state-pill ${u.status === "online" ? "svc-healthy" : u.status === "away" ? "state-mitigating" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {u.status}</span></td>
+
+      <div className="ld-split">
+        <section className="ld-card ld-panel" aria-labelledby="users-h">
+          <div className="ld-panel-head">
+            <h2 id="users-h">User Inventory</h2>
+            <span className="ld-muted ld-small">{fmt(USERS.length)} users</span>
+          </div>
+          {USERS.length ? (
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr>
+                    <th scope="col">User</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Team</th>
+                    <th scope="col">On-call</th>
+                    <th scope="col">Auth</th>
+                    <th scope="col">Last active</th>
+                    <th scope="col">State</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Role Distribution</div>
-            <div className="sn-side-body">
-              {["Admin","Incident Commander","Manager","Responder","Viewer"].map(r => {
-                const count = USERS.filter(u => u.role === r).length;
-                return <Field key={r} label={r} value={<span className="mono"><b>{count * 8}</b> users</span>} />;
-              })}
+                </thead>
+                <tbody>
+                  {USERS.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="ld-admin-who">
+                          <span className="ld-admin-avatar" style={{ background: colorFor(u.color) }} aria-hidden="true">{initials(u.name)}</span>
+                          <span className="ld-admin-who-body">
+                            <span className="ld-strong">{u.name}</span>
+                            <span className="ld-sub ld-mono">{u.email}</span>
+                          </span>
+                        </div>
+                      </td>
+                      <td><Pill tone={ROLE_TONE[u.role] ?? "muted"}>{u.role}</Pill></td>
+                      <td>{u.team}</td>
+                      <td>{onCall(u.role) ? <Pill tone="info"><span className="ld-pill-dot" />Rotating</Pill> : <span className="ld-muted">—</span>}</td>
+                      <td><Pill tone="muted"><i className="fa-solid fa-key" aria-hidden="true" /> SSO</Pill></td>
+                      <td className="ld-muted">{u.last}</td>
+                      <td><Pill tone={STATUS_TONE[u.status] ?? "muted"}><span className="ld-pill-dot" />{u.status}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </aside>
+          ) : (
+            <Empty>No users in this workspace yet.</Empty>
+          )}
+        </section>
+
+        <div className="ld-rail">
+          <Panel title="Role Distribution">
+            <ul className="ld-bars">
+              {roles.map(([role, n]) => (
+                <li key={role}>
+                  <span className="ld-bar-label">{role}</span>
+                  <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${(n / roleMax) * 100}%`, background: "var(--accent)" }} /></span>
+                  <span className="ld-bar-value">{n}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </div>
       </div>
+
+      <p className="ld-muted ld-small">Sample user directory — identity provisioning is not connected to the backend yet.</p>
     </div>
   );
 }

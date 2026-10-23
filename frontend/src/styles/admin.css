@@ -1,0 +1,111 @@
+/* ── LinkedEye admin / build screens (Users, Clients, Settings, Usage, Billing,
+   Flow, Integrations, Reports, Runbooks, CMDB). Theme tokens only, so dark
+   mode follows styles.css. ── */
+
+/* Person / client identity cell */
+.ld-admin-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ld-admin-who-body { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
+.ld-admin-avatar { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--fg-subtle); }
+.ld-admin-code { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--fg-subtle); }
+
+/* Panel head with a trailing tag (e.g. "Sample data") */
+.ld-admin-head-tags { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* Two-column form grid that collapses on narrow screens */
+.ld-admin-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; }
+.ld-admin-form-grid .ld-form-field > label { font-weight: 600; }
+.ld-admin-span { grid-column: 1 / -1; }
+.ld-admin-hint { font-size: 12px; color: var(--fg-subtle); }
+.ld-admin-input-row { display: flex; gap: 6px; align-items: center; }
+.ld-admin-input-row .ld-input { flex: 1 1 auto; min-width: 0; }
+.ld-admin-input-sm { width: 96px; flex: none; }
+.ld-input.ld-mono, .ld-admin-mono { font-family: var(--font-mono); font-size: 12.5px; }
+.ld-input:disabled, .ld-input[readonly] { background: var(--bg-muted); color: var(--fg-muted); }
+.ld-admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ld-admin-actions .ld-admin-status { margin-right: auto; }
+.ld-admin-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-muted); }
+
+/* Toggle switch: <button role="switch" aria-checked> */
+.ld-admin-switch-row { display: flex; align-items: center; gap: 10px; min-height: 38px; font-size: 13px; color: var(--fg); }
+.ld-admin-switch { position: relative; flex: none; width: 40px; height: 22px; padding: 0; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--bg-muted); cursor: pointer; }
+.ld-admin-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-raised); box-shadow: var(--shadow-sm); transition: transform 0.15s; }
+.ld-admin-switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.ld-admin-switch[aria-checked="true"]::after { transform: translateX(18px); background: #fff; }
+.ld-admin-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ld-admin-check { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; font-size: 13px; color: var(--fg); cursor: pointer; }
+.ld-admin-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* In-page section nav (Settings) */
+.ld-admin-nav { list-style: none; display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; }
+.ld-admin-nav a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: var(--radius); font-size: 13px; color: var(--fg); text-decoration: none; }
+.ld-admin-nav a:hover { background: var(--bg-hover); }
+.ld-admin-nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ld-admin-nav i { font-size: 10px; color: var(--fg-subtle); }
+
+/* Colour swatch input row */
+.ld-admin-color { display: flex; align-items: center; gap: 8px; }
+.ld-admin-color input[type="color"] { width: 38px; height: 38px; padding: 2px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg-raised); cursor: pointer; }
+.ld-admin-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.ld-admin-swatch { width: 26px; height: 26px; padding: 0; border-radius: 6px; border: 2px solid transparent; cursor: pointer; }
+.ld-admin-swatch[aria-pressed="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px var(--bg-raised) inset; }
+.ld-admin-swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Compact quota meter inside table cells */
+.ld-admin-meter { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+.ld-admin-meter .ld-bar-track { flex: 1 1 60px; height: 8px; }
+.ld-admin-meter .ld-bar-fill { height: 8px; }
+.ld-admin-meter span:last-child { font-family: var(--font-mono); font-size: 12px; color: var(--fg); white-space: nowrap; }
+
+/* Flow designer: vertical step list with a branch row */
+.ld-admin-flow { list-style: none; display: flex; flex-direction: column; align-items: center; gap: 0; margin: 0; padding: 8px 0; }
+.ld-admin-flow > li { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.ld-admin-flow > li + li::before { content: ""; display: block; width: 2px; height: 22px; background: var(--border-strong); }
+.ld-admin-branch { list-style: none; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; width: 100%; padding-top: 12px; border-top: 2px solid var(--border-strong); }
+.ld-admin-node { display: flex; align-items: flex-start; gap: 10px; width: min(100%, 260px); padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--node, var(--accent)); border-radius: var(--radius); background: var(--bg-raised); box-shadow: var(--shadow-sm); }
+.ld-admin-branch .ld-admin-node { width: 100%; }
+.ld-admin-node-title { font-size: 13px; font-weight: 600; color: var(--fg); }
+.ld-admin-node-sub { display: block; font-size: 12px; color: var(--fg-muted); }
+
+/* Terminal / code output colouring inside .ld-code */
+.ld-admin-term { white-space: pre-wrap; }
+.ld-admin-term .c { color: #94a3b8; }
+.ld-admin-term .p { color: #38bdf8; }
+.ld-admin-term .ok { color: #4ade80; }
+.ld-admin-term .run { color: #fbbf24; }
+.ld-admin-term .k { color: #a78bfa; }
+.ld-admin-term .s { color: #4ade80; }
+.ld-admin-term .y { color: #fbbf24; }
+.ld-admin-term-scroll { max-height: 340px; overflow-y: auto; }
+
+/* Progress bar (runbook execution) */
+.ld-admin-progress { height: 4px; background: var(--bg-muted); }
+.ld-admin-progress span { display: block; height: 100%; background: var(--accent); transition: width 0.4s; }
+.ld-admin-progress.done span { background: #16a34a; }
+
+/* Modal sizing on top of the existing le-modal shell */
+.ld-admin-modal { width: 720px; }
+.ld-admin-modal .le-modal-body { display: flex; flex-direction: column; gap: 12px; }
+.ld-admin-modal-top { align-items: flex-start; padding-top: 6vh; }
+
+/* Payment summary (Billing) */
+.ld-admin-amount { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ld-admin-amount b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--fg); }
+.ld-admin-methods { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Selected CI / record row */
+.ld-admin-row-btn { text-align: left; }
+.ld-admin-chip-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+@media (max-width: 640px) {
+  .ld-admin-modal-top { padding-top: 16px; }
+  .ld-admin-input-row { flex-wrap: wrap; }
+}
+
+/* Two-up quick action buttons (Runbooks) */
+.ld-admin-quick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ld-admin-quick .ld-btn { justify-content: flex-start; }
+
+/* Attribute tags left-aligned inside a dl, and a borderless fieldset */
+.ld-dl .ld-tags { justify-content: flex-start; }
+.ld-admin-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.ld-admin-fieldset legend { margin-bottom: 4px; font-weight: 600; }
