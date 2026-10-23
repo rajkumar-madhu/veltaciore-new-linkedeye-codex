@@ -7,6 +7,7 @@ import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { useCrossClientSummary, useTenants, type ClientSummary } from "@/api/hooks";
+import type { Tenant } from "@/lib/types";
 import { ApiError } from "@/api/client";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
@@ -26,8 +27,11 @@ export default function CrossTenantScreen() {
   const [search, setSearch] = React.useState("");
 
   const open = (c: ClientSummary) => {
-    const t = tenants.find((x) => x.id === c.id);
-    if (!t) return;
+    const t: Tenant = tenants.find((x) => x.id === c.id) ?? {
+      id: c.id, name: c.name, parent: "", code: c.code, color: c.color,
+      users: 0, incidents: c.incidents_active, sev1: c.sev1, health: c.devices_online_pct ?? 0,
+      mttr: 0, spend: 0, plan: c.plan,
+    };
     setTenant(t);
     setRoute("dashboard");
   };

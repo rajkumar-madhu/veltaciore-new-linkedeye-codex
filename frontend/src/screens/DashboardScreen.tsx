@@ -113,7 +113,9 @@ export default function DashboardScreen() {
   // ending at the newest ticket; a period longer than 90 days shows its last 90).
   const days = React.useMemo(() => {
     if (!window_) return dailyTrend(tickets, RESOLVED_STATES);
-    const n = Math.min(90, Math.max(1, Math.ceil((window_.to - window_.from) / DAY)));
+    const startDay = new Date(window_.from); startDay.setHours(0, 0, 0, 0);
+    const endDay = new Date(window_.to); endDay.setHours(0, 0, 0, 0);
+    const n = Math.min(90, Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / DAY) + 1));
     return dailyTrend(tickets, RESOLVED_STATES, n, window_.to);
   }, [tickets, window_]);
   const periodLabel = period === "custom" ? (window_ ? `${fromDay} – ${toDay}` : "Custom range") : PERIODS.find((p) => p.id === period)!.label;

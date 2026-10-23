@@ -60,7 +60,7 @@ class CrossTenantSummaryView(APIView):
         )
         devices = by_tenant(
             InfraDevice.objects.exclude(lifecycle_state="decommissioned"),
-            total=Count("id"), down=Count("id", filter=Q(status__in=["down", "critical"])),
+            total=Count("id"), down=Count("id", filter=Q(status__in=["down", "critical", "offline"])),
             warn=Count("id", filter=Q(status="warn")),
         )
         alerts = by_tenant(
