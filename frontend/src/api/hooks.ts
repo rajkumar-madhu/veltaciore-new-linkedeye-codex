@@ -59,7 +59,7 @@ export function useDevices(siteId?: string, search?: string) {
     ...quiet,
     queryKey: ["devices", tenant, siteId, search],
     queryFn: () =>
-      apiGet<Paginated<Device> | Device[]>("/infra/devices/", { site: siteId, search }).then(unwrap),
+      apiGetAllPages<Device>("/infra/devices/", { site: siteId, search }),
     refetchInterval: 30_000,
   });
 }
