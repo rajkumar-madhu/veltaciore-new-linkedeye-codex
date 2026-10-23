@@ -1,8 +1,13 @@
 // Host Map — at-a-glance fleet health as a hexagon grid (the Datadog
 // infrastructure hostmap). Each hex is a host, filled by a chosen metric and
-// grouped by datacenter/role. Hover shows the host + value. Light-theme.
+// grouped by datacenter/role. Hover or focus a hex for the host and its values.
+//
+// The fleet below is generated sample data (no host-metrics API feeds this
+// screen yet), so the page is labelled "Sample data" throughout.
 import React from "react";
-import { Kpi } from "@/components/primitives";
+import "@/styles/infra.css";
+import { useNav } from "@/hooks/useNav";
+import { Panel, Pill, StatCard } from "@/components/ld";
 
 interface Host {
   name: string;
@@ -38,21 +43,25 @@ const HOSTS = mkHosts();
 
 type Metric = "cpu" | "mem" | "load";
 const METRIC_MAX: Record<Metric, number> = { cpu: 100, mem: 100, load: 6 };
+const METRIC_LABEL: Record<Metric, string> = { cpu: "CPU", mem: "Memory", load: "Load 1m" };
 
 // Green→amber→red fill by metric intensity.
+const SCALE = ["#10b981", "#84cc16", "#f59e0b", "#f97316", "#dc2626"];
 function fill(v: number, max: number): string {
   const t = Math.min(1, v / max);
-  if (t < 0.5) return "#10b981";
-  if (t < 0.7) return "#84cc16";
-  if (t < 0.82) return "#f59e0b";
-  if (t < 0.92) return "#f97316";
-  return "#dc2626";
+  if (t < 0.5) return SCALE[0];
+  if (t < 0.7) return SCALE[1];
+  if (t < 0.82) return SCALE[2];
+  if (t < 0.92) return SCALE[3];
+  return SCALE[4];
 }
 
 // Pointy-top hexagon path in a 100×100 viewBox cell.
 const HEX = "50,3 93,26 93,74 50,97 7,74 7,26";
+const STATUS = { ok: { label: "OK", tone: "ok" }, warn: { label: "Warning", tone: "warn" }, crit: { label: "Critical", tone: "crit" } } as const;
 
 export default function HostMapScreen() {
+  const { setRoute } = useNav();
   const [metric, setMetric] = React.useState<Metric>("cpu");
   const [groupBy, setGroupBy] = React.useState<"dc" | "role">("dc");
   const [hover, setHover] = React.useState<Host | null>(null);
@@ -65,103 +74,105 @@ export default function HostMapScreen() {
   const avg = Math.round(HOSTS.reduce((s, h) => s + val(h), 0) / HOSTS.length * 10) / 10;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Infrastructure</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Host Map</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">HOST MAP</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-server" /> {HOSTS.length} hosts</span>
-          {crit > 0 && <span className="sn-pill prio-1"><i className="fa-solid fa-fire" /> {crit} critical</span>}
-          <span className="sn-pill state-progress"><i className="fa-solid fa-triangle-exclamation" /> {warn} warning</span>
+      <div className="ld-head">
+        <div>
+          <h1>Host Map · {METRIC_LABEL[metric]}</h1>
+          <p>Fleet health across {DCS.length} datacenters, filled by {METRIC_LABEL[metric].toLowerCase()} and grouped by {groupBy === "dc" ? "datacenter" : "role"}</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Host Map · {metric.toUpperCase()}</h1>
-            <div className="sn-form-sub">Live fleet health across {DCS.length} datacenters · fill by {metric} · grouped by {groupBy}</div>
+        <div className="ld-head-actions">
+          <div className="ld-infra-seg" role="group" aria-label="Fill by metric">
+            {(["cpu", "mem", "load"] as Metric[]).map((m) => (
+              <button key={m} type="button" aria-pressed={metric === m} onClick={() => setMetric(m)}>{METRIC_LABEL[m]}</button>
+            ))}
           </div>
-          <div className="sn-form-actions">
-            <div className="mx-seg">
-              {(["cpu", "mem", "load"] as Metric[]).map((m) => <button key={m} className={metric === m ? "on" : ""} onClick={() => setMetric(m)}>{m}</button>)}
-            </div>
-            <div className="mx-seg">
-              {(["dc", "role"] as const).map((g) => <button key={g} className={groupBy === g ? "on" : ""} onClick={() => setGroupBy(g)}>{g}</button>)}
-            </div>
+          <div className="ld-infra-seg" role="group" aria-label="Group by">
+            {(["dc", "role"] as const).map((g) => (
+              <button key={g} type="button" aria-pressed={groupBy === g} onClick={() => setGroupBy(g)}>{g === "dc" ? "Datacenter" : "Role"}</button>
+            ))}
           </div>
         </div>
       </div>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Hosts" v={HOSTS.length} s={`${DCS.length} datacenters`} tone="neutral" />
-          <Kpi l={`Avg ${metric}`} v={<>{avg}<span style={{ fontSize: 13, color: "#8a94a3" }}>{unit}</span></>} s="across fleet" tone={avg > 75 ? "warn" : "ok"} />
-          <Kpi l="Critical" v={crit} s="needs attention" tone="crit" />
-          <Kpi l="Warning" v={warn} s="elevated" tone="warn" />
+      <div className="ld-card ld-infra-sample" role="note">
+        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <div>
+          <b>Sample data</b>
+          <p className="ld-muted ld-small">This map shows a generated fleet to demonstrate the layout. It is not connected to live host metrics yet.</p>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 16, padding: "16px 24px 24px" }}>
-        <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 18 }}>
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-server" tone="info" label="Hosts (sample)" value={HOSTS.length} note={`${DCS.length} datacenters`} />
+        <StatCard icon="fa-gauge-high" tone={avg > 75 ? "warn" : "ok"} label={`Avg ${METRIC_LABEL[metric].toLowerCase()} (sample)`} value={`${avg}${unit}`} note="across fleet" />
+        <StatCard icon="fa-fire" tone="crit" label="Critical (sample)" value={crit} note="needs attention" />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning (sample)" value={warn} note="elevated" />
+      </div>
+
+      <div className="ld-split">
+        <section className="ld-card ld-panel" aria-labelledby="hexmap-h">
+          <div className="ld-panel-head">
+            <h2 id="hexmap-h">Hosts by {groupBy === "dc" ? "datacenter" : "role"}</h2>
+            <Pill tone="muted">Sample data</Pill>
+          </div>
           {groups.map((g) => {
             const members = HOSTS.filter((h) => (groupBy === "dc" ? h.dc : h.role) === g);
             return (
-              <div key={g} style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#475467", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <i className={`fa-solid ${groupBy === "dc" ? "fa-warehouse" : "fa-layer-group"}`} style={{ color: "var(--accent)" }} /> {g}
-                  <span style={{ fontWeight: 400, color: "#8a94a3" }}>· {members.length} hosts</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, 52px)", gap: 4 }}>
+              <div key={g} className="ld-infra-hexgroup">
+                <h3><i className={`fa-solid ${groupBy === "dc" ? "fa-warehouse" : "fa-layer-group"}`} aria-hidden="true" /> {g} <span className="ld-muted ld-small">· {members.length} hosts</span></h3>
+                <div className="ld-infra-hexes">
                   {members.map((h) => (
-                    <svg key={h.name} viewBox="0 0 100 100" width={52} height={52} style={{ cursor: "pointer", display: "block" }}
-                      onMouseEnter={() => setHover(h)} onMouseLeave={() => setHover(null)}>
-                      <polygon points={HEX} fill={fill(val(h), METRIC_MAX[metric])} stroke={hover?.name === h.name ? "#0f1c3f" : "white"} strokeWidth={hover?.name === h.name ? 4 : 2} />
-                      <text x="50" y="56" textAnchor="middle" fontSize="20" fontWeight="700" fill="white">{Math.round(val(h))}</text>
-                    </svg>
+                    <button key={h.name} type="button" className="ld-infra-hex" aria-pressed={hover?.name === h.name}
+                      aria-label={`${h.name}: ${METRIC_LABEL[metric]} ${val(h)}${unit}, ${STATUS[h.status].label}`}
+                      onMouseEnter={() => setHover(h)} onMouseLeave={() => setHover(null)}
+                      onFocus={() => setHover(h)} onBlur={() => setHover(null)}>
+                      <svg viewBox="0 0 100 100" aria-hidden="true">
+                        <polygon points={HEX} fill={fill(val(h), METRIC_MAX[metric])} />
+                        <text x="50" y="58" textAnchor="middle">{Math.round(val(h))}</text>
+                      </svg>
+                    </button>
                   ))}
                 </div>
               </div>
             );
           })}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, fontSize: 11, color: "#8a94a3" }}>
+          <div className="ld-infra-scale" aria-hidden="true">
             <span>low</span>
-            {["#10b981", "#84cc16", "#f59e0b", "#f97316", "#dc2626"].map((c) => <span key={c} style={{ width: 26, height: 10, background: c, borderRadius: 2 }} />)}
-            <span>high {metric}{unit}</span>
+            {SCALE.map((c) => <span key={c} className="sw" style={{ background: c }} />)}
+            <span>high {METRIC_LABEL[metric].toLowerCase()}{unit}</span>
           </div>
-        </div>
+        </section>
 
-        {/* Hover detail rail */}
-        <aside>
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16, position: "sticky", top: 16 }}>
+        <div className="ld-rail ld-infra-sticky">
+          <Panel title={hover ? hover.name : "Host details"}>
             {hover ? (
-              <>
-                <div className="mono" style={{ fontWeight: 700, fontSize: 13, color: "#0f1c3f" }}>{hover.name}</div>
-                <div style={{ fontSize: 11, color: "#8a94a3", marginBottom: 12 }}>{hover.dc} · {hover.role}</div>
-                {([["CPU", hover.cpu, "%"], ["Memory", hover.mem, "%"], ["Load 1m", hover.load, ""]] as const).map(([l, v, u]) => (
-                  <div key={l} style={{ marginBottom: 10 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 3 }}>
-                      <span style={{ color: "#475467" }}>{l}</span><span className="mono" style={{ fontWeight: 700 }}>{v}{u}</span>
-                    </div>
-                    <div style={{ height: 7, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                      <div style={{ width: `${Math.min(100, (v / (l === "Load 1m" ? 6 : 100)) * 100)}%`, height: "100%", background: fill(v, l === "Load 1m" ? 6 : 100), borderRadius: 4 }} />
-                    </div>
+              <div aria-live="polite">
+                <p className="ld-muted ld-small">{hover.dc} · {hover.role}</p>
+                {([["CPU", hover.cpu, "%", 100], ["Memory", hover.mem, "%", 100], ["Load 1m", hover.load, "", 6]] as const).map(([l, v, u, max]) => (
+                  <div key={l} className="ld-infra-meter">
+                    <div><span>{l}</span><b>{v}{u}</b></div>
+                    <span className="ld-bar-track">
+                      <span className="ld-bar-fill" style={{ width: `${Math.min(100, (v / max) * 100)}%`, background: fill(v, max) }} />
+                    </span>
                   </div>
                 ))}
-                <div style={{ marginTop: 8, paddingTop: 10, borderTop: "1px solid #eef1f4", fontSize: 12 }}>
-                  Status: <b style={{ color: hover.status === "crit" ? "#dc2626" : hover.status === "warn" ? "#b45309" : "#059669" }}>{hover.status.toUpperCase()}</b>
-                </div>
-              </>
+                <p className="ld-small ld-infra-meter-foot">Status: <Pill tone={STATUS[hover.status].tone}>{STATUS[hover.status].label}</Pill></p>
+              </div>
             ) : (
-              <div style={{ textAlign: "center", color: "#8a94a3", fontSize: 12, padding: "24px 8px" }}>
-                <i className="fa-solid fa-hexagon-nodes" style={{ fontSize: 28, opacity: 0.4, display: "block", marginBottom: 10 }} />
-                Hover a hex to inspect a host.
+              <div className="ld-empty">
+                <i className="fa-solid fa-hexagon-nodes" aria-hidden="true" /> Hover or focus a hex to inspect a host.
               </div>
             )}
-          </div>
-        </aside>
+          </Panel>
+        </div>
       </div>
     </div>
   );

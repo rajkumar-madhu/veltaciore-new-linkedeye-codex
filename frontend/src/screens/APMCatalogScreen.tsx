@@ -1,10 +1,13 @@
 // Application Catalog (Argus/Argus-LinkedEye native — no third-party branding)
-// Ported from screens/apm-catalog.jsx.
-// Single-pane inventory across Services · APM/OTel, Browser, Mobile, backed by /api/catalog/applications/
+// Single-pane inventory across Services · APM/OTel, Browser, Mobile, to be
+// backed by /api/catalog/applications/. Until that API exists the catalog is
+// the labelled sample below (also read by AppDetailScreen).
 import React from "react";
+import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
-import { Kpi, Field } from "@/components/primitives";
-import { statusBadgeStyle, getStatusLabel, getMetricColor, getCpuColor, getMemColor } from "@/lib/statusColors";
+import { getStatusLabel } from "@/lib/statusColors";
+import { Empty, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 
 export interface CatalogEntity {
   id: string;
@@ -56,8 +59,16 @@ const COLUMN_LABELS: Record<string, string> = { type:"Entity Type", env:"Environ
 const DEFAULT_COLS: string[] = ["type","env","lang","team","health","score","infra","alerts","lastDeploy","repos","ai","rt","err"];
 const GROUP_OPTIONS = ["None", "Entity type", "Environment", "Team", "Client", "Language", "AI asset"];
 
+export const healthTone = (h: string): Tone => (h === "crit" ? "crit" : h === "warn" ? "warn" : h === "ok" ? "ok" : "muted");
+export const errTone = (v: number): Tone => (v > 2 ? "crit" : v > 0.5 ? "warn" : "ok");
+export const loadTone = (v: number): Tone => (v >= 85 ? "crit" : v >= 70 ? "warn" : "ok");
+export const outcomeTone = (o: string): Tone => (o === "regression" ? "crit" : o === "improved" ? "ok" : "muted");
+export const fmtRt = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
+const scoreColor = (s: number) => (s >= 90 ? "#16a34a" : s >= 75 ? "#f5a524" : "#e5383b");
+
 export default function APMCatalogScreen() {
   const { setRoute } = useNav();
+  const idp = React.useId();
   const [query, setQuery] = React.useState("");
   const [envFilter, setEnvFilter] = React.useState("all");
   const [teamFilter, setTeamFilter] = React.useState("all");
@@ -72,11 +83,8 @@ export default function APMCatalogScreen() {
   const [sortDir, setSortDir] = React.useState(1);
   const [page, setPage] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(10);
-  const [pop, setPop] = React.useState<{ x: number; y: number; title: string; body: string } | null>(null);     // {x,y,title,body}
   const [drawer, setDrawer] = React.useState<string | null>(null); // entity id
-
-  const langClass = (l: string) => ({ Node: "lang-node", Go: "lang-go", Java: "lang-java", Rust: "lang-rust", Ruby: "lang-ruby", Python: "lang-python", TS: "lang-node", Swift: "lang-java", Kotlin: "lang-go" } as Record<string, string>)[l] || "lang-node";
-  const errClass = (v: number) => v > 2 ? "critical" : v > 0.5 ? "warn" : "ok";
+  const closeRef = React.useRef<HTMLButtonElement>(null);
 
   const uniq = (k: "env" | "team" | "lang" | "client" | "cluster") => ["all", ...new Set(CATALOG_ENTITIES.map(e => e[k]))];
   const envs = uniq("env"), teams = uniq("team"), langs = uniq("lang"), clients = uniq("client"), clusters = uniq("cluster");
@@ -96,11 +104,9 @@ export default function APMCatalogScreen() {
   const groups: [string, CatalogEntity[]][] = groupKeyFn ? Object.entries(rows.reduce<Record<string, CatalogEntity[]>>((acc, e) => { const k = groupKeyFn(e); (acc[k] = acc[k] || []).push(e); return acc; }, {})) : [["", pageRows]];
 
   const toggleSort = (k: keyof CatalogEntity) => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(1); } setPage(1); };
-  const SortIcon = ({ k }: { k: keyof CatalogEntity }) => sortKey === k ? <i className={`fa-solid fa-arrow-${sortDir === 1 ? "up" : "down"}`} style={{ fontSize: 9, marginLeft: 4 }} /> : null;
+  const ariaSort = (k: keyof CatalogEntity) => (sortKey === k ? (sortDir === 1 ? "ascending" : "descending") : undefined);
+  const SortIcon = ({ k }: { k: keyof CatalogEntity }) => sortKey === k ? <i className={`fa-solid fa-arrow-${sortDir === 1 ? "up" : "down"}`} aria-hidden="true" /> : null;
   const openEntity = (id: string) => { setRoute("app-detail", { appName: id }); };
-
-  const showPop = (e: React.MouseEvent, title: string, body: string) => { const r = e.currentTarget.getBoundingClientRect(); setPop({ x: r.left, y: r.bottom + 4, title, body }); };
-  const hidePop = () => setPop(null);
 
   const exportCSV = () => {
     const cols: (keyof CatalogEntity)[] = ["id", ...CATALOG_COLUMNS];
@@ -112,207 +118,242 @@ export default function APMCatalogScreen() {
 
   React.useEffect(() => { setPage(1); }, [query, envFilter, teamFilter, statusFilter, langFilter, clientFilter, clusterFilter, pageSize]);
 
+  // Quick-view drawer: focus the close button, close on Escape.
+  React.useEffect(() => {
+    if (!drawer) return;
+    closeRef.current?.focus();
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape") setDrawer(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawer]);
+
+  const shownCols = CATALOG_COLUMNS.filter(c => visCols[c]);
+
   const Row = ({ e }: { e: CatalogEntity }) => (
-    <tr key={e.id} className="apm-table" style={{ background: e.health === "crit" ? "rgba(239,68,68,.04)" : undefined }}>
+    <tr className={e.health === "crit" ? "ld-obs-row-crit" : undefined}>
       <td>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className={`apm-lang-dot ${langClass(e.lang)}`}>{e.lang.slice(0, 2).toUpperCase()}</span>
-          <div>
-            <a className="sn-link mono" onClick={() => openEntity(e.id)}><b>{e.id}</b></a>
-            <div className="text-mute" style={{ fontSize: 10.5 }}>{e.bizSvc} · {e.client}</div>
-          </div>
-        </div>
+        <span className="ld-obs-name">
+          <span className="ld-obs-badge" aria-hidden="true">{e.lang.slice(0, 2).toUpperCase()}</span>
+          <span>
+            <button type="button" className="ld-link ld-mono" onClick={() => openEntity(e.id)}>{e.id}</button>
+            <span className="ld-sub">{e.bizSvc} · {e.client}</span>
+          </span>
+        </span>
       </td>
-      {visCols.type && <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {e.type}</span></td>}
-      {visCols.env && <td className="mono" style={{ fontSize: 11 }}>{e.env}</td>}
-      {visCols.lang && <td className="mono">{e.lang}</td>}
-      {visCols.team && <td><a className="sn-link" onMouseEnter={ev => showPop(ev, e.team, `On-call: Priya R. · 6 members · Slack #${e.team.toLowerCase()}`)} onMouseLeave={hidePop}>{e.team}</a></td>}
+      {visCols.type && <td><Pill tone="muted">{e.type}</Pill></td>}
+      {visCols.env && <td className="ld-mono">{e.env}</td>}
+      {visCols.lang && <td>{e.lang}</td>}
+      {visCols.team && <td>{e.team}</td>}
       {visCols.bizSvc && <td>{e.bizSvc}</td>}
-      {visCols.health && <td><span style={statusBadgeStyle(e.health)}><i className="fa-solid fa-circle" style={{ fontSize: 6 }} /> {getStatusLabel(e.health)}</span></td>}
+      {visCols.health && <td><Pill tone={healthTone(e.health)}><span className="ld-pill-dot" />{getStatusLabel(e.health)}</Pill></td>}
       {visCols.score && <td>
-        <div className="apdex" style={{ minWidth: 56 }} onMouseEnter={ev => showPop(ev, "Scorecard", `${e.score}% of rules met · security 92% · reliability ${e.score}% · docs 74%`)} onMouseLeave={hidePop}>
-          <span className="apdex-val" style={{ color: getMetricColor(100 - e.score, 15, 30).fg }}>{e.score}%</span>
-          <div className="apdex-bar"><div className="apdex-fill" style={{ width: e.score + "%", background: getMetricColor(100 - e.score, 15, 30).line }} /></div>
-        </div>
+        <span className="ld-obs-meter" title={`${e.score}% of scorecard rules met`}>
+          <span className="ld-strong">{e.score}%</span>
+          <span className="ld-bar-track" aria-hidden="true"><span className="ld-bar-fill" style={{ width: `${e.score}%`, background: scoreColor(e.score) }} /></span>
+        </span>
       </td>}
-      {visCols.infra && <td className="mono" onMouseEnter={ev => e.infra > 0 && showPop(ev, "Infrastructure", `${e.infra} resources · ${e.cluster !== "—" ? e.cluster : "no cluster"} · ${Math.ceil(e.infra/2)} pods · ${Math.floor(e.infra/4)} hosts`)} onMouseLeave={hidePop}>{e.infra > 0 ? e.infra : <span className="text-mute">—</span>}</td>}
-      {visCols.ns && <td className="mono" style={{ fontSize: 11 }}>{e.ns}</td>}
-      {visCols.cluster && <td className="mono" style={{ fontSize: 11 }}>{e.cluster}</td>}
-      {visCols.alerts && <td onMouseEnter={ev => e.alerts > 0 && showPop(ev, "Active alerts", `${e.alerts} alert${e.alerts>1?"s":""} · highest severity ${e.health === "crit" ? "critical" : "warning"}`)} onMouseLeave={hidePop}>{e.alerts > 0 ? <span className={`apm-err ${e.alerts > 2 ? "critical" : "warn"}`}><i className="fa-solid fa-bell" style={{ fontSize: 9 }} /> {e.alerts}</span> : <span className="text-mute mono">0</span>}</td>}
+      {visCols.infra && <td title={e.infra > 0 ? `${e.infra} resources · ${e.cluster !== "—" ? e.cluster : "no cluster"}` : undefined}>{e.infra > 0 ? e.infra : <span className="ld-muted">—</span>}</td>}
+      {visCols.ns && <td className="ld-mono">{e.ns}</td>}
+      {visCols.cluster && <td className="ld-mono">{e.cluster}</td>}
+      {visCols.alerts && <td>{e.alerts > 0 ? <Pill tone={e.alerts > 2 ? "crit" : "warn"}><i className="fa-solid fa-bell" aria-hidden="true" /> {e.alerts}</Pill> : <span className="ld-muted">0</span>}</td>}
       {visCols.lastDeploy && <td>
-        <div style={{ fontSize: 11.5 }}>{e.lastDeploy}</div>
-        <span className={`sn-state-pill ${e.deployOutcome === "regression" ? "state-active" : e.deployOutcome === "improved" ? "svc-healthy" : "state-neutral"}`} style={{ fontSize: 9.5, marginTop: 2 }}><i className="fa-solid fa-circle" /> {e.deployOutcome}</span>
+        {e.lastDeploy}
+        <span className="ld-sub"><Pill tone={outcomeTone(e.deployOutcome)}>{e.deployOutcome}</Pill></span>
       </td>}
-      {visCols.lastReport && <td className="mono" style={{ fontSize: 11 }}>{e.lastReport}</td>}
-      {visCols.repos && <td className="mono" onMouseEnter={ev => showPop(ev, "Repository", `${e.id}-service · git.internal/finspot/${e.id} · main branch`)} onMouseLeave={hidePop}>{e.repos}</td>}
-      {visCols.ai && <td>{e.ai ? <span className="sn-pill state-progress" style={{ fontSize: 10.5 }}><i className="fa-solid fa-wand-magic-sparkles" /> {e.ai}</span> : <span className="text-mute">—</span>}</td>}
-      {visCols.rt && <td className="mono" style={{ fontSize: 11 }}>{e.rt >= 1000 ? (e.rt/1000).toFixed(1)+"s" : e.rt+"ms"}</td>}
-      {visCols.tput && <td className="mono" style={{ fontSize: 11 }}>{(e.tput/1000).toFixed(1)}k rpm</td>}
-      {visCols.err && <td><span className={`apm-err ${errClass(e.err)}`}>{e.err.toFixed(2)}%</span></td>}
-      {visCols.cpu && <td>{e.cpu > 0 ? <span style={{ color: getCpuColor(e.cpu).fg, fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 11 }}>{e.cpu}%</span> : <span className="text-mute">—</span>}</td>}
-      {visCols.mem && <td>{e.mem > 0 ? <span style={{ color: getMemColor(e.mem).fg, fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 11 }}>{e.mem}%</span> : <span className="text-mute">—</span>}</td>}
-      {visCols.uptime && <td className="mono" style={{ fontSize: 11 }}>{e.uptime}</td>}
-      {visCols.sla && <td><span style={{ color: getMetricColor(100 - e.sla, 0.5, 1.5).fg, fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 11 }}>{e.sla}%</span></td>}
-      {visCols.runbook && <td><a className="sn-link mono" style={{ fontSize: 11 }}>{e.runbook}</a></td>}
+      {visCols.lastReport && <td className="ld-muted">{e.lastReport}</td>}
+      {visCols.repos && <td title={`git.internal/finspot/${e.id}`}>{e.repos}</td>}
+      {visCols.ai && <td>{e.ai ? <Pill tone="purple"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" /> {e.ai}</Pill> : <span className="ld-muted">—</span>}</td>}
+      {visCols.rt && <td>{fmtRt(e.rt)}</td>}
+      {visCols.tput && <td>{(e.tput/1000).toFixed(1)}k rpm</td>}
+      {visCols.err && <td><Pill tone={errTone(e.err)}>{e.err.toFixed(2)}%</Pill></td>}
+      {visCols.cpu && <td>{e.cpu > 0 ? <Pill tone={loadTone(e.cpu)}>{e.cpu}%</Pill> : <span className="ld-muted">—</span>}</td>}
+      {visCols.mem && <td>{e.mem > 0 ? <Pill tone={loadTone(e.mem)}>{e.mem}%</Pill> : <span className="ld-muted">—</span>}</td>}
+      {visCols.uptime && <td className="ld-mono">{e.uptime}</td>}
+      {visCols.sla && <td className={e.sla < 99.5 ? "ld-text-crit" : e.sla < 99.9 ? "ld-text-warn" : "ld-text-ok"}>{e.sla}%</td>}
+      {visCols.runbook && <td className="ld-mono">{e.runbook}</td>}
       <td>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button className="sn-btn" style={{ padding: "2px 7px", fontSize: 10.5 }} onClick={() => setDrawer(e.id)}><i className="fa-regular fa-eye" /></button>
-          <button className="sn-btn" style={{ padding: "2px 7px", fontSize: 10.5 }} onClick={() => openEntity(e.id)}><i className="fa-solid fa-arrow-up-right-from-square" /></button>
-        </div>
+        <span className="ld-obs-seg">
+          <button type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(e.id)} aria-label={`Quick view ${e.id}`} title="Quick view"><i className="fa-regular fa-eye" aria-hidden="true" /></button>
+          <button type="button" className="ld-btn ld-btn-sm" onClick={() => openEntity(e.id)} aria-label={`Open ${e.id}`} title="Open detail"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></button>
+        </span>
       </td>
     </tr>
   );
 
   const drawerEntity = drawer ? CATALOG_ENTITIES.find(e => e.id === drawer) : null;
+  const filters: [string, string, string, (v: string) => void, string[]][] = [
+    ["env", "Environment", envFilter, setEnvFilter, envs],
+    ["team", "Team", teamFilter, setTeamFilter, teams],
+    ["client", "Client", clientFilter, setClientFilter, clients],
+    ["lang", "Language", langFilter, setLangFilter, langs],
+    ["cluster", "Cluster", clusterFilter, setClusterFilter, clusters],
+  ];
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Catalogs</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Application Catalog</span>
+      </nav>
+
+      <div className="ld-head">
+        <div>
+          <h1>Application Catalog</h1>
+          <p>Every application, service, and mobile/browser entity — health, ownership, deployments, and golden metrics in one table</p>
+        </div>
+        <div className="ld-head-actions">
+          <button type="button" className="ld-btn" onClick={exportCSV}><i className="fa-solid fa-file-csv" aria-hidden="true" /> Export CSV</button>
+          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Add application</button>
+        </div>
       </div>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">CATALOG</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-cubes" /> {CATALOG_ENTITIES.length} applications</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> {CATALOG_ENTITIES.reduce((s, e) => s + e.alerts, 0)} active alerts</span>
+      <div className="ld-card ld-metrics-off" role="note">
+        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <div>
+          <b>Sample data</b>
+          <p className="ld-muted ld-small">The application catalog API is not connected yet. These {CATALOG_ENTITIES.length} entities and their metrics are illustrative.</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Application Catalog</h1>
-            <div className="sn-form-sub">Every application, service, and mobile/browser entity — health, ownership, deployments, and golden metrics in one table</div>
+      </div>
+
+      <div className="ld-grid ld-grid-stats ld-grid-6">
+        <StatCard icon="fa-cubes" tone="info" label="Applications" value={fmt(CATALOG_ENTITIES.length)} note="all types" onClick={() => setStatusFilter("all")} />
+        <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(CATALOG_ENTITIES.filter(e => e.health === "ok").length)} note="green" onClick={() => setStatusFilter("ok")} />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(CATALOG_ENTITIES.filter(e => e.health === "warn").length)} note="yellow" onClick={() => setStatusFilter("warn")} />
+        <StatCard icon="fa-circle-xmark" tone="crit" label="Critical" value={fmt(CATALOG_ENTITIES.filter(e => e.health === "crit").length)} note="red" onClick={() => setStatusFilter("crit")} />
+        <StatCard icon="fa-wand-magic-sparkles" tone="purple" label="With AI assets" value={fmt(CATALOG_ENTITIES.filter(e => e.ai).length)} note={[...new Set(CATALOG_ENTITIES.map(e => e.ai).filter(Boolean))].join(" · ") || "none"} />
+        <StatCard icon="fa-code-branch" tone="crit" label="Regressions" value={fmt(CATALOG_ENTITIES.filter(e => e.deployOutcome === "regression").length)} note="last deploy" />
+      </div>
+
+      <section className="ld-card ld-panel" aria-labelledby={`${idp}-h`}>
+        <div className="ld-panel-head">
+          <h2 id={`${idp}-h`}>Applications ({fmt(rows.length)})</h2>
+          <span className="ld-muted ld-small">{fmt(CATALOG_ENTITIES.reduce((s, e) => s + e.alerts, 0))} active alerts</span>
+        </div>
+
+        <div className="ld-filters">
+          <div className="ld-field ld-field-grow">
+            <label htmlFor={`${idp}-q`}>Search</label>
+            <span className="ld-search">
+              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <input id={`${idp}-q`} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search application name…" />
+            </span>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn" onClick={exportCSV}><i className="fa-solid fa-file-csv" /> Export CSV</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> Add application</button>
-          </div>
-        </div>
-      </div>
-
-      <div className="sn-kpi-strip">
-        <Kpi l="Applications" v={CATALOG_ENTITIES.length} s="all types" tone="neutral" />
-        <Kpi l="Healthy" v={CATALOG_ENTITIES.filter(e => e.health === "ok").length} s="green" tone="ok" />
-        <Kpi l="Warning" v={CATALOG_ENTITIES.filter(e => e.health === "warn").length} s="yellow" tone="warn" />
-        <Kpi l="Critical" v={CATALOG_ENTITIES.filter(e => e.health === "crit").length} s="red" tone="crit" />
-        <Kpi l="With AI assets" v={CATALOG_ENTITIES.filter(e => e.ai).length} s="OpenAI · Bedrock" tone="neutral" />
-        <Kpi l="Regressions" v={CATALOG_ENTITIES.filter(e => e.deployOutcome === "regression").length} s="last deploy" tone="crit" />
-      </div>
-
-      <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: "4px 4px 0 0", padding: "10px 14px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 220px", minWidth: 200 }}>
-          <i className="fa-solid fa-magnifying-glass" style={{ color: "var(--fg-muted)", fontSize: 12 }} />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search application name…" style={{ flex: 1, border: "none", outline: "none", fontSize: 12.5, background: "transparent" }} />
-        </div>
-        {([["Env", envFilter, setEnvFilter, envs], ["Team", teamFilter, setTeamFilter, teams], ["Client", clientFilter, setClientFilter, clients], ["Language", langFilter, setLangFilter, langs], ["Cluster", clusterFilter, setClusterFilter, clusters]] as [string, string, (v: string) => void, string[]][]).map(([label, val, setter, opts]) => (
-          <select key={label} className="select" value={val} onChange={e => setter(e.target.value)} style={{ fontSize: 11.5 }}>
-            {opts.map(o => <option key={o} value={o}>{o === "all" ? `All ${label.toLowerCase()}s` : o}</option>)}
-          </select>
-        ))}
-        <div style={{ display: "flex", gap: 4 }}>
-          {["all", "ok", "warn", "crit", "unknown"].map(s => (
-            <button key={s} className={`sn-btn${statusFilter === s ? " primary" : ""}`} style={{ padding: "3px 9px", fontSize: 10.5 }} onClick={() => setStatusFilter(s)}>{s === "all" ? "All status" : getStatusLabel(s)}</button>
-          ))}
-        </div>
-        <span style={{ flex: 1 }} />
-        <label style={{ fontSize: 11, color: "var(--fg-muted)", display: "flex", alignItems: "center", gap: 6 }}>
-          Group by
-          <select className="select" value={groupBy} onChange={e => setGroupBy(e.target.value)} style={{ fontSize: 11.5 }}>
-            {GROUP_OPTIONS.map(g => <option key={g}>{g}</option>)}
-          </select>
-        </label>
-        <div style={{ position: "relative" }}>
-          <button className="sn-btn" style={{ padding: "3px 9px", fontSize: 11 }} onClick={() => setColMenuOpen(o => !o)}><i className="fa-solid fa-table-columns" /> Columns</button>
-          {colMenuOpen && (
-            <div style={{ position: "absolute", right: 0, top: "110%", background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, boxShadow: "0 6px 18px rgba(16,32,48,.14)", padding: 8, zIndex: 20, minWidth: 210, maxHeight: 320, overflowY: "auto" }}>
-              {CATALOG_COLUMNS.map(c => (
-                <label key={c} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 6px", fontSize: 11.5, cursor: "pointer" }}>
-                  <input type="checkbox" checked={visCols[c]} onChange={() => setVisCols(v => ({ ...v, [c]: !v[c] }))} />
-                  {COLUMN_LABELS[c]}
-                </label>
-              ))}
+          {filters.map(([key, label, val, setter, opts]) => (
+            <div key={key} className="ld-field">
+              <label htmlFor={`${idp}-${key}`}>{label}</label>
+              <select id={`${idp}-${key}`} className="ld-select" value={val} onChange={e => setter(e.target.value)}>
+                {opts.map(o => <option key={o} value={o}>{o === "all" ? `All` : o}</option>)}
+              </select>
             </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderTop: "none", overflowX: "auto" }}>
-        <table className="sn-list-table apm-table" style={{ minWidth: 1400 }}>
-          <thead>
-            <tr>
-              <th onClick={() => toggleSort("id")} style={{ cursor: "pointer" }}>Application<SortIcon k="id" /></th>
-              {CATALOG_COLUMNS.filter(c => visCols[c]).map(c => (
-                <th key={c} onClick={() => toggleSort(c)} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>{COLUMN_LABELS[c]}<SortIcon k={c} /></th>
-              ))}
-              <th style={{ width: 70 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map(([label, items]) => (
-              <React.Fragment key={label || "all"}>
-                {groupBy !== "None" && (
-                  <tr><td colSpan={CATALOG_COLUMNS.length + 2} style={{ background: "#f2f5f8", fontWeight: 700, fontSize: 11, padding: "6px 12px", color: "var(--fg-muted)" }}>{label} <span style={{ fontWeight: 500 }}>· {items.length}</span></td></tr>
-                )}
-                {items.map(e => <Row key={e.id} e={e} />)}
-              </React.Fragment>
-            ))}
-            {rows.length === 0 && <tr><td colSpan={CATALOG_COLUMNS.length + 2} style={{ textAlign: "center", padding: 32, color: "var(--fg-muted)" }}>No applications match the current filters</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
-      {!groupKeyFn && (
-        <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderTop: "none", borderRadius: "0 0 4px 4px", padding: "8px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "var(--fg-muted)" }}>
-          <span>Showing {rows.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, rows.length)} of {rows.length}</span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <select className="select" value={pageSize} onChange={e => setPageSize(+e.target.value)} style={{ fontSize: 11 }}>{[10, 25, 50].map(n => <option key={n} value={n}>{n} / page</option>)}</select>
-            <button className="sn-btn" style={{ padding: "2px 9px" }} disabled={page === 1} onClick={() => setPage(p => p - 1)}><i className="fa-solid fa-chevron-left" /></button>
-            <span>Page {page} / {totalPages}</span>
-            <button className="sn-btn" style={{ padding: "2px 9px" }} disabled={page === totalPages} onClick={() => setPage(p => p + 1)}><i className="fa-solid fa-chevron-right" /></button>
+          ))}
+          <div className="ld-field">
+            <label htmlFor={`${idp}-group`}>Group by</label>
+            <select id={`${idp}-group`} className="ld-select" value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+              {GROUP_OPTIONS.map(g => <option key={g}>{g}</option>)}
+            </select>
           </div>
         </div>
-      )}
 
-      {/* Hover popover */}
-      {pop && (
-        <div style={{ position: "fixed", left: pop.x, top: pop.y, zIndex: 50, background: "#16212e", color: "white", borderRadius: 5, padding: "8px 11px", fontSize: 11.5, maxWidth: 260, boxShadow: "0 8px 20px rgba(0,0,0,.25)", pointerEvents: "none" }}>
-          <div style={{ fontWeight: 700, marginBottom: 3 }}>{pop.title}</div>
-          <div style={{ color: "#c4cdd6", lineHeight: 1.4 }}>{pop.body}</div>
+        <div className="ld-toolbar">
+          <span className="ld-obs-seg" role="group" aria-label="Filter by health status">
+            {["all", "ok", "warn", "crit", "unknown"].map(s => (
+              <button key={s} type="button" className={`ld-btn ld-btn-sm${statusFilter === s ? " ld-btn-primary" : ""}`} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
+                {s === "all" ? "All status" : getStatusLabel(s)}
+              </button>
+            ))}
+          </span>
+          <span className="ld-field-grow" />
+          <div className="ld-obs-menu-wrap">
+            <button type="button" className="ld-btn ld-btn-sm" aria-expanded={colMenuOpen} aria-controls={`${idp}-cols`} onClick={() => setColMenuOpen(o => !o)}>
+              <i className="fa-solid fa-table-columns" aria-hidden="true" /> Columns
+            </button>
+            {colMenuOpen && (
+              <fieldset id={`${idp}-cols`} className="ld-obs-menu">
+                <legend className="sr-only">Visible columns</legend>
+                {CATALOG_COLUMNS.map(c => (
+                  <label key={c}>
+                    <input type="checkbox" checked={visCols[c]} onChange={() => setVisCols(v => ({ ...v, [c]: !v[c] }))} />
+                    {COLUMN_LABELS[c]}
+                  </label>
+                ))}
+              </fieldset>
+            )}
+          </div>
         </div>
-      )}
+
+        {rows.length ? (
+          <div className="ld-table-wrap">
+            <table className="ld-table">
+              <thead>
+                <tr>
+                  <th scope="col" aria-sort={ariaSort("id")}><button type="button" className="ld-obs-sort" onClick={() => toggleSort("id")}>Application<SortIcon k="id" /></button></th>
+                  {shownCols.map(c => (
+                    <th key={c} scope="col" aria-sort={ariaSort(c)}><button type="button" className="ld-obs-sort" onClick={() => toggleSort(c)}>{COLUMN_LABELS[c]}<SortIcon k={c} /></button></th>
+                  ))}
+                  <th scope="col"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map(([label, items]) => (
+                  <React.Fragment key={label || "all"}>
+                    {groupBy !== "None" && (
+                      <tr className="ld-obs-group-row"><th scope="rowgroup" colSpan={shownCols.length + 2}>{label} · {items.length}</th></tr>
+                    )}
+                    {items.map(e => <Row key={e.id} e={e} />)}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty>No applications match the current filters.</Empty>
+        )}
+
+        {!groupKeyFn && (
+          <nav className="ld-pager" aria-label="Pagination">
+            <span className="ld-muted ld-small">Showing {rows.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, rows.length)} of {rows.length}</span>
+            <div className="ld-pager-btns">
+              <label htmlFor={`${idp}-size`} className="sr-only">Rows per page</label>
+              <select id={`${idp}-size`} className="ld-select" value={pageSize} onChange={e => setPageSize(+e.target.value)}>{[10, 25, 50].map(n => <option key={n} value={n}>{n} / page</option>)}</select>
+              <button type="button" className="ld-btn ld-btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} aria-label="Previous page"><i className="fa-solid fa-chevron-left" aria-hidden="true" /></button>
+              <span className="ld-muted ld-small">Page {page} / {totalPages}</span>
+              <button type="button" className="ld-btn ld-btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)} aria-label="Next page"><i className="fa-solid fa-chevron-right" aria-hidden="true" /></button>
+            </div>
+          </nav>
+        )}
+      </section>
 
       {/* Quick-view drawer */}
       {drawerEntity && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setDrawer(null)}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(16,24,32,.28)" }} />
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 360, background: "white", boxShadow: "-8px 0 24px rgba(0,0,0,.14)", overflowY: "auto", padding: 0 }}>
-            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border, #e5e8eb)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <>
+          <button type="button" className="ld-obs-backdrop" aria-label="Close quick view" tabIndex={-1} onClick={() => setDrawer(null)} />
+          <aside className="ld-obs-drawer" role="dialog" aria-modal="true" aria-labelledby={`${idp}-drawer-h`}>
+            <div className="ld-obs-drawer-head">
               <div>
-                <div className="mono" style={{ fontWeight: 700, fontSize: 14 }}>{drawerEntity.id}</div>
-                <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{drawerEntity.bizSvc} · {drawerEntity.client}</div>
+                <h2 id={`${idp}-drawer-h`}>{drawerEntity.id}</h2>
+                <span className="ld-sub">{drawerEntity.bizSvc} · {drawerEntity.client}</span>
               </div>
-              <button className="sn-btn" style={{ padding: "3px 8px" }} onClick={() => setDrawer(null)}><i className="fa-solid fa-xmark" /></button>
+              <button ref={closeRef} type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(null)} aria-label="Close"><i className="fa-solid fa-xmark" aria-hidden="true" /></button>
             </div>
-            <div style={{ padding: "6px 4px" }}>
-              <Field label="Health" value={<span style={statusBadgeStyle(drawerEntity.health)}><i className="fa-solid fa-circle" style={{ fontSize: 6 }} /> {getStatusLabel(drawerEntity.health)}</span>} />
-              <Field label="Score" value={drawerEntity.score + "%"} />
-              <Field label="Team owner" value={drawerEntity.team} />
-              <Field label="Environment" value={drawerEntity.env} />
-              <Field label="Cluster / namespace" value={`${drawerEntity.cluster} / ${drawerEntity.ns}`} />
-              <Field label="Response time" value={drawerEntity.rt >= 1000 ? (drawerEntity.rt/1000).toFixed(1)+"s" : drawerEntity.rt+"ms"} />
-              <Field label="Error rate" value={<span className={`apm-err ${errClass(drawerEntity.err)}`}>{drawerEntity.err.toFixed(2)}%</span>} />
-              <Field label="CPU / Memory" value={drawerEntity.cpu > 0 ? `${drawerEntity.cpu}% / ${drawerEntity.mem}%` : "—"} />
-              <Field label="SLA (30d)" value={drawerEntity.sla + "%"} />
-              <Field label="Active alerts" value={drawerEntity.alerts} />
-              <Field label="Last deployment" value={`${drawerEntity.lastDeploy} · ${drawerEntity.deployOutcome}`} />
-              <Field label="Runbook" value={<a className="sn-link mono">{drawerEntity.runbook}</a>} />
-              <div style={{ padding: "12px" }}>
-                <button className="sn-btn primary" style={{ width: "100%" }} onClick={() => openEntity(drawerEntity.id)}><i className="fa-solid fa-arrow-up-right-from-square" /> Open full detail</button>
-              </div>
-            </div>
-          </div>
-        </div>
+            <Pill tone="muted">Sample data</Pill>
+            <dl className="ld-dl">
+              <dt>Health</dt><dd><Pill tone={healthTone(drawerEntity.health)}><span className="ld-pill-dot" />{getStatusLabel(drawerEntity.health)}</Pill></dd>
+              <dt>Score</dt><dd>{drawerEntity.score}%</dd>
+              <dt>Team owner</dt><dd>{drawerEntity.team}</dd>
+              <dt>Environment</dt><dd>{drawerEntity.env}</dd>
+              <dt>Cluster / ns</dt><dd className="ld-mono">{drawerEntity.cluster} / {drawerEntity.ns}</dd>
+              <dt>Response time</dt><dd>{fmtRt(drawerEntity.rt)}</dd>
+              <dt>Error rate</dt><dd><Pill tone={errTone(drawerEntity.err)}>{drawerEntity.err.toFixed(2)}%</Pill></dd>
+              <dt>CPU / Memory</dt><dd>{drawerEntity.cpu > 0 ? `${drawerEntity.cpu}% / ${drawerEntity.mem}%` : "—"}</dd>
+              <dt>SLA (30d)</dt><dd>{drawerEntity.sla}%</dd>
+              <dt>Active alerts</dt><dd>{drawerEntity.alerts}</dd>
+              <dt>Last deployment</dt><dd>{drawerEntity.lastDeploy} · {drawerEntity.deployOutcome}</dd>
+              <dt>Runbook</dt><dd className="ld-mono">{drawerEntity.runbook}</dd>
+            </dl>
+            <button type="button" className="ld-btn ld-btn-primary" onClick={() => openEntity(drawerEntity.id)}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Open full detail</button>
+          </aside>
+        </>
       )}
     </div>
   );

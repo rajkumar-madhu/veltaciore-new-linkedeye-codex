@@ -1,122 +1,163 @@
-// Cross-tenant rollup in ServiceNow form-style
-// Ported from screens/cross-tenant.jsx.
+// Cross-client view (admins): one row per client with live counts from
+// GET /api/tenants-summary/ — open tickets, SLA, active incidents, open
+// changes, device health and alerts. Read without a client header, so the
+// policy limits it to admins. Clicking a client switches to it and opens its
+// dashboard.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
-import { useUiStore } from "@/store/ui";
-import { useTenants } from "@/api/hooks";
-import { ORG, TENANTS, INCIDENTS } from "@/data/core";
-import { Kpi, FormSection, Sev } from "@/components/primitives";
+import { NO_TENANT, useUiStore } from "@/store/ui";
+import type { Tenant } from "@/lib/types";
+import { useCrossClientSummary, useTenants, type ClientSummary } from "@/api/hooks";
+import { ApiError } from "@/api/client";
+import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import { colorFor } from "@/components/Shell";
+
+type SortKey = "name" | "sev1" | "incidents_active" | "tickets_open" | "devices_online_pct" | "alerts_critical";
+
+const healthTone = (pct: number | null): Tone => (pct == null ? "muted" : pct >= 98 ? "ok" : pct >= 90 ? "warn" : "crit");
+const slaTone = (pct: number | null): Tone => (pct == null ? "muted" : pct >= 95 ? "ok" : pct >= 85 ? "warn" : "crit");
 
 export default function CrossTenantScreen() {
   const { setRoute } = useNav();
   const setTenant = useUiStore((s) => s.setTenant);
-  const { data } = useTenants();
-  const tenants = data ?? [];
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
-  return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">{ORG.name}</a><span className="sn-bc-sep">›</span>
-        <span>Cross-tenant Operations</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">ORG-OPS</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> {tenants.reduce((s,t) => s + t.sev1, 0)} Active Sev-1</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {tenants.length} Business Units</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Cross-tenant Operations</h1>
-            <div className="sn-form-sub">{ORG.name} · {tenants.length} business units · live rollup · {ORG.seatsUsed.toLocaleString()} seats</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-file-export" /> Executive Report</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New Business Unit</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Org Health" v="92%" s="2 BUs degraded" tone="warn" />
-        <Kpi l="BOD ready" v={`${tenants.filter(t => t.health >= 88).length}/${tenants.length}`} s="units cleared to trade" tone={tenants.some(t => t.health < 88) ? "warn" : "ok"} />
-        <Kpi l="Sev 1" v={tenants.reduce((s,t) => s + t.sev1, 0)} s="across 3 BUs" tone="crit" />
-        <Kpi l="Open Incidents" v={tenants.reduce((s,t) => s + t.incidents, 0)} s="all units" tone="warn" />
-        <Kpi l="Org MTTR" v="24m" s="p50 · 18% faster" tone="ok" />
-        <Kpi l="Users" v={ORG.seatsUsed.toLocaleString()} s={`/ ${ORG.seatsTotal.toLocaleString()} seats`} tone="neutral" />
-        <Kpi l="Spend / mo" v={`$${(tenants.reduce((s,t) => s + t.spend, 0)/1000).toFixed(0)}k`} s="+14% QoQ" tone="neutral" />
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="bus" title="Business Units" badge={`${tenants.length} active`} collapsed={collapsed.bus} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Unit</th><th style={{width:110}}>Health</th><th style={{width:120}}>BOD</th><th style={{width:90}}>Open</th><th style={{width:90}}>Sev 1</th><th style={{width:90}}>MTTR</th><th style={{width:90}}>Users</th><th style={{width:110}}>Plan</th><th style={{width:110}}>Spend/mo</th></tr></thead>
-              <tbody>
-                {tenants.map(t => (
-                  <tr key={t.id} onClick={() => { setTenant(t); setRoute("dashboard"); }} style={{ cursor: "pointer" }}>
-                    <td>
-                      <div className="row row-8">
-                        <div style={{ width: 24, height: 24, borderRadius: 3, background: colorFor(t.color), color: "#fff", fontWeight: 700, fontSize: 10, display: "grid", placeItems: "center" }}>{t.code}</div>
-                        <div><a className="sn-link"><b>{t.name}</b></a><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>{t.id}</div></div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="row row-8">
-                        <div className="bar-track" style={{ width: 50 }}><div className="bar-fill" style={{ width: t.health + "%", background: t.health > 95 ? "var(--success)" : t.health > 85 ? "var(--warning)" : "var(--critical)" }} /></div>
-                        <span className={`mono ${t.health > 95 ? "tone-ok" : t.health > 85 ? "tone-warn" : "tone-crit"}`}><b>{t.health}%</b></span>
-                      </div>
-                    </td>
-                    <td>
-                      {(() => {
-                        const down = t.health < 70 ? 2 : t.health < 88 ? 1 : 0;
-                        return down === 0
-                          ? <span className="sn-state-pill svc-healthy"><i className="fa-solid fa-circle-check" /> Ready</span>
-                          : <span className="sn-state-pill state-active"><i className="fa-solid fa-circle-xmark" /> {down} down</span>;
-                      })()}
-                    </td>
-                    <td className="mono"><b>{t.incidents}</b></td>
-                    <td>{t.sev1 > 0 ? <span className="sn-state-pill state-active"><i className="fa-solid fa-circle" /> {t.sev1}</span> : <span className="text-mute mono">—</span>}</td>
-                    <td className="mono">{t.mttr}m</td>
-                    <td className="mono">{t.users}</td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {t.plan}</span></td>
-                    <td className="mono">${(t.spend/1000).toFixed(1)}k</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+  const tenants = useTenants().data ?? [];
+  const q = useCrossClientSummary();
+  const [sort, setSort] = React.useState<SortKey>("sev1");
+  const [search, setSearch] = React.useState("");
 
-          <FormSection id="active" title="Active Sev 1 & 2 across org" collapsed={collapsed.active} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:60}}>Sev</th><th style={{width:110}}>Number</th><th>Incident</th><th style={{width:160}}>Business Unit</th><th style={{width:80}}>Age</th></tr></thead>
-              <tbody>
-                {INCIDENTS.filter(i => (i.sev === 1 || i.sev === 2) && i.status === "active").map(inc => {
-                  const t = tenants.find(x => x.id === inc.tenant);
-                  return (
-                    <tr key={inc.id} onClick={() => setRoute("incident-detail")} style={{ cursor: "pointer" }}>
-                      <td><Sev n={inc.sev} /></td>
-                      <td><a className="sn-link mono">{inc.id}</a></td>
-                      <td><b>{inc.title}</b></td>
-                      <td>{t?.name}</td>
-                      <td className="mono text-mute">{inc.age}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </FormSection>
+  // Prefer the full tenant record; the summary row is enough to switch when
+  // the tenant list is still loading or the client is past its first page.
+  const open = (c: ClientSummary) => {
+    const t: Tenant = tenants.find((x) => x.id === c.id) ?? {
+      ...NO_TENANT, id: c.id, name: c.name, code: c.code, color: c.color, plan: c.plan,
+      incidents: c.incidents_active, sev1: c.sev1,
+    };
+    setTenant(t);
+    setRoute("dashboard");
+  };
+
+  const forbidden = q.error instanceof ApiError && (q.error.status === 401 || q.error.status === 403);
+  const rows = (q.data?.clients ?? [])
+    .filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name);
+      const av = a[sort] ?? -1, bv = b[sort] ?? -1;
+      // Health sorts worst first; counts sort highest first.
+      return sort === "devices_online_pct" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+  const t = q.data?.totals;
+  const id = React.useId();
+
+  return (
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>Analytics</span>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>Cross-client view</span>
+      </nav>
+
+      <div className="ld-head">
+        <div>
+          <h1>Cross-client view</h1>
+          <p>Live operations rollup across every client. Admins only.</p>
         </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Insights</div>
-            <div className="sn-side-body" style={{ padding: 14, fontSize: 12.5, lineHeight: 1.6, color: "#000" }}>
-              <b>IndMoney</b> has 31 open incidents — 2.3× its 4-week baseline. <a className="sn-link">Investigate →</a>
-            </div>
-          </div>
-        </aside>
+        <div className="ld-head-actions">
+          <button type="button" className="ld-btn" onClick={() => setRoute("admin-tenants")}>
+            <i className="fa-solid fa-building" aria-hidden="true" /> Manage clients
+          </button>
+        </div>
       </div>
+
+      {forbidden ? (
+        <div className="ld-card ld-metrics-off" role="status">
+          <i className="fa-solid fa-lock" aria-hidden="true" />
+          <div>
+            <b>Admins only</b>
+            <p className="ld-muted ld-small">Your role can see one client at a time. Ask an administrator for cross-client access.</p>
+          </div>
+        </div>
+      ) : q.isLoading ? (
+        <div className="ld-card"><Empty>Loading…</Empty></div>
+      ) : !q.data || !t ? (
+        <div className="ld-card"><Empty>The API is not reachable from this browser.</Empty></div>
+      ) : (
+        <>
+          <div className="ld-grid ld-grid-stats">
+            <StatCard icon="fa-building" tone="info" label="Clients" value={fmt(q.data.clients.filter((c) => c.id !== "shared").length)} note={`${fmt(t.tickets_open)} open tickets`} />
+            <StatCard icon="fa-triangle-exclamation" tone="crit" label="Active incidents" value={fmt(t.incidents_active)} note={`${t.sev1} Sev 1 · ${t.sev2} Sev 2`} />
+            <StatCard icon="fa-server" tone={healthTone(t.devices_online_pct)} label="Devices online" value={t.devices_online_pct == null ? "—" : `${t.devices_online_pct}%`} note={`${fmt(t.devices_down)} down of ${fmt(t.devices_total)}`} />
+            <StatCard icon="fa-bell" tone="warn" label="Open alerts" value={fmt(t.alerts_open)} note={`${t.alerts_critical} critical`} />
+          </div>
+
+          <Panel title={`Clients (${rows.length})`}>
+            <div className="ld-filters">
+              <label className="ld-field ld-field-grow" htmlFor={`${id}-q`}>
+                Search
+                <span className="ld-search">
+                  <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+                  <input id={`${id}-q`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Client name…" />
+                </span>
+              </label>
+              <label className="ld-field" htmlFor={`${id}-sort`}>
+                Sort by
+                <select id={`${id}-sort`} className="ld-select" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                  <option value="sev1">Sev 1 incidents</option>
+                  <option value="incidents_active">Active incidents</option>
+                  <option value="tickets_open">Open tickets</option>
+                  <option value="alerts_critical">Critical alerts</option>
+                  <option value="devices_online_pct">Device health (worst first)</option>
+                  <option value="name">Name</option>
+                </select>
+              </label>
+            </div>
+            {rows.length ? (
+              <div className="ld-table-wrap">
+                <table className="ld-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Client</th><th scope="col">Devices online</th><th scope="col">Incidents</th>
+                      <th scope="col">Open tickets</th><th scope="col">SLA met</th><th scope="col">Open changes</th>
+                      <th scope="col">Alerts</th><th scope="col">Plan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((c) => (
+                      <tr key={c.id}>
+                        <td>
+                          <span className="ld-client">
+                            <span className="ld-client-badge" style={{ background: colorFor(c.color) }} aria-hidden="true">{c.code}</span>
+                            {c.id === "shared" ? <b>{c.name}</b> : (
+                              <button type="button" className="ld-link ld-strong" onClick={() => open(c)} title={`Switch to ${c.name}`}>{c.name}</button>
+                            )}
+                          </span>
+                        </td>
+                        <td>
+                          <Pill tone={healthTone(c.devices_online_pct)}>{c.devices_online_pct == null ? "No devices" : `${c.devices_online_pct}%`}</Pill>
+                          <span className="ld-sub">{c.devices_down} down · {c.devices_warn} warning of {c.devices_total}</span>
+                        </td>
+                        <td>
+                          {c.sev1 > 0 ? <Pill tone="crit">{c.sev1} Sev 1</Pill> : <span className="ld-muted">No Sev 1</span>}
+                          <span className="ld-sub">{c.incidents_active} active</span>
+                        </td>
+                        <td>{fmt(c.tickets_open)}<span className="ld-sub">of {fmt(c.tickets_total)}</span></td>
+                        <td><Pill tone={slaTone(c.sla_met_pct)}>{c.sla_met_pct == null ? "—" : `${c.sla_met_pct}%`}</Pill>{c.sla_breached > 0 && <span className="ld-sub">{c.sla_breached} breached</span>}</td>
+                        <td>{fmt(c.changes_open)}{c.changes_implementing > 0 && <span className="ld-sub">{c.changes_implementing} implementing</span>}</td>
+                        <td>{c.alerts_critical > 0 ? <Pill tone="crit">{c.alerts_critical} critical</Pill> : <span className="ld-muted">{c.alerts_open} open</span>}</td>
+                        <td className="ld-muted">{c.plan || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <Empty>No clients match.</Empty>
+            )}
+          </Panel>
+        </>
+      )}
     </div>
   );
 }

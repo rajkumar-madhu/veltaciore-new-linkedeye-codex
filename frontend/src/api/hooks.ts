@@ -5,7 +5,7 @@
 // frontend remains fully demoable standalone. Screens read `data` and fall
 // back to their local constant when it is undefined.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
+import { apiGet, apiGetAllClients, apiGetAllPages, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
 import { useUiStore } from "@/store/ui";
 import { PRESETS } from "@/store/timeRange";
 import type {
@@ -114,7 +114,7 @@ export function useInfraAlerts() {
   return useQuery({
     ...quiet,
     queryKey: ["infra-alerts", tenant],
-    queryFn: () => apiGet<Paginated<InfraAlert> | InfraAlert[]>("/infra/alerts/").then(unwrap),
+    queryFn: () => apiGetAllPages<InfraAlert>("/infra/alerts/"),
     refetchInterval: 30_000,
   });
 }
@@ -672,5 +672,48 @@ export function useVmInventory(vmId?: string) {
     queryKey: ["vm-inventory", tenant, vmId],
     queryFn: () => apiGet<VmInventory>(`/infra/vms/${vmId}/inventory/`),
     refetchInterval: 60_000,
+  });
+}
+
+// ── Cross-client rollup (admins; read without a client header) ────────────
+
+export interface ClientSummary {
+  id: string; name: string; code: string; color: string; plan: string;
+  tickets_total: number; tickets_open: number; sla_met_pct: number | null; sla_breached: number;
+  incidents_active: number; sev1: number; sev2: number;
+  changes_open: number; changes_implementing: number;
+  devices_total: number; devices_down: number; devices_warn: number; devices_online_pct: number | null;
+  alerts_open: number; alerts_critical: number;
+}
+
+export interface CrossClientSummary {
+  clients: ClientSummary[];
+  totals: Omit<ClientSummary, "id" | "name" | "code" | "color" | "plan" | "sla_met_pct">;
+}
+
+export function useCrossClientSummary() {
+  return useQuery({
+    ...quiet,
+    queryKey: ["cross-client-summary"],
+    queryFn: () => apiGetAllClients<CrossClientSummary>("/tenants-summary/"),
+    refetchInterval: 60_000,
+  });
+}
+
+// ── Fleet load: live CPU / memory per server from Prometheus ───────────────
+
+export interface FleetLoad {
+  source: "prometheus" | "unavailable";
+  message?: string;
+  devices: { id: string; cpu: number | null; mem: number | null }[];
+}
+
+export function useDeviceLoad() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["device-load", tenant],
+    queryFn: () => apiGet<FleetLoad>("/infra/devices/load/"),
+    refetchInterval: 30_000,
   });
 }

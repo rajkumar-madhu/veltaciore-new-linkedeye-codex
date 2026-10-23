@@ -1,10 +1,12 @@
-// Market Calendar 2026 — exchange trading holidays and mock (test) sessions
-// per segment, built from the real holiday_calendar_2026.csv and
-// mock_calendar_2026.csv. Drives BOD planning: when markets are closed and
-// when mock sessions run. Light-theme house style.
+// Market Calendar — exchange trading holidays and mock (test) sessions per
+// segment, from /trading/calendar/ (falls back to the embedded
+// holiday_calendar_2026.csv / mock_calendar_2026.csv seed when offline).
+// Drives BOD planning: when markets are closed and when mock sessions run.
 import React from "react";
-import { Kpi, FormSection } from "@/components/primitives";
 import { useMarketCalendar } from "@/api/hooks";
+import { useNav } from "@/hooks/useNav";
+import { Empty, Pill, StatCard, fmt as fmtNum } from "@/components/ld";
+import "@/styles/trading.css";
 
 // Exchange segments present in the calendars.
 const SEGMENTS = ["NSE", "NFO", "CDS", "NSLB", "NCOM", "NMF", "BSE", "BFO", "BCD", "BSLB", "BCOM", "NCDEX", "MCX", "NIE", "BIX"];
@@ -50,17 +52,71 @@ const SEED_MOCKS: Mock[] = [
   { date: "2026-12-05", segments: MOCK_CORE },
 ];
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const TODAY = "2026-07-23"; // session date
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const isoOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const TODAY = isoOf(new Date());
 
 const fmt = (iso: string) => {
   const d = new Date(iso + "T00:00:00");
   const wd = d.toLocaleDateString("en-US", { weekday: "short" });
   return { day: d.getDate(), month: d.getMonth(), wd };
 };
+const longDate = (iso: string) =>
+  new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+type Kind = "all" | "holiday" | "mock";
+interface Row { date: string; kind: "holiday" | "mock"; name: string; }
+
+/** One month as a Mon–Sun table with holidays and mock sessions marked. */
+function MonthTable({ year, month, hol, mock }: { year: number; month: number; hol: Map<string, string>; mock: Set<string> }) {
+  const first = new Date(year, month, 1);
+  const days = new Date(year, month + 1, 0).getDate();
+  const lead = (first.getDay() + 6) % 7; // Monday-first
+  const cells: (number | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+  while (cells.length % 7) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
+  const isNow = TODAY.startsWith(`${year}-${pad(month + 1)}`);
+  return (
+    <div className={`ld-trading-month${isNow ? " now" : ""}`}>
+      <table>
+        <caption>{MONTHS[month]} {year}{isNow && <> · <span className="ld-text-info">this month</span></>}</caption>
+        <thead>
+          <tr>{WEEKDAYS.map((w) => <th key={w} scope="col" abbr={w}>{w.slice(0, 2)}</th>)}</tr>
+        </thead>
+        <tbody>
+          {weeks.map((wk, wi) => (
+            <tr key={wi}>
+              {wk.map((d, di) => {
+                if (d == null) return <td key={di} />;
+                const iso = `${year}-${pad(month + 1)}-${pad(d)}`;
+                const h = hol.get(iso);
+                const m = mock.has(iso);
+                const cls = ["ld-trading-day", di >= 5 ? "wkend" : "", h ? "hol" : m ? "mock" : "", iso === TODAY ? "today" : ""].filter(Boolean).join(" ");
+                const label = h ? `${h} — market closed` : m ? "Mock session" : undefined;
+                return (
+                  <td key={di}>
+                    <span className={cls} title={label}>
+                      {d}
+                      {label && <span className="sr-only">, {label}</span>}
+                    </span>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function MarketCalendarScreen() {
+  const { setRoute } = useNav();
   const [seg, setSeg] = React.useState("NSE");
+  const [kind, setKind] = React.useState<Kind>("all");
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggle = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
@@ -69,144 +125,137 @@ export default function MarketCalendarScreen() {
   const HOLIDAYS: Holiday[] = cal ? cal.filter((d) => d.kind === "holiday").map((d) => ({ date: d.date, name: d.name, segments: d.segments })) : SEED_HOLIDAYS;
   const MOCKS: Mock[] = cal ? cal.filter((d) => d.kind === "mock").map((d) => ({ date: d.date, segments: d.segments })) : SEED_MOCKS;
 
-  const holidays = HOLIDAYS.filter((h) => h.segments.includes(seg));
-  const mocks = MOCKS.filter((m) => m.segments.includes(seg));
+  const holidays = HOLIDAYS.filter((h) => h.segments.includes(seg)).sort((a, b) => a.date.localeCompare(b.date));
+  const mocks = MOCKS.filter((m) => m.segments.includes(seg)).sort((a, b) => a.date.localeCompare(b.date));
   const nextHoliday = holidays.find((h) => h.date >= TODAY);
   const nextMock = mocks.find((m) => m.date >= TODAY);
+  const year = Number((holidays[0]?.date ?? mocks[0]?.date ?? TODAY).slice(0, 4));
 
   // Build a real .ics for the selected segment and download it (all-day events).
   const exportICS = () => {
     const stamp = TODAY.replace(/-/g, "") + "T000000Z";
     const dt = (iso: string) => iso.replace(/-/g, "");
-    const nextDay = (iso: string) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + 1); return dt(d.toISOString().slice(0, 10)); };
+    const nextDay = (iso: string) => { const d = new Date(iso + "T00:00:00"); d.setDate(d.getDate() + 1); return dt(isoOf(d)); };
     const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1");
     const ev = (uid: string, date: string, summary: string) =>
       ["BEGIN:VEVENT", `UID:${uid}@argus-linkedeye`, `DTSTAMP:${stamp}`,
        `DTSTART;VALUE=DATE:${dt(date)}`, `DTEND;VALUE=DATE:${nextDay(date)}`,
        `SUMMARY:${esc(summary)}`, "TRANSP:TRANSPARENT", "END:VEVENT"].join("\r\n");
     const lines = [
-      "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Argus-LinkedEye//Market Calendar 2026//EN", "CALSCALE:GREGORIAN", `X-WR-CALNAME:${seg} Market Calendar 2026`,
+      "BEGIN:VCALENDAR", "VERSION:2.0", `PRODID:-//Argus-LinkedEye//Market Calendar ${year}//EN`, "CALSCALE:GREGORIAN", `X-WR-CALNAME:${seg} Market Calendar ${year}`,
       ...holidays.map((h) => ev(`hol-${h.date}-${seg}`, h.date, `${seg} Holiday — ${h.name}`)),
       ...mocks.map((m) => ev(`mock-${m.date}-${seg}`, m.date, `${seg} Mock session`)),
       "END:VCALENDAR",
     ].join("\r\n");
     const url = URL.createObjectURL(new Blob([lines], { type: "text/calendar" }));
     const a = document.createElement("a");
-    a.href = url; a.download = `market-calendar-2026-${seg}.ics`;
+    a.href = url; a.download = `market-calendar-${year}-${seg}.ics`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   };
 
-  // Group by month for the year grid.
-  const byMonth = (mo: number) => ({
-    hol: holidays.filter((h) => fmt(h.date).month === mo),
-    mock: mocks.filter((m) => fmt(m.date).month === mo),
-  });
+  const holMap = new Map(holidays.map((h) => [h.date, h.name]));
+  const mockSet = new Set(mocks.map((m) => m.date));
+  const rows: Row[] = [
+    ...holidays.map((h) => ({ date: h.date, kind: "holiday" as const, name: h.name })),
+    ...mocks.map((m) => ({ date: m.date, kind: "mock" as const, name: "Mock (test) session" })),
+  ].filter((r) => kind === "all" || r.kind === kind).sort((a, b) => a.date.localeCompare(b.date));
+  const nextRow = rows.find((r) => r.date >= TODAY);
+  const short = (iso?: string) => (iso ? `${fmt(iso).wd} ${longDate(iso).slice(0, 6)}` : "—");
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Trading Ops</a><span className="sn-bc-sep">›</span>
-        <span>Market Calendar 2026</span>
-      </div>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>BOD / EOD</span>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>Market Calendar</span>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">CALENDAR 2026</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-ban" /> {holidays.length} holidays</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-flask" /> {mocks.length} mock sessions</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-layer-group" /> {seg}</span>
+      <div className="ld-head">
+        <div>
+          <h1>Market Calendar {year} · {seg}</h1>
+          <p>Exchange trading holidays and mock sessions per segment · drives BOD/EOD scheduling</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Market Calendar · {seg}</h1>
-            <div className="sn-form-sub">Exchange trading holidays &amp; mock sessions · drives BOD/EOD scheduling · source holiday_calendar_2026.csv</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn" onClick={exportICS}><i className="fa-solid fa-download" /> Export ICS</button>
-          </div>
+        <div className="ld-head-actions">
+          {cal ? <Pill tone="ok">Live calendar</Pill> : <Pill tone="muted">Seed · holiday_calendar_2026.csv</Pill>}
+          <button type="button" className="ld-btn" onClick={exportICS}><i className="fa-solid fa-download" aria-hidden="true" /> Export ICS</button>
         </div>
       </div>
 
-      {/* Segment filter */}
-      <div style={{ padding: "14px 24px 0", display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: 11.5, color: "#6b7785", fontWeight: 600, marginRight: 4 }}>Segment:</span>
+      <div className="ld-trading-segs" role="group" aria-label="Exchange segment">
+        <span className="ld-inline-label">Segment</span>
         {SEGMENTS.map((s) => (
-          <button key={s} onClick={() => setSeg(s)}
-            style={{ fontSize: 11.5, fontWeight: 600, padding: "4px 10px", borderRadius: 14, cursor: "pointer",
-              border: `1px solid ${seg === s ? "var(--accent)" : "#e5e8eb"}`,
-              background: seg === s ? "var(--accent)" : "white", color: seg === s ? "white" : "#475467" }}>{s}</button>
+          <button key={s} type="button" className="ld-trading-seg" aria-pressed={seg === s} onClick={() => setSeg(s)}>{s}</button>
         ))}
       </div>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Trading holidays" v={holidays.length} s={`${seg} · full-day close`} tone="crit" />
-          <Kpi l="Mock sessions" v={mocks.length} s="test-environment runs" tone="neutral" />
-          <Kpi l="Next holiday" v={nextHoliday ? fmt(nextHoliday.date).wd + " " + nextHoliday.date.slice(5) : "—"} s={nextHoliday?.name ?? "none left"} tone="warn" />
-          <Kpi l="Next mock" v={nextMock ? fmt(nextMock.date).wd + " " + nextMock.date.slice(5) : "—"} s="BOD dry-run" tone="ok" />
-        </div>
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-ban" tone="crit" label="Trading holidays" value={fmtNum(holidays.length)} note={`${seg} · full-day close`} onClick={() => setKind("holiday")} />
+        <StatCard icon="fa-flask" tone="info" label="Mock sessions" value={fmtNum(mocks.length)} note="test-environment runs" onClick={() => setKind("mock")} />
+        <StatCard icon="fa-calendar-xmark" tone="warn" label="Next holiday" value={short(nextHoliday?.date)} note={nextHoliday?.name ?? "none left this year"} />
+        <StatCard icon="fa-calendar-check" tone="ok" label="Next mock" value={short(nextMock?.date)} note={nextMock ? "BOD dry-run" : "none left this year"} />
       </div>
 
-      {/* Year grid */}
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-            {MONTHS.map((mo, i) => {
-              const { hol, mock } = byMonth(i);
-              const isNow = i === 6; // July (session month)
-              return (
-                <div key={mo} style={{ border: `1px solid ${isNow ? "var(--accent)" : "#eef1f4"}`, borderRadius: 8, padding: 12, background: isNow ? "#f0fdf9" : "#fafbfc" }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f1c3f", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-                    <span>{mo} 2026</span>{isNow && <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700 }}>NOW</span>}
-                  </div>
-                  {hol.length === 0 && mock.length === 0 && <div style={{ fontSize: 11, color: "#c0c7d0" }}>Full trading month</div>}
-                  {hol.map((h) => (
-                    <div key={h.date} style={{ display: "flex", gap: 7, alignItems: "baseline", marginBottom: 4 }}>
-                      <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", minWidth: 30 }}>{fmt(h.date).day} {fmt(h.date).wd}</span>
-                      <span style={{ fontSize: 11.5, color: "#475467" }}>{h.name}</span>
-                    </div>
-                  ))}
-                  {mock.map((m) => (
-                    <div key={m.date} style={{ display: "flex", gap: 7, alignItems: "baseline", marginBottom: 4 }}>
-                      <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", minWidth: 30 }}>{fmt(m.date).day} {fmt(m.date).wd}</span>
-                      <span style={{ fontSize: 11.5, color: "#2563eb" }}>Mock session</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 11, color: "#8a94a3" }}>
-            <span><span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "#dc2626", marginRight: 5 }} />Holiday (market closed)</span>
-            <span><span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "#2563eb", marginRight: 5 }} />Mock (test) session</span>
+      <section className="ld-card ld-panel" aria-labelledby="cal-year-h">
+        <div className="ld-panel-head">
+          <h2 id="cal-year-h">{year} at a glance</h2>
+          <div className="ld-trading-cal-legend">
+            <span><span className="ld-trading-key hol" aria-hidden="true" /> Holiday (market closed)</span>
+            <span><span className="ld-trading-key mock" aria-hidden="true" /> Mock (test) session</span>
+            <span><span className="ld-trading-key today" aria-hidden="true" /> Today</span>
           </div>
         </div>
-      </div>
+        <div className="ld-trading-year">
+          {MONTHS.map((_, i) => <MonthTable key={i} year={year} month={i} hol={holMap} mock={mockSet} />)}
+        </div>
+      </section>
 
-      {/* Holiday table */}
-      <div style={{ padding: "16px 24px 24px" }}>
-        <FormSection id="tbl" title={`All ${seg} trading holidays`} badge={`${holidays.length} days`} collapsed={collapsed.tbl} onToggle={toggle}>
-          <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-            <thead>
-              <tr><th style={{ width: 120 }}>DATE</th><th style={{ width: 70 }}>DAY</th><th>HOLIDAY</th><th style={{ width: 90 }}>STATUS</th></tr>
-            </thead>
-            <tbody>
-              {holidays.map((h) => {
-                const past = h.date < TODAY;
-                return (
-                  <tr key={h.date} style={{ opacity: past ? 0.5 : 1, background: h.date === nextHoliday?.date ? "#fffbeb" : undefined }}>
-                    <td className="mono" style={{ color: "#0f1c3f", fontWeight: 600 }}>{h.date.split("-").reverse().join("-")}</td>
-                    <td className="mono" style={{ color: "#475467" }}>{fmt(h.date).wd}</td>
-                    <td style={{ color: "#0f1c3f" }}>{h.name}</td>
-                    <td>{past ? <span style={{ fontSize: 11, color: "#8a94a3" }}>passed</span> : h.date === nextHoliday?.date ? <span style={{ fontSize: 11, fontWeight: 700, color: "#b45309" }}>next</span> : <span style={{ fontSize: 11, color: "#059669" }}>upcoming</span>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </FormSection>
-      </div>
+      <section className="ld-card ld-panel" aria-labelledby="cal-tbl-h">
+        <div className="ld-panel-head">
+          <h2 id="cal-tbl-h">
+            <button type="button" className="ld-trading-toggle" aria-expanded={!collapsed.tbl} aria-controls="cal-tbl" onClick={() => toggle("tbl")}>
+              <i className="fa-solid fa-chevron-down" aria-hidden="true" /> {seg} sessions &amp; holidays
+            </button>
+          </h2>
+          <div className="ld-trading-panel-tools">
+            <label htmlFor="cal-kind" className="sr-only">Show</label>
+            <select id="cal-kind" className="ld-select" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+              <option value="all">Holidays and mock sessions</option>
+              <option value="holiday">Holidays only</option>
+              <option value="mock">Mock sessions only</option>
+            </select>
+          </div>
+        </div>
+        <div id="cal-tbl" hidden={collapsed.tbl}>
+          {rows.length ? (
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr><th scope="col">Date</th><th scope="col">Day</th><th scope="col">Type</th><th scope="col">Name</th><th scope="col">Status</th></tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const past = r.date < TODAY;
+                    const isNext = r === nextRow;
+                    return (
+                      <tr key={`${r.kind}-${r.date}`} className={past ? "ld-trading-row-past" : isNext ? "ld-trading-row-next" : undefined}>
+                        <td className="ld-mono">{longDate(r.date)}</td>
+                        <td className="ld-muted">{fmt(r.date).wd}</td>
+                        <td>{r.kind === "holiday" ? <Pill tone="crit"><i className="fa-solid fa-ban" aria-hidden="true" /> Holiday</Pill> : <Pill tone="info"><i className="fa-solid fa-flask" aria-hidden="true" /> Mock</Pill>}</td>
+                        <td className="ld-wrap">{r.name}</td>
+                        <td>{past ? <Pill tone="muted">Passed</Pill> : isNext ? <Pill tone="warn">Next</Pill> : <Pill tone="ok">Upcoming</Pill>}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>No {kind === "mock" ? "mock sessions" : kind === "holiday" ? "holidays" : "calendar entries"} for {seg}.</Empty>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

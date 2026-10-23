@@ -88,12 +88,14 @@ class DeviceInterfaceSerializer(serializers.ModelSerializer):
 
 class DeviceAlertSerializer(serializers.ModelSerializer):
     device = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Lets the UI open the right detail page without loading every device.
+    deviceKind = serializers.CharField(source="device.device_type", read_only=True)
     site = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = DeviceAlert
         fields = [
-            "id", "sev", "device", "site", "title", "detail", "since", "rule",
+            "id", "sev", "device", "deviceKind", "site", "title", "detail", "since", "rule",
             "acknowledged", "resolved",
         ]
 

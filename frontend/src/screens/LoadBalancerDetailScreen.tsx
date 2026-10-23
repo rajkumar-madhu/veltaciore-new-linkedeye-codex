@@ -1,283 +1,301 @@
-// Load balancer monitoring — LinkedEye-style detail page for LBs (F5-style):
-// dark chassis front panel, virtual servers, pools, SSL, connections charts.
+// Load balancer node page (Netdata Cloud layout, same skeleton as
+// ServerDetailScreen): header with model / IP / site / uptime and tags; KPI
+// cards (CPU, memory, connections, throughput, interface errors, uptime);
+// tabbed SNMP charts; interfaces from discovery; recent alerts; relationships.
+//
+// Live numbers come from Prometheus via the metrics API; card values shown
+// without it come from the device record. Virtual servers / pools / SSL have
+// no data source yet (iControl / iStats integration) and are labelled as
+// sample data.
+import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
-import { useDevice } from "@/api/hooks";
+import { useTimeRange } from "@/store/timeRange";
+import { useDevice, useDeviceMetrics, useDeviceRelationships, useInfraAlerts, type MetricSeries, type NicLink, type PeerRef } from "@/api/hooks";
 import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
-import {
-  Card, DetailHeader, Donut, FooterStrip, HBar, KpiTile, LineChart,
-  LiveBadge, PanelLegend, StatusPill, type PortHealth,
-} from "@/components/deviceDetail";
+import { Empty, Panel, Pill } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+import { LiveButton, MetricsBody, RangeSelect, fmtValue } from "@/components/MetricCharts";
+import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
+import { DeviceFamily } from "@/components/DeviceFamily";
 
-interface Vip {
-  name: string;
-  vip: string;
-  port: number;
-  pool: string;
-  members: string; // "3/3"
-  conns: string;
-  cps: string;
-  status: PortHealth;
+const STATUS: Record<string, { label: string; tone: Tone }> = {
+  ok: { label: "Online", tone: "ok" },
+  warn: { label: "Warning", tone: "warn" },
+  critical: { label: "Critical", tone: "crit" },
+  down: { label: "Offline", tone: "crit" },
+  unknown: { label: "Unknown", tone: "muted" },
+};
+const sevTone = (s: string): Tone => (s === "critical" ? "crit" : s === "warning" || s === "warn" ? "warn" : "info");
+const sevLabel = (s: string) => (s === "critical" ? "Critical" : s === "warning" || s === "warn" ? "Warning" : "Info");
+
+const PEER_ROUTE: Record<string, string> = {
+  switch: "switch-detail", firewall: "firewall-detail", loadbal: "loadbal-detail", ups: "ups-detail", storage: "storage-detail",
+  hypervisor: "server-detail", "phys-srv": "server-detail", "linux-srv": "server-detail", "win-srv": "server-detail",
+};
+
+function sumPoints(a?: MetricSeries, b?: MetricSeries): [number, number][] {
+  if (a && b) return a.points.map(([t, v]) => [t, v + (b.points.find((p) => p[0] === t)?.[1] ?? 0)]);
+  return (a ?? b)?.points ?? [];
 }
+const has = (v?: string) => !!v && v !== "—" && v !== "-";
 
-const VIPS: Vip[] = [
-  { name: "vs-checkout-https", vip: "10.10.5.20", port: 443, pool: "pool-checkout", members: "4/4", conns: "184K", cps: "2.4K", status: "up" },
-  { name: "vs-api-https", vip: "10.10.5.21", port: 443, pool: "pool-api", members: "6/6", conns: "312K", cps: "5.1K", status: "up" },
-  { name: "vs-web-http", vip: "10.10.5.22", port: 80, pool: "pool-web", members: "3/4", conns: "96K", cps: "1.2K", status: "warn" },
-  { name: "vs-auth-https", vip: "10.10.5.23", port: 443, pool: "pool-auth", members: "2/2", conns: "44K", cps: "820", status: "up" },
-  { name: "vs-legacy-soap", vip: "10.10.5.24", port: 8443, pool: "pool-legacy", members: "0/2", conns: "0", cps: "0", status: "down" },
+type PortState = "up" | "down" | "off";
+const portState = (n: NicLink): PortState => (n.oper_status === "up" ? "up" : n.admin_status === "down" ? "off" : "down");
+const PORT_LABEL: Record<PortState, string> = { up: "Up", down: "Down", off: "Admin down" };
+const PORT_TONE: Record<PortState, Tone> = { up: "ok", down: "crit", off: "muted" };
+
+// Illustrative only — no iControl / iStats integration feeds these yet.
+const SAMPLE_VIPS: string[][] = [
+  ["vs-checkout-https", "10.10.5.20:443", "pool-checkout", "4/4", "Up"],
+  ["vs-api-https", "10.10.5.21:443", "pool-api", "6/6", "Up"],
+  ["vs-web-http", "10.10.5.22:80", "pool-web", "3/4", "Degraded"],
+  ["vs-legacy-soap", "10.10.5.24:8443", "pool-legacy", "0/2", "Down"],
 ];
-
-const POOLS = [
-  { name: "pool-api", members: 6, up: 6, lb: "least-conn", color: "#2563eb" },
-  { name: "pool-checkout", members: 4, up: 4, lb: "round-robin", color: "#16a34a" },
-  { name: "pool-web", members: 4, up: 3, lb: "round-robin", color: "#f59e0b" },
-  { name: "pool-auth", members: 2, up: 2, lb: "least-conn", color: "#7c3aed" },
-  { name: "pool-legacy", members: 2, up: 0, lb: "round-robin", color: "#ef4444" },
+const SAMPLE_POOLS: string[][] = [
+  ["pool-api", "least-conn", "6/6 up"], ["pool-checkout", "round-robin", "4/4 up"],
+  ["pool-web", "round-robin", "3/4 up"], ["pool-legacy", "round-robin", "0/2 up"],
 ];
-
-const CONNS = [520, 560, 545, 610, 640, 598, 622, 655, 618, 636, 648, 655];
-const CPS = [7.8, 8.6, 8.2, 9.4, 9.9, 9.1, 9.5, 10.1, 9.4, 9.7, 9.9, 10.1];
-const SSL_TPS = [3.1, 3.5, 3.3, 3.9, 4.1, 3.7, 3.9, 4.2, 3.8, 4.0, 4.1, 4.2];
-const THR = [8.2, 9.1, 8.8, 9.9, 10.4, 9.6, 10.1, 10.8, 9.9, 10.3, 10.6, 10.8];
-
-const TOP_VIPS = [
-  { name: "vs-api-https", pct: 42, color: "#2563eb" },
-  { name: "vs-checkout-https", pct: 26, color: "#16a34a" },
-  { name: "vs-web-http", pct: 15, color: "#f59e0b" },
-  { name: "vs-auth-https", pct: 9, color: "#7c3aed" },
-  { name: "Others", pct: 8, color: "#94a3b8" },
+const SAMPLE_CERTS: string[][] = [
+  ["*.example.com", "Expires in 214 days"], ["checkout.example.com", "Expires in 62 days"], ["legacy.example.com", "Expires in 9 days"],
 ];
-
-const CERTS: [string, string, "ok" | "warn" | "crit"][] = [
-  ["*.finspot.in", "Expires in 214d", "ok"],
-  ["checkout.finspot.in", "Expires in 62d", "ok"],
-  ["legacy.finspot.in", "Expires in 9d", "warn"],
-  ["api-old.finspot.in", "Expired 3d ago", "crit"],
-];
-
-const TABS = ["Overview", "Virtual Servers", "Pools", "Nodes", "SSL", "Performance", "HA", "Logs", "Alerts", "Settings"];
 
 export default function LoadBalancerDetailScreen() {
   const { setRoute } = useNav();
-  const paramId = useUiStore(s => s.params.deviceId as string | undefined);
-  const seed = DEVICES.find(d => d.id === paramId && d.kind === "loadbal")
-    ?? DEVICES.find(d => d.kind === "loadbal") ?? DEVICES[0];
+  const paramId = useUiStore((s) => s.params.deviceId as string | undefined);
+  const seed = DEVICES.find((x) => x.id === paramId && x.kind === "loadbal")
+    ?? DEVICES.find((x) => x.kind === "loadbal") ?? DEVICES[0];
   const { data: live } = useDevice(seed.id);
   const d: Device = live ?? seed;
 
+  const { preset, from, to } = useTimeRange();
+  const metrics = useDeviceMetrics(d.id, preset, from, to);
+  const rel = useDeviceRelationships(d.id);
+  const alerts = (useInfraAlerts().data ?? []).filter((a) => a.device === d.id);
   const [tab, setTab] = React.useState("Overview");
-  const [tick, setTick] = React.useState(0);
-  React.useEffect(() => {
-    const t = setInterval(() => setTick(x => x + 1), 10_000);
-    return () => clearInterval(t);
-  }, []);
-  const jitter = (v: number, amp: number) => Math.max(0, Math.round(v + Math.sin(tick * 1.8) * amp));
+  React.useEffect(() => setTab("Overview"), [d.id]);
 
-  const vendor = (d.model || "").split(" ")[0].toUpperCase();
+  const m = metrics.data;
+  const connected = m?.source === "prometheus";
+  const st = STATUS[d.status] ?? STATUS.unknown;
+  const vendor = d.vendor || (d.model || "").split(" ")[0];
+  const nics = rel.data?.nics ?? [];
 
-  const frontPanel = (
-    <Card title={<span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>Device Front Panel <LiveBadge /></span>} right={<PanelLegend />}>
-      <div style={{ background: "linear-gradient(180deg,#23272e 0%,#181c22 60%,#12151b 100%)", border: "1px solid #3a4048", borderRadius: 8, padding: "16px 18px", display: "flex", alignItems: "center", gap: 18, boxShadow: "inset 0 1px 0 rgba(255,255,255,.06), 0 3px 10px rgba(15,25,35,.25)" }}>
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ fontWeight: 900, fontSize: 13, color: "#e11d48", letterSpacing: 0.8 }}>{vendor}</div>
-          <div style={{ fontSize: 9, color: "#8b95a3", marginBottom: 8 }}>{d.model.split(" ").slice(1).join(" ")}</div>
-          {["PWR", "SYS", "HA"].map(l => (
-            <div key={l} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 4px #22c55e" }} />
-              <span style={{ fontSize: 7, fontFamily: "var(--font-mono)", color: "#8b95a3" }}>{l}</span>
-            </div>
+  const cpu = seriesOf(m, "cpu"), rx = seriesOf(m, "net_rx"), tx = seriesOf(m, "net_tx");
+  const errIn = seriesOf(m, "if_in_errors"), errOut = seriesOf(m, "if_out_errors"), uptime = seriesOf(m, "uptime");
+  const net = sumPoints(rx, tx), errs = sumPoints(errIn, errOut);
+  const fromRecord = `device record · ${d.lastSeen || "—"}`;
+
+  const tabs = ["Overview", "Performance", "Interfaces", "Virtual Servers", `Alerts (${alerts.length})`, "Relationships", "Configuration"];
+  const is = (name: string) => tab === name || (name === "Alerts" && tab.startsWith("Alerts"));
+  const goTab = (prefix: string) => setTab(tabs.find((t) => t.startsWith(prefix)) ?? "Overview");
+
+  const tags: { icon: string; label: string }[] = [
+    ...(d.role ? [{ icon: "fa-solid fa-tag", label: d.role }] : []),
+    { icon: "fa-solid fa-scale-balanced", label: "Load Balancer" },
+    ...(vendor ? [{ icon: "fa-solid fa-industry", label: vendor }] : []),
+    { icon: "fa-solid fa-satellite-dish", label: (d.agent || "snmp").toUpperCase() },
+  ];
+
+  const charts = (groups: string[]) => <MetricsBody data={m} isLoading={metrics.isLoading} isError={metrics.isError} groups={groups} quietWhenOff compact />;
+
+  const peerButton = (peer: PeerRef) => peer.restricted || !peer.id
+    ? <span className="ld-muted">Restricted device (other client)</span>
+    : <button type="button" className="ld-link" onClick={() => setRoute(PEER_ROUTE[peer.kind ?? ""] ?? "infra-device", { deviceId: peer.id })}>{peer.name ?? peer.id}</button>;
+
+  const infoPanel = (
+    <Panel title="Device Information">
+      <dl className="ld-dl">
+        <dt>Hostname</dt><dd>{d.hostname || d.id}</dd>
+        <dt>IP address</dt><dd className="ld-mono">{d.ip || "—"}</dd>
+        <dt>Model</dt><dd>{d.model || "—"}</dd>
+        <dt>Vendor</dt><dd>{vendor || "—"}</dd>
+        <dt>Serial number</dt><dd className="ld-mono">{d.serial_number || "—"}</dd>
+        <dt>OS version</dt><dd>{d.os || "—"}</dd>
+        <dt>Site / location</dt><dd>{d.site}{d.location ? ` · ${d.location}` : ""}</dd>
+        <dt>Role</dt><dd>{d.role || "—"}</dd>
+        <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+      </dl>
+    </Panel>
+  );
+
+  const alertsPanel = (limit?: number) => (
+    <Panel title="Recent Alerts" action={limit ? { label: "View all alerts", onClick: () => goTab("Alerts") } : { label: "Open alert console", onClick: () => setRoute("alerts") }}>
+      {alerts.length ? (
+        <ul className="ld-activity">
+          {alerts.slice(0, limit).map((a) => (
+            <li key={a.id}>
+              <Pill tone={sevTone(a.sev)}>{sevLabel(a.sev)}</Pill>
+              <span className="ld-activity-text">{a.title}{a.detail ? <span className="ld-muted"> · {a.detail}</span> : null}</span>
+              <span className="ld-muted ld-nowrap">{a.since}</span>
+            </li>
           ))}
+        </ul>
+      ) : (
+        <Empty>No active alerts on {d.id}.</Empty>
+      )}
+    </Panel>
+  );
+
+  const interfaceTable = (
+    <Panel title={`Interfaces (${nics.length})`}>
+      {nics.length ? (
+        <div className="ld-table-wrap">
+          <table className="ld-table">
+            <thead><tr><th scope="col">Interface</th><th scope="col">Status</th><th scope="col">Speed</th><th scope="col">VLAN</th><th scope="col">In</th><th scope="col">Out</th><th scope="col">Connected to</th></tr></thead>
+            <tbody>
+              {nics.map((n) => {
+                const s = portState(n);
+                return (
+                  <tr key={n.name}>
+                    <td><span className="ld-mono ld-strong">{n.name}</span><span className="ld-sub">{n.description}</span></td>
+                    <td><Pill tone={PORT_TONE[s]}><span className="ld-pill-dot" />{PORT_LABEL[s]}</Pill></td>
+                    <td>{n.speed || "—"}</td>
+                    <td className="ld-muted">{n.vlan || "—"}</td>
+                    <td className="ld-mono">{fmtValue(n.rx_mbps, "Mbps")}</td>
+                    <td className="ld-mono">{fmtValue(n.tx_mbps, "Mbps")}</td>
+                    <td>{n.connected_to ? <>{peerButton(n.connected_to.peer)}<span className="ld-sub ld-mono">port {n.connected_to.port || "—"}</span></> : <span className="ld-muted">—</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        <div style={{ background: "#082f49", border: "1px solid #0c4a6e", borderRadius: 3, padding: "8px 16px", color: "#86efac", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, boxShadow: "inset 0 0 10px rgba(134,239,172,.2)", flexShrink: 0 }}>
-          LOAD BALANCER<br /><span style={{ fontSize: 9, color: "#38bdf8" }}>ACTIVE · {jitter(655, 8)}K conns</span>
-        </div>
-        <div style={{ flex: 1 }} />
-        {/* data ports */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(8, auto)", gap: 5, flexShrink: 0 }}>
-          {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-              <span style={{ fontSize: 6.5, color: "#8b95a3", fontFamily: "var(--font-mono)" }}>{i + 1}.0</span>
-              <div style={{ width: 22, height: 18, background: "#0c0f13", borderRadius: 2, border: "1px solid #40464e", display: "grid", placeItems: "center" }}>
-                <span style={{ width: 12, height: 8, background: i < 6 ? "#22c55e" : "#0c0f13", clipPath: "polygon(0 0,100% 0,100% 55%,75% 55%,75% 100%,25% 100%,25% 55%,0 55%)", boxShadow: i < 6 ? "0 0 4px #22c55e" : "none" }} />
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* QSFP */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }}>
-          {[0, 1].map(i => <span key={i} style={{ width: 30, height: 10, background: "#22c55e", borderRadius: 1, border: "1px solid #40464e", boxShadow: "0 0 4px #22c55e" }} title={`40G uplink ${i + 1}`} />)}
-        </div>
+      ) : (
+        <Empty>{rel.isLoading ? "Loading interfaces…" : rel.isError ? "Interface discovery is not available for this load balancer." : "No interfaces discovered yet."}</Empty>
+      )}
+    </Panel>
+  );
+
+  const sampleTable = (title: string, cols: string[], rows: string[][]) => (
+    <Panel title={`${title} · Sample data — not connected`}>
+      <p className="ld-devices-sample"><i className="fa-solid fa-flask" aria-hidden="true" /> Illustrative values, not from {d.id}. This panel fills in once the iControl / iStats integration is connected.</p>
+      <div className="ld-table-wrap">
+        <table className="ld-table">
+          <thead><tr>{cols.map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
+          <tbody>
+            {rows.map((r) => <tr key={r[0]}>{r.map((v, i) => <td key={i} className={i === 0 ? "ld-mono ld-muted" : "ld-muted"}>{v}</td>)}</tr>)}
+          </tbody>
+        </table>
       </div>
-    </Card>
+    </Panel>
   );
 
-  const vipTable = (
-    <Card pad={0}>
-      <div style={{ padding: "12px 16px 0", fontWeight: 700, fontSize: 13 }}>Virtual Servers</div>
-      <table className="sn-list-table" style={{ fontSize: 12 }}>
-        <thead><tr><th>Name</th><th style={{ width: 120 }}>VIP</th><th style={{ width: 60 }}>Port</th><th style={{ width: 120 }}>Pool</th><th style={{ width: 90 }}>Members</th><th style={{ width: 90 }}>Conns</th><th style={{ width: 80 }}>CPS</th><th style={{ width: 110 }}>Status</th></tr></thead>
-        <tbody>
-          {VIPS.map(v => (
-            <tr key={v.name}>
-              <td className="mono" style={{ fontWeight: 600 }}>{v.name}</td>
-              <td className="mono">{v.vip}</td>
-              <td className="mono">{v.port}</td>
-              <td className="mono">{v.pool}</td>
-              <td className="mono" style={{ color: v.members.startsWith("0") ? "#dc2626" : v.members.split("/")[0] !== v.members.split("/")[1] ? "#b45309" : "#16a34a", fontWeight: 700 }}>{v.members}</td>
-              <td className="mono">{v.conns}</td>
-              <td className="mono">{v.cps}</td>
-              <td><StatusPill s={v.status} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  );
-
-  const poolsPanel = (
-    <Card title="Pools">
-      {POOLS.map(p => (
-        <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid #f3f5f7", fontSize: 12 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color }} />
-          <span className="mono" style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
-          <span style={{ color: "#6b7785", fontSize: 11 }}>{p.lb}</span>
-          <span className="mono" style={{ fontWeight: 700, color: p.up === 0 ? "#dc2626" : p.up < p.members ? "#b45309" : "#16a34a" }}>{p.up}/{p.members} up</span>
-        </div>
-      ))}
-    </Card>
-  );
-
-  const sslPanel = (
-    <Card title="SSL Certificates">
-      {CERTS.map(([cn, v, s]) => (
-        <div key={cn} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f3f5f7", fontSize: 12 }}>
-          <span className="mono" style={{ color: "#3d4a5c" }}>{cn}</span>
-          <span style={{ fontWeight: 600, color: s === "ok" ? "#16a34a" : s === "warn" ? "#b45309" : "#b91c1c", display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: s === "ok" ? "#16a34a" : s === "warn" ? "#f59e0b" : "#ef4444" }} />{v}
-          </span>
-        </div>
-      ))}
-      <div style={{ marginTop: 8, fontSize: 11.5, color: "#6b7785" }}>SSL offload: <b className="mono" style={{ color: "#16212e" }}>4.2K TPS</b> · TLS 1.3 preferred</div>
-    </Card>
-  );
-
-  const haPanel = (
-    <Card title="HA Overview">
-      {([["Mode", "Active-Standby", ""], ["This Device", "Active", "#16a34a"], ["Peer", "LB-BLR-PROD-02 · Standby", "#16a34a"], ["Config Sync", "In Sync", "#16a34a"], ["Failover Count", "1", ""], ["Last Failover", "89d ago", ""]] as [string, string, string][]).map(([l, v, tone]) => (
-        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f3f5f7", fontSize: 12 }}>
-          <span style={{ color: "#6b7785" }}>{l}</span>
-          <span style={{ fontWeight: 600, color: tone || "#16212e", display: "inline-flex", alignItems: "center", gap: 5 }}>{tone && <span style={{ width: 6, height: 6, borderRadius: "50%", background: tone }} />}{v}</span>
-        </div>
-      ))}
-    </Card>
+  const configPanel = (
+    <div className="ld-grid ld-grid-2">
+      {infoPanel}
+      <Panel title="Monitoring">
+        <dl className="ld-dl">
+          <dt>Collector</dt><dd>{d.agent || "—"}</dd>
+          <dt>Metric family</dt><dd>{m?.family ?? "—"}</dd>
+          <dt>Metrics source</dt><dd>{connected ? <Pill tone="ok">Prometheus · connected</Pill> : <Pill tone="muted">{m?.source === "unsupported" ? "Not supported" : "Not connected"}</Pill>}</dd>
+          <dt>Discovery</dt><dd>{rel.data ? `${nics.length} interfaces` : "Not available"}</dd>
+          <dt>Uptime</dt><dd>{d.uptime || "—"}</dd>
+          <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+        </dl>
+      </Panel>
+    </div>
   );
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link" onClick={() => setRoute("infra")}>Infra</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra-assets")}>Devices</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Load Balancers</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("infra-assets")}>Nodes</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>{d.id}</span>
-      </div>
+      </nav>
 
-      <DetailHeader d={d} tabs={TABS} tab={tab} setTab={setTab} category="loadbal" />
-
-      <div style={{ padding: "16px 24px", display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          {(tab === "Overview" || tab === "Nodes") && frontPanel}
-
-          {tab === "Overview" && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-              <KpiTile label="Active Connections" value={`${jitter(655, 8)}K`} delta="5.4%" up good />
-              <KpiTile label="Connections / sec" value="10.1K" delta="7.1%" up good />
-              <KpiTile label="SSL TPS" value="4.2K" delta="3.9%" up good />
-              <KpiTile label="Pool Members Down" value="3" delta="pool-web · pool-legacy" up={false} good={false} sub="" />
-            </div>
-          )}
-
-          {(tab === "Overview" || tab === "Performance") && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              <Card title="Connections (K)" right={<b className="mono" style={{ fontSize: 12.5, color: "#2563eb" }}>{jitter(655, 8)}K</b>} pad={14}>
-                <LineChart series={[CONNS]} colors={["#2563eb"]} yTicks={["800", "600", "400", "200", "0"]} />
-              </Card>
-              <Card title="Throughput (Gbps)" right={<b className="mono" style={{ fontSize: 12.5, color: "#16a34a" }}>10.8</b>} pad={14}>
-                <LineChart series={[THR]} colors={["#16a34a"]} yTicks={["12", "9", "6", "3", "0"]} />
-              </Card>
-              <Card title="CPS / SSL TPS (K)" right={<span style={{ fontSize: 10.5 }}><b className="mono" style={{ color: "#2563eb" }}>CPS 10.1</b> <b className="mono" style={{ color: "#7c3aed" }}>SSL 4.2</b></span>} pad={14}>
-                <LineChart series={[CPS, SSL_TPS]} colors={["#2563eb", "#7c3aed"]} yTicks={["12", "9", "6", "3", "0"]} />
-              </Card>
-            </div>
-          )}
-
-          {(tab === "Overview" || tab === "Virtual Servers") && vipTable}
-          {tab === "Pools" && poolsPanel}
-          {tab === "SSL" && sslPanel}
-          {tab === "HA" && haPanel}
-
-          {(tab === "Logs" || tab === "Alerts" || tab === "Settings") && (
-            <Card>
-              <div style={{ textAlign: "center", color: "#6b7785", fontSize: 13, padding: 8 }}>
-                <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 8 }} />
-                Full {tab.toLowerCase()} for {d.id} live in the device monitoring workspace —
-                <a className="sn-link" style={{ marginLeft: 6 }} onClick={() => setRoute("infra-device", { deviceId: d.id })}>open device monitoring</a>
-              </div>
-            </Card>
-          )}
+      <div className="ld-head ld-entity-head">
+        <div className="ld-entity">
+          <span className="ld-devices-tile" aria-hidden="true"><i className="fa-solid fa-scale-balanced" /></span>
+          <div>
+            <h1 className="ld-entity-title">
+              {d.hostname || d.id}
+              <Pill tone={st.tone}><span className="ld-pill-dot" /> {st.label}</Pill>
+            </h1>
+            <p className="ld-entity-meta">
+              <span>{d.model || "Load balancer"}</span>
+              <span className="ld-mono">{d.ip}</span>
+              <span>Site: <b>{d.site || "—"}</b></span>
+              <span>Uptime: <b>{d.uptime || "—"}</b></span>
+            </p>
+            <p className="ld-entity-meta">
+              <span>{d.os || "—"}</span>
+              <span>Last seen: {d.lastSeen || "—"}</span>
+            </p>
+          </div>
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card title="Device Health">
-            {([["CPU Utilization", jitter(31, 3)], ["Memory Utilization", jitter(52, 2)]] as [string, number][]).map(([l, v]) => (
-              <div key={l} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: "#6b7785" }}>{l}</span><b className="mono">{v}%</b>
-                </div>
-                <HBar pct={v} />
-              </div>
-            ))}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px", marginTop: 12, fontSize: 12 }}>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>Virtual Servers</div><b className="mono" style={{ fontSize: 15 }}>{VIPS.length} <span style={{ color: "#dc2626", fontSize: 11 }}>1 down</span></b></div>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>Pool Members</div><b className="mono" style={{ fontSize: 15 }}>15/18 up</b></div>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>Persistence</div><b style={{ fontSize: 12 }}>cookie · src-ip</b></div>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>HA</div><b style={{ fontSize: 12 }}>Active <span style={{ color: "#16a34a" }}>Synced</span></b></div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 14, paddingTop: 12, borderTop: "1px solid #f0f2f5" }}>
-              {([["fa-temperature-half", "Temperature", "44 °C"], ["fa-fan", "Fan Speed", "2900 RPM"], ["fa-plug", "PSU Status", "2 / 2"]] as [string, string, string][]).map(([ic, l, v]) => (
-                <div key={l} style={{ textAlign: "center" }}>
-                  <i className={`fa-solid ${ic}`} style={{ color: "#2563eb", fontSize: 13 }} />
-                  <div style={{ fontSize: 9.5, color: "#8a94a3", margin: "3px 0 1px" }}>{l}</div>
-                  <b className="mono" style={{ fontSize: 12 }}>{v}</b>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {poolsPanel}
-
-          <Card title="Top Virtual Servers">
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <Donut parts={TOP_VIPS} />
-              <div style={{ flex: 1, fontSize: 11.5 }}>
-                {TOP_VIPS.map(a => (
-                  <div key={a.name} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-                    <span style={{ color: "#3d4a5c" }}><span style={{ color: a.color }}>●</span> {a.name}</span>
-                    <span className="mono" style={{ color: "#6b7785" }}>{a.pct}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-
-          {sslPanel}
-          {haPanel}
+        <div className="ld-head-side">
+          <div className="ld-head-actions">
+            <RangeSelect />
+            <LiveButton />
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> View in map</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-device", { deviceId: d.id })}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Device monitoring</button>
+          </div>
+          <ul className="ld-tags" aria-label="Tags">
+            {tags.map((t) => <li key={t.label} className="ld-tag"><i className={t.icon} aria-hidden="true" /> {t.label}</li>)}
+          </ul>
         </div>
       </div>
 
-      <FooterStrip />
+      {!metrics.isLoading && !connected && (
+        <div className="ld-card ld-metrics-off" role="status">
+          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <div>
+            <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
+            <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards show the last values from the device record; charts fill in once the SNMP exporter is scraped.</p>
+          </div>
+        </div>
+      )}
+
+      <div className="ld-kpis">
+        <Kpi icon="fa-microchip" tone="info" label="CPU Usage" value={cpu ? fmtValue(lastOf(cpu)!, "%") : `${d.cpu}%`}
+          sub={cpu ? undefined : fromRecord} points={cpu?.points} lowerIsBetter />
+        <Kpi icon="fa-memory" tone="ok" label="Memory Usage" value={`${d.mem}%`} sub={fromRecord} />
+        <Kpi icon="fa-arrows-left-right" tone="info" label="Connections" value={has(d.sessions) ? d.sessions : "n/a"} sub={has(d.sessions) ? fromRecord : "not reported"} />
+        <Kpi icon="fa-network-wired" tone="purple" label="Throughput" value={net.length ? fmtValue(net[net.length - 1][1], "Mbps") : has(d.throughput) ? d.throughput : "n/a"}
+          sub={rx || tx ? <><span><i className="fa-solid fa-arrow-down" aria-hidden="true" /> {rx ? fmtValue(lastOf(rx)!, "Mbps") : "—"}</span> <span><i className="fa-solid fa-arrow-up" aria-hidden="true" /> {tx ? fmtValue(lastOf(tx)!, "Mbps") : "—"}</span></> : has(d.throughput) ? fromRecord : "needs SNMP metrics"}
+          points={net.length ? net : undefined} color="#7c4dff" />
+        <Kpi icon="fa-triangle-exclamation" tone="warn" label="Interface Errors" value={errs.length ? `${fmtValue(errs[errs.length - 1][1], "count")}/s` : "n/a"}
+          sub={errs.length ? "in + out, all interfaces" : "needs SNMP metrics"} points={errs.length ? errs : undefined} color="#f97316" lowerIsBetter />
+        <Kpi icon="fa-clock" tone="info" label="Uptime" value={uptime ? `${lastOf(uptime)!.toFixed(1)} d` : d.uptime || "n/a"} sub={uptime ? "sysUpTime" : fromRecord} />
+      </div>
+
+      <div className="ld-tabs" role="tablist" aria-label={`${d.id} sections`}>
+        {tabs.map((t) => (
+          <button key={t} type="button" role="tab" aria-selected={tab === t} className={`ld-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>{t}</button>
+        ))}
+      </div>
+
+      {is("Overview") && (
+        <>
+          {charts(["cpu", "network"])}
+          <div className="ld-grid ld-grid-2">
+            {infoPanel}
+            {alertsPanel(5)}
+          </div>
+        </>
+      )}
+      {is("Performance") && charts(["cpu", "network", "errors", "ports", "uptime"])}
+      {is("Interfaces") && interfaceTable}
+      {is("Virtual Servers") && (
+        <>
+          {sampleTable("Virtual Servers", ["Name", "VIP", "Pool", "Members", "Status"], SAMPLE_VIPS)}
+          <div className="ld-grid ld-grid-2">
+            {sampleTable("Pools", ["Pool", "Method", "Members"], SAMPLE_POOLS)}
+            {sampleTable("SSL Certificates", ["Common name", "Validity"], SAMPLE_CERTS)}
+          </div>
+        </>
+      )}
+      {is("Alerts") && alertsPanel()}
+      {is("Relationships") && <DeviceFamily deviceId={d.id} />}
+      {is("Configuration") && configPanel}
     </div>
   );
 }

@@ -1,11 +1,15 @@
 // Synthetic Monitoring — uptime & API checks from multiple locations, the
 // Datadog Synthetics equivalent. A checks table (HTTP / TCP / ICMP / browser),
 // uptime %, latency by location, and a request waterfall for the selected check.
-// Light-theme house style. Illustrative but internally consistent data.
+// No synthetic probe backend is connected yet: the checks are a labelled
+// sample and the summary figures are computed from them.
 import React from "react";
-import { Kpi, FormSection } from "@/components/primitives";
-import { LineChart, TIME_LABELS } from "@/components/deviceDetail";
-import { StatusPill, type PillTone } from "@/components/StatusPill";
+import "@/styles/observe.css";
+import { useNav } from "@/hooks/useNav";
+import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+import { TimeChart } from "@/components/MetricCharts";
+import type { MetricSeries } from "@/api/hooks";
 
 interface Check {
   id: string;
@@ -37,161 +41,159 @@ const LOCATIONS = [
   { code: "NYC", name: "New York", ms: 218 },
 ];
 
-const statusPill = (s: Check["status"]) => {
-  const map: Record<Check["status"], { tone: PillTone; label: string; icon: string }> = {
-    up: { tone: "ok", label: "Up", icon: "fa-circle-check" },
-    degraded: { tone: "warn", label: "Degraded", icon: "fa-triangle-exclamation" },
-    down: { tone: "crit", label: "Down", icon: "fa-circle-xmark" },
-  };
-  return <StatusPill {...map[s]} />;
+const STATUS: Record<Check["status"], { tone: Tone; label: string; icon: string }> = {
+  up: { tone: "ok", label: "Up", icon: "fa-circle-check" },
+  degraded: { tone: "warn", label: "Degraded", icon: "fa-triangle-exclamation" },
+  down: { tone: "crit", label: "Down", icon: "fa-circle-xmark" },
 };
 
 // Request waterfall phases (ms) for the selected HTTP check.
 const WATERFALL = [
-  { phase: "DNS", ms: 8, color: "#8b5cf6" },
-  { phase: "TCP connect", ms: 22, color: "#3b82f6" },
-  { phase: "TLS handshake", ms: 41, color: "#06b6d4" },
-  { phase: "TTFB (server)", ms: 118, color: "#f59e0b" },
-  { phase: "Content download", ms: 25, color: "#10b981" },
+  { phase: "DNS", ms: 8, color: "#7c4dff" },
+  { phase: "TCP connect", ms: 22, color: "#2f6bff" },
+  { phase: "TLS handshake", ms: 41, color: "#0ea5e9" },
+  { phase: "TTFB (server)", ms: 118, color: "#f5a524" },
+  { phase: "Content download", ms: 25, color: "#16a34a" },
 ];
 
+const uptimeClass = (u: number) => (u >= 99.9 ? "ld-text-ok" : u >= 99 ? "ld-text-warn" : "ld-text-crit");
+
 export default function SyntheticsScreen() {
+  const { setRoute } = useNav();
   const [sel, setSel] = React.useState(CHECKS[1]);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   const totalMs = WATERFALL.reduce((s, w) => s + w.ms, 0);
   const upCount = CHECKS.filter((c) => c.status === "up").length;
+  const downCount = CHECKS.filter((c) => c.status === "down").length;
   const fleetUptime = (CHECKS.reduce((s, c) => s + c.uptime, 0) / CHECKS.length).toFixed(2);
-  // One series per location, sampled across the time axis (not the location count).
-  const latencySeries = LOCATIONS.map((l) => TIME_LABELS.map((_, i) => l.ms + Math.round(8 * Math.sin(i * 1.3 + l.ms))));
-  const locColors = ["#2563eb", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899"];
+
+  // One sample series per location across the last hour.
+  const latency = React.useMemo(() => {
+    const end = Math.floor(Date.now() / 1000);
+    const n = 12, step = 300;
+    const series: MetricSeries[] = LOCATIONS.map((l) => ({
+      key: l.code, label: l.name, unit: "ms", group: "latency",
+      points: Array.from({ length: n }, (_, i) => [end - (n - 1 - i) * step, l.ms + Math.round(8 * Math.sin(i * 1.3 + l.ms))] as [number, number]),
+    }));
+    return { series, start: end - (n - 1) * step, end };
+  }, []);
+
+  const assertions: [string, boolean][] = [
+    ["Status code is 200", sel.status !== "down"],
+    ["Response time < 2s", sel.p95 < 2000],
+    ["Body contains \"ok\"", sel.status === "up"],
+    ["TLS cert valid > 30d", true],
+  ];
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Observe</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Synthetic Monitoring</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">SYNTHETICS</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle-check" /> {upCount}/{CHECKS.length} up</span>
-          {CHECKS.some((c) => c.status === "down") && <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> {CHECKS.filter((c) => c.status === "down").length} down</span>}
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-globe" /> 5 locations</span>
+      <div className="ld-head">
+        <div>
+          <h1>Synthetic Monitoring</h1>
+          <p>Uptime &amp; API checks from {LOCATIONS.length} probe locations</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Synthetic Monitoring</h1>
-            <div className="sn-form-sub">Uptime & API checks from global probes · {fleetUptime}% fleet availability (30d)</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-map-location-dot" /> Locations</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New Check</button>
-          </div>
+        <div className="ld-head-actions">
+          <button type="button" className="ld-btn"><i className="fa-solid fa-map-location-dot" aria-hidden="true" /> Locations</button>
+          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Check</button>
         </div>
       </div>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Fleet availability" v={<>{fleetUptime}<span style={{ fontSize: 13, color: "#8a94a3" }}>%</span></>} s="30-day SLA window" tone="ok" />
-          <Kpi l="Checks up" v={`${upCount}/${CHECKS.length}`} s="across all probes" tone={upCount === CHECKS.length ? "ok" : "warn"} />
-          <Kpi l="Failing now" v={CHECKS.filter((c) => c.status !== "up").length} s="degraded or down" tone="crit" />
-          <Kpi l="Probe locations" v="5" s="BLR · DEL · SGP · FRA · NYC" tone="neutral" />
+      <div className="ld-card ld-metrics-off" role="note">
+        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <div>
+          <b>Sample data</b>
+          <p className="ld-muted ld-small">Synthetic probes are not connected yet. The checks, latencies and waterfall below are illustrative; summary figures are computed from them.</p>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, padding: "16px 24px 24px" }}>
-        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Checks table */}
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, overflow: "hidden" }}>
-            <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-              <thead>
-                <tr>
-                  <th>CHECK</th>
-                  <th style={{ width: 84 }}>TYPE</th>
-                  <th style={{ width: 92 }}>UPTIME</th>
-                  <th style={{ width: 80 }}>P95</th>
-                  <th style={{ width: 120 }}>STATUS</th>
-                  <th style={{ width: 70 }}>EVERY</th>
-                  <th style={{ width: 90 }}>LAST RUN</th>
-                </tr>
-              </thead>
-              <tbody>
-                {CHECKS.map((c) => (
-                  <tr key={c.id} onClick={() => setSel(c)} style={{ cursor: "pointer", background: sel.id === c.id ? "#eff6ff" : c.status === "down" ? "#fef2f2" : undefined }}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: "#0f1c3f" }}>{c.name}</div>
-                      <div className="mono" style={{ fontSize: 11, color: "#8a94a3" }}>{c.target}</div>
-                    </td>
-                    <td><span style={{ fontSize: 11, fontWeight: 600, color: "#475467", background: "#f3f4f6", padding: "2px 7px", borderRadius: 4 }}>{c.type}</span></td>
-                    <td className="mono" style={{ fontWeight: 700, color: c.uptime >= 99.9 ? "#059669" : c.uptime >= 99 ? "#b45309" : "#dc2626" }}>{c.uptime.toFixed(2)}%</td>
-                    <td className="mono" style={{ color: "#475467" }}>{c.p95}ms</td>
-                    <td>{statusPill(c.status)}</td>
-                    <td className="mono" style={{ color: "#475467" }}>{c.interval}</td>
-                    <td className="text-mute" style={{ fontSize: 11 }}>{c.lastRun}</td>
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-heart-pulse" tone="ok" label="Fleet availability" value={`${fleetUptime}%`} note="average check uptime" />
+        <StatCard icon="fa-circle-check" tone={upCount === CHECKS.length ? "ok" : "warn"} label="Checks up" value={`${upCount}/${CHECKS.length}`} note={downCount ? `${downCount} down` : "across all probes"} />
+        <StatCard icon="fa-circle-xmark" tone="crit" label="Failing now" value={fmt(CHECKS.filter((c) => c.status !== "up").length)} note="degraded or down" />
+        <StatCard icon="fa-globe" tone="info" label="Probe locations" value={fmt(LOCATIONS.length)} note={LOCATIONS.map((l) => l.code).join(" · ")} />
+      </div>
+
+      <div className="ld-split">
+        <div className="ld-rail">
+          <Panel title={`Checks (${CHECKS.length})`}>
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Check</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Uptime</th>
+                    <th scope="col">p95</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Every</th>
+                    <th scope="col">Last run</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Latency by location */}
-          <FormSection id="latency" title={`Latency by location · ${sel.name}`} badge="last 1h" collapsed={collapsed.latency} onToggle={toggle}>
-            <div style={{ padding: 16 }}>
-              <div style={{ display: "flex", gap: 14, fontSize: 11, marginBottom: 10, flexWrap: "wrap" }}>
-                {LOCATIONS.map((l, i) => (
-                  <span key={l.code} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#475467" }}>
-                    <span style={{ width: 9, height: 3, borderRadius: 2, background: locColors[i] }} /> {l.name} · {l.ms}ms
-                  </span>
-                ))}
-              </div>
-              <LineChart series={latencySeries} colors={locColors} h={170} yTicks={["250", "125", "0"]} />
+                </thead>
+                <tbody>
+                  {CHECKS.map((c) => {
+                    const st = STATUS[c.status];
+                    return (
+                      <tr key={c.id} className={sel.id === c.id ? "ld-row-selected" : undefined}>
+                        <td>
+                          <button type="button" className="ld-link ld-strong" aria-pressed={sel.id === c.id} onClick={() => setSel(c)}>{c.name}</button>
+                          <span className="ld-sub ld-mono ld-ellipsis">{c.target}</span>
+                        </td>
+                        <td><Pill tone="muted">{c.type}</Pill></td>
+                        <td className={uptimeClass(c.uptime)}>{c.uptime.toFixed(2)}%</td>
+                        <td>{c.p95}ms</td>
+                        <td><Pill tone={st.tone}><i className={`fa-solid ${st.icon}`} aria-hidden="true" /> {st.label}</Pill></td>
+                        <td className="ld-muted">{c.interval}</td>
+                        <td className="ld-muted">{c.lastRun}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </FormSection>
+          </Panel>
+
+          <Panel title={`Latency by location · ${sel.name} · last 1h`}>
+            <TimeChart series={latency.series} startSec={latency.start} endSec={latency.end} compact />
+          </Panel>
         </div>
 
-        {/* Right rail — request waterfall */}
-        <aside style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 4 }}><i className="fa-solid fa-stopwatch" style={{ color: "var(--accent)", marginRight: 6 }} /> Request waterfall</div>
-            <div style={{ fontSize: 11, color: "#8a94a3", marginBottom: 12 }}>{sel.name} · from Mumbai (BLR)</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="ld-rail">
+          <Panel title="Request waterfall">
+            <span className="ld-muted ld-small">{sel.name} · from {LOCATIONS[0].name}</span>
+            <ul className="ld-bars">
               {WATERFALL.map((w) => (
-                <div key={w.phase}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 3 }}>
-                    <span style={{ color: "#475467" }}>{w.phase}</span>
-                    <span className="mono" style={{ fontWeight: 600, color: "#0f1c3f" }}>{w.ms}ms</span>
-                  </div>
-                  <div style={{ height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                    <div style={{ width: `${(w.ms / totalMs) * 100}%`, height: "100%", background: w.color, borderRadius: 4 }} />
-                  </div>
-                </div>
+                <li key={w.phase}>
+                  <span className="ld-bar-label">{w.phase}</span>
+                  <span className="ld-bar-track">
+                    <span className="ld-bar-fill" style={{ width: `${(w.ms / totalMs) * 100}%`, background: w.color }} />
+                  </span>
+                  <span className="ld-bar-value ld-bar-value-wide">{w.ms}ms</span>
+                </li>
               ))}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef1f4", fontSize: 12.5 }}>
-              <b>Total response</b>
-              <b className="mono" style={{ color: "var(--accent)" }}>{totalMs}ms</b>
-            </div>
-          </div>
+            </ul>
+            <dl className="ld-dl">
+              <dt>Total response</dt><dd className="ld-strong">{totalMs}ms</dd>
+            </dl>
+          </Panel>
 
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 10 }}><i className="fa-solid fa-list-check" style={{ color: "var(--accent)", marginRight: 6 }} /> Assertions</div>
-            {[
-              ["Status code is 200", sel.status !== "down"],
-              ["Response time < 2s", sel.p95 < 2000],
-              ["Body contains \"ok\"", sel.status === "up"],
-              ["TLS cert valid > 30d", true],
-            ].map(([label, pass]) => (
-              <div key={label as string} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", fontSize: 12 }}>
-                <i className={`fa-solid ${pass ? "fa-circle-check" : "fa-circle-xmark"}`} style={{ color: pass ? "#059669" : "#dc2626" }} />
-                <span style={{ color: "#475467" }}>{label}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
+          <Panel title="Assertions">
+            <ul className="ld-obs-list">
+              {assertions.map(([label, pass]) => (
+                <li key={label}>
+                  <i className={`fa-solid ${pass ? "fa-circle-check ld-text-ok" : "fa-circle-xmark ld-text-crit"}`} aria-hidden="true" />
+                  <span>{label}</span>
+                  <span className="sr-only">{pass ? "passing" : "failing"}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </div>
       </div>
     </div>
   );

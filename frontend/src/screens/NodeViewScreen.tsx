@@ -1,9 +1,17 @@
 // Single-Node view — Netdata-style per-host deep dive: system charts (CPU
 // user/system/iowait, memory, disk I/O, network, load), top processes, and
-// per-node alarms. High-granularity feel; light-theme house style.
+// per-node alarms.
+//
+// This screen is not wired to a metrics API yet: the node, its series and
+// processes are generated sample data, and the page is labelled as such.
+// Live per-host charts live on the server detail page (server-detail).
 import React from "react";
-import { Kpi, FormSection } from "@/components/primitives";
-import { LineChart } from "@/components/deviceDetail";
+import "@/styles/infra.css";
+import { useNav } from "@/hooks/useNav";
+import { Panel, Pill, StatCard } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+import { TimeChart } from "@/components/MetricCharts";
+import type { MetricSeries } from "@/api/hooks";
 import { wave as sharedWave } from "@/lib/series";
 
 const wave = (seed: number, base: number, amp: number, n?: number) => sharedWave(seed, base, amp, { n, f1: 0.7, f2: 1.6, floor: true });
@@ -28,9 +36,36 @@ const PROCS: Proc[] = [
   { pid: 9011, cmd: "redis-server", cpu: 8.7, mem: 1.1, rss: "1.4 GB" },
 ];
 
+const ALARMS: [string, string, Tone][] = [
+  ["10m_cpu", "CPU > 80% for 10m", "crit"],
+  ["ram_in_use", "RAM in use 76%", "warn"],
+  ["disk_space", "/ 48% used", "ok"],
+  ["net_drops", "0 packet drops", "ok"],
+];
+
+const STEP = 180; // seconds between sample points
+
+/** Turn a sample value array into a chart series ending at `end`. */
+function toSeries(key: string, label: string, unit: string, group: string, values: number[], end: number): MetricSeries {
+  return { key, label, unit, group, points: values.map((v, i) => [end - (values.length - 1 - i) * STEP, v] as [number, number]) };
+}
+
+function SampleChart({ title, series, end }: { title: string; series: MetricSeries[]; end: number }) {
+  const n = series[0]?.points.length ?? 1;
+  return (
+    <section className="ld-card ld-panel" aria-label={`${title} (sample data)`}>
+      <div className="ld-panel-head">
+        <h2>{title}</h2>
+        <Pill tone="muted">Sample data</Pill>
+      </div>
+      <TimeChart series={series} startSec={end - (n - 1) * STEP} endSec={end} compact />
+    </section>
+  );
+}
+
 export default function NodeViewScreen() {
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
+  const { setRoute } = useNav();
+  const end = React.useMemo(() => Math.floor(Date.now() / 1000), []);
 
   const cpuUser = wave(1, 42, 16);
   const cpuSys = wave(2, 14, 6);
@@ -43,123 +78,136 @@ export default function NodeViewScreen() {
   const netOut = wave(8, 210, 90);
   const load = wave(9, 12, 5);
 
+  const facts: [string, string][] = [
+    ["Hostname", NODE.host], ["IP", NODE.ip], ["Cores", `${NODE.cores} vCPU`], ["Memory", `${NODE.ramGb} GB`],
+    ["OS", NODE.os], ["Uptime", NODE.uptime], ["Exporter", "node-exporter :9100"],
+  ];
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Infrastructure</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Node · {NODE.host}</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">NODE</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-fire" /> CPU {cpuNow}%</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-microchip" /> {NODE.cores} cores</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-clock" /> up {NODE.uptime}</span>
-        </div>
-        <div className="sn-form-title-meta">
+      <div className="ld-head ld-entity-head">
+        <div className="ld-entity">
+          <span className="ld-os-logo ld-os-linux" aria-hidden="true"><i className="fa-brands fa-linux" /></span>
           <div>
-            <h1>{NODE.host}</h1>
-            <div className="sn-form-sub mono">{NODE.ip} · {NODE.role} · {NODE.os}</div>
+            <h1 className="ld-entity-title">
+              {NODE.host}
+              <Pill tone="muted">Sample data</Pill>
+            </h1>
+            <p className="ld-entity-meta">
+              <span className="ld-mono">{NODE.ip}</span>
+              <span>{NODE.role}</span>
+              <span>{NODE.os}</span>
+            </p>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-terminal" /> SSH</button>
-            <button className="sn-btn"><i className="fa-solid fa-arrows-rotate" /> 1s refresh</button>
+        </div>
+        <div className="ld-head-side">
+          <div className="ld-head-actions">
+            <button type="button" className="ld-btn"><i className="fa-solid fa-terminal" aria-hidden="true" /> SSH</button>
+            <button type="button" className="ld-btn"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> 1s refresh</button>
           </div>
+          <ul className="ld-tags" aria-label="Tags">
+            <li className="ld-tag"><i className="fa-solid fa-microchip" aria-hidden="true" /> {NODE.cores} cores</li>
+            <li className="ld-tag"><i className="fa-solid fa-clock" aria-hidden="true" /> up {NODE.uptime}</li>
+          </ul>
         </div>
       </div>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="CPU" v={<>{cpuNow}<span style={{ fontSize: 13, color: "#8a94a3" }}>%</span></>} s={`${NODE.cores} cores · load ${load[load.length - 1]}`} tone={cpuNow > 80 ? "crit" : "warn"} />
-          <Kpi l="Memory" v={<>{mem[mem.length - 1]}<span style={{ fontSize: 13, color: "#8a94a3" }}>%</span></>} s={`of ${NODE.ramGb} GB`} tone="warn" />
-          <Kpi l="Disk I/O" v={<>{Math.round(diskR[diskR.length - 1] + diskW[diskW.length - 1])}<span style={{ fontSize: 13, color: "#8a94a3" }}> MB/s</span></>} s="read + write" tone="neutral" />
-          <Kpi l="Network" v={<>{netIn[netIn.length - 1]}<span style={{ fontSize: 13, color: "#8a94a3" }}> MB/s</span></>} s={`in · ${netOut[netOut.length - 1]} out`} tone="ok" />
+      <div className="ld-card ld-infra-sample" role="note">
+        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <div>
+          <b>Sample data</b>
+          <p className="ld-muted ld-small">This node view is a layout preview with generated values. Open a server from the asset inventory for live Prometheus charts.</p>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, padding: "16px 24px 24px" }}>
-        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <NodeChart title="CPU utilization" sub="user · system · iowait" legend={[["user", "#2563eb"], ["system", "#f59e0b"], ["iowait", "#ef4444"]]}
-              series={[cpuUser, cpuSys, cpuWait]} colors={["#2563eb", "#f59e0b", "#ef4444"]} yTicks={["100%", "50%", "0"]} />
-            <NodeChart title="Memory" sub={`${NODE.ramGb} GB total`} legend={[["used %", "#8b5cf6"]]}
-              series={[mem]} colors={["#8b5cf6"]} yTicks={["100%", "50%", "0"]} />
-            <NodeChart title="Disk I/O" sub="MB/s" legend={[["read", "#10b981"], ["write", "#f97316"]]}
-              series={[diskR, diskW]} colors={["#10b981", "#f97316"]} yTicks={["200", "100", "0"]} />
-            <NodeChart title="Network" sub="MB/s" legend={[["in", "#2563eb"], ["out", "#06b6d4"]]}
-              series={[netIn, netOut]} colors={["#2563eb", "#06b6d4"]} yTicks={["500", "250", "0"]} />
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-microchip" tone={cpuNow > 80 ? "crit" : "warn"} label="CPU (sample)" value={`${cpuNow}%`} note={`${NODE.cores} cores · load ${load[load.length - 1]}`} />
+        <StatCard icon="fa-memory" tone="warn" label="Memory (sample)" value={`${mem[mem.length - 1]}%`} note={`of ${NODE.ramGb} GB`} />
+        <StatCard icon="fa-hard-drive" tone="info" label="Disk I/O (sample)" value={`${Math.round(diskR[diskR.length - 1] + diskW[diskW.length - 1])} MB/s`} note="read + write" />
+        <StatCard icon="fa-network-wired" tone="ok" label="Network (sample)" value={`${netIn[netIn.length - 1]} MB/s`} note={`in · ${netOut[netOut.length - 1]} out`} />
+      </div>
+
+      <div className="ld-split">
+        <div className="ld-rail">
+          <div className="ld-chart-grid ld-grid">
+            <SampleChart title="CPU utilization" end={end} series={[
+              toSeries("cpu_user", "user", "%", "cpu", cpuUser, end),
+              toSeries("cpu_system", "system", "%", "cpu", cpuSys, end),
+              toSeries("cpu_iowait", "iowait", "%", "cpu", cpuWait, end),
+            ]} />
+            <SampleChart title={`Memory · ${NODE.ramGb} GB total`} end={end} series={[toSeries("mem_pct", "used", "%", "memory", mem, end)]} />
+            <SampleChart title="Disk I/O" end={end} series={[
+              toSeries("disk_read", "read", "MB/s", "disk_io", diskR, end),
+              toSeries("disk_write", "write", "MB/s", "disk_io", diskW, end),
+            ]} />
+            <SampleChart title="Network" end={end} series={[
+              toSeries("net_rx", "in", "MB/s", "network", netIn, end),
+              toSeries("net_tx", "out", "MB/s", "network", netOut, end),
+            ]} />
           </div>
 
-          <FormSection id="proc" title="Top processes" badge="by CPU" collapsed={collapsed.proc} onToggle={toggle}>
-            <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-              <thead>
-                <tr><th style={{ width: 70 }}>PID</th><th>COMMAND</th><th style={{ width: 90 }}>CPU %</th><th style={{ width: 90 }}>MEM %</th><th style={{ width: 90 }}>RSS</th></tr>
-              </thead>
-              <tbody>
-                {PROCS.map((p) => (
-                  <tr key={p.pid}>
-                    <td className="mono" style={{ color: "#475467" }}>{p.pid}</td>
-                    <td className="mono" style={{ color: "#0f1c3f", fontWeight: 600 }}>{p.cmd}</td>
-                    <td className="mono" style={{ fontWeight: 700, color: p.cpu > 100 ? "#dc2626" : "#475467" }}>{p.cpu}</td>
-                    <td className="mono" style={{ color: "#475467" }}>{p.mem}</td>
-                    <td className="mono" style={{ color: "#475467" }}>{p.rss}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+          <section className="ld-card ld-panel" aria-labelledby="procs-h">
+            <div className="ld-panel-head">
+              <h2 id="procs-h">Top processes</h2>
+              <Pill tone="muted">Sample data</Pill>
+            </div>
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr><th scope="col">PID</th><th scope="col">Command</th><th scope="col">CPU %</th><th scope="col">Mem %</th><th scope="col">RSS</th></tr>
+                </thead>
+                <tbody>
+                  {PROCS.map((p) => (
+                    <tr key={p.pid}>
+                      <td className="ld-mono ld-muted">{p.pid}</td>
+                      <td className="ld-mono">{p.cmd}</td>
+                      <td className={p.cpu > 100 ? "ld-text-crit" : undefined}>{p.cpu}</td>
+                      <td className="ld-muted">{p.mem}</td>
+                      <td className="ld-muted">{p.rss}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        {/* Alarms + facts rail */}
-        <aside style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 10 }}><i className="fa-solid fa-bell" style={{ color: "var(--accent)", marginRight: 6 }} /> Node alarms</div>
-            {[
-              ["10m_cpu", "CPU > 80% for 10m", "crit"],
-              ["ram_in_use", "RAM in use 76%", "warn"],
-              ["disk_space", "/ 48% used", "ok"],
-              ["net_drops", "0 packet drops", "ok"],
-            ].map(([id, label, sev]) => {
-              const c = sev === "crit" ? "#dc2626" : sev === "warn" ? "#b45309" : "#059669";
-              const bg = sev === "crit" ? "#fef2f2" : sev === "warn" ? "#fffbeb" : "#ecfdf5";
-              return (
-                <div key={id as string} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 6, background: bg, marginBottom: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-                  <span style={{ fontSize: 12, color: "#334155" }}>{label}</span>
-                  <span className="mono" style={{ marginLeft: "auto", fontSize: 10.5, color: "#8a94a3" }}>{id}</span>
-                </div>
-              );
-            })}
-          </div>
+        <div className="ld-rail">
+          <section className="ld-card ld-panel" aria-labelledby="alarms-h">
+            <div className="ld-panel-head">
+              <h2 id="alarms-h">Node alarms</h2>
+              <Pill tone="muted">Sample data</Pill>
+            </div>
+            <ul className="ld-activity">
+              {ALARMS.map(([id, label, tone]) => (
+                <li key={id}>
+                  <Pill tone={tone}><span className="ld-pill-dot" /><span className="sr-only">{tone}</span></Pill>
+                  <span className="ld-activity-text">{label}</span>
+                  <span className="ld-mono ld-muted">{id}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 10 }}><i className="fa-solid fa-circle-info" style={{ color: "var(--accent)", marginRight: 6 }} /> System</div>
-            {([["Hostname", NODE.host], ["IP", NODE.ip], ["Cores", `${NODE.cores} vCPU`], ["Memory", `${NODE.ramGb} GB`], ["OS", NODE.os], ["Uptime", NODE.uptime], ["Exporter", "node-exporter :9100"]] as const).map(([l, v]) => (
-              <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12, borderBottom: "1px solid #f4f6f8" }}>
-                <span style={{ color: "#8a94a3" }}>{l}</span><span className="mono" style={{ color: "#0f1c3f", textAlign: "right", maxWidth: 190 }}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function NodeChart({ title, sub, legend, series, colors, yTicks }: {
-  title: string; sub: string; legend: [string, string][]; series: number[][]; colors: string[]; yTicks: string[];
-}) {
-  return (
-    <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <div><b style={{ fontSize: 12.5 }}>{title}</b> <span style={{ fontSize: 11, color: "#8a94a3" }}>{sub}</span></div>
-        <div style={{ display: "flex", gap: 10, fontSize: 10.5 }}>
-          {legend.map(([l, c]) => <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#475467" }}><span style={{ width: 8, height: 3, borderRadius: 2, background: c }} /> {l}</span>)}
+          <Panel title="System">
+            <dl className="ld-dl">
+              {facts.map(([l, v]) => (
+                <React.Fragment key={l}>
+                  <dt>{l}</dt><dd className="ld-mono">{v}</dd>
+                </React.Fragment>
+              ))}
+            </dl>
+          </Panel>
         </div>
       </div>
-      <LineChart series={series} colors={colors} h={120} yTicks={yTicks} />
     </div>
   );
 }

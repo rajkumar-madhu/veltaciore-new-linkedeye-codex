@@ -150,6 +150,7 @@ export function TrendChart({ days }: { days: { label: string; opened: number; re
   const line = (k: "opened" | "resolved") => days.map((d, i) => `${x(i).toFixed(1)},${y(d[k]).toFixed(1)}`).join(" ");
   const area = (k: "opened" | "resolved") =>
     `M${x(0)},${bottom} L${days.map((d, i) => `${x(i).toFixed(1)},${y(d[k]).toFixed(1)}`).join(" L")} L${x(days.length - 1)},${bottom} Z`;
+  const labelEvery = Math.max(1, Math.ceil(days.length / 5));
   const totalOpened = days.reduce((s, d) => s + d.opened, 0);
   const totalResolved = days.reduce((s, d) => s + d.resolved, 0);
   return (
@@ -168,7 +169,7 @@ export function TrendChart({ days }: { days: { label: string; opened: number; re
         </g>
       ))}
       {days.map((d, i) =>
-        (i % 3 === 0 && i < days.length - 2) || i === days.length - 1 ? (
+        (i % labelEvery === 0 && i < days.length - labelEvery + 1) || i === days.length - 1 ? (
           <text key={d.label} x={x(i)} y={H - 14} textAnchor={i === days.length - 1 ? "end" : i === 0 ? "start" : "middle"} className="ld-axis">
             {d.label}
           </text>
@@ -182,12 +183,18 @@ export function TrendChart({ days }: { days: { label: string; opened: number; re
   );
 }
 
-/** Opened-per-day series for the 14 days ending at the newest record. */
-export function dailyTrend<T extends { opened: string; state: string }>(rows: T[], resolved: Set<string>, n = 14) {
+/** Parse a ticket's "YYYY-MM-DD HH:MM" opened time (local). NaN when unparseable. */
+export const openedAt = (opened: string) => new Date(opened.replace(" ", "T")).getTime();
+
+/**
+ * Tickets opened (and since resolved) per day: n days ending at `endAt`, or
+ * at the newest ticket when no end is given.
+ */
+export function dailyTrend<T extends { opened: string; state: string }>(rows: T[], resolved: Set<string>, n = 14, endAt?: number) {
   const parsed = rows
     .map((t) => ({ t, d: new Date(t.opened.replace(" ", "T")) }))
     .filter((p) => !Number.isNaN(p.d.getTime()));
-  const end = parsed.length ? new Date(Math.max(...parsed.map((p) => p.d.getTime()))) : new Date();
+  const end = endAt != null ? new Date(endAt) : parsed.length ? new Date(Math.max(...parsed.map((p) => p.d.getTime()))) : new Date();
   end.setHours(0, 0, 0, 0);
   return Array.from({ length: n }, (_, i) => {
     const day = new Date(end);

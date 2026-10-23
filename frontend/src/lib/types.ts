@@ -125,6 +125,8 @@ export interface InfraAlert {
   id: string;
   sev: string;
   device: string;
+  /** the alerting device's kind (switch, firewall, …), sent by the alerts API */
+  deviceKind?: string;
   site: string;
   title: string;
   detail: string;

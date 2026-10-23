@@ -1,152 +1,187 @@
-// Super-admin Billing in ServiceNow form-style
-// Ported from screens/admin-billing.jsx.
-import React from "react";
+// Super-admin Billing & Plans — LinkedEye layout: spend summary derived from
+// the client list, spend by client, plan / add-on reference and the Razorpay
+// pay card. Contract and add-on details have no billing endpoint yet and are
+// labelled as sample data.
+import "@/styles/admin.css";
+import { useNav } from "@/hooks/useNav";
 import { useTenants } from "@/api/hooks";
-import { ORG, TENANTS } from "@/data/core";
-import { Kpi, FormSection, FormRow, Field, UserById } from "@/components/primitives";
+import { ORG, USERS } from "@/data/core";
 import { colorFor } from "@/components/Shell";
+import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+
+const PAY_URL = "https://razorpay.me/@madhurajkumar";
+const SEAT_PRICE = 12;
+
+const SAMPLE_ADDONS: [string, string, string, boolean][] = [
+  ["AI Copilot Pro", "Auto-RCA · playbook gen · chatops", "$2,500/mo", true],
+  ["Status Page", "Public + private status pages", "$400/mo", true],
+  ["Long-term storage", "3-year retention for events/logs", "$1,200/mo", false],
+  ["On-prem collector", "Self-hosted data plane", "Included", true],
+  ["FedRAMP Moderate", "Government-compliant region", "Contact sales", false],
+];
+
+function SampleTag() {
+  return <Pill tone="muted">Sample data</Pill>;
+}
 
 export default function AdminBillingScreen() {
+  const { setRoute } = useNav();
   const { data } = useTenants();
   const tenants = data ?? [];
-  const totalSpend = tenants.reduce((s,t) => s + t.spend, 0);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+  const totalSpend = tenants.reduce((s, t) => s + t.spend, 0);
+  const enterprise = tenants.filter((t) => t.plan === "Enterprise").length;
+  const seatCost = SEAT_PRICE * ORG.seatsUsed;
+  const owner = USERS.find((u) => u.id === "u2");
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Super-admin</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>Super-admin</span>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Billing &amp; Plans</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">BILLING</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle" /> Enterprise Plus</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-calendar" /> Renews Mar 12, 2026</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Billing &amp; Plans</h1>
-            <div className="sn-form-sub">Enterprise agreement · annual · auto-renew · {tenants.length} business units</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-file-invoice" /> Invoices</button>
-            <button className="sn-btn"><i className="fa-solid fa-file-export" /> Export</button>
-            <a className="sn-btn pay-btn" href="https://razorpay.me/@madhurajkumar" target="_blank" rel="noopener noreferrer"><i className="fa-solid fa-bolt" /> Pay invoice</a>
-            <button className="sn-btn primary"><i className="fa-solid fa-arrow-up-right-from-square" /> Contract</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="MRR" v={`$${(totalSpend/1000).toFixed(0)}k`} s="+14% QoQ" tone="ok" />
-        <Kpi l="Seats used" v={ORG.seatsUsed.toLocaleString()} s={`/${ORG.seatsTotal.toLocaleString()}`} tone="neutral" />
-        <Kpi l="Next invoice" v="May 1" s={`$${totalSpend.toLocaleString()} est`} tone="neutral" />
-        <Kpi l="Events 87M" v="87%" s="of 100M commit" tone="warn" />
-        <Kpi l="Overage" v="$0" s="this period" tone="ok" />
-        <Kpi l="Add-ons" v="3" s="active" tone="neutral" />
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="plan" title="Current Plan" badge="Enterprise Plus" collapsed={collapsed.plan} onToggle={toggle}>
-            <FormRow>
-              <Field label="Base" value={<span className="mono"><b>$18,000</b> / mo committed</span>} />
-              <Field label="Seats" value={<span className="mono">$12 × {ORG.seatsUsed.toLocaleString()} = $14,964</span>} />
-            </FormRow>
-            <FormRow>
-              <Field label="Events ingested" value={<span><b>87M</b> / 100M commit</span>} />
-              <Field label="Overage" value={<span className="tone-ok"><b>$0</b> this period</span>} />
-            </FormRow>
-            <FormRow>
-              <Field label="Contract term" value="Annual · auto-renew" />
-              <Field label="Renewal date" value="Mar 12, 2026" />
-            </FormRow>
-          </FormSection>
+      </nav>
 
-          <FormSection id="spend" title="Spend by Business Unit" collapsed={collapsed.spend} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Business Unit</th><th style={{width:130}}>Plan</th><th style={{width:120}}>Spend / mo</th><th style={{width:180}}>Share of total</th></tr></thead>
-              <tbody>
-                {tenants.map(t => (
-                  <tr key={t.id}>
-                    <td>
-                      <div className="row row-8">
-                        <div style={{ width: 24, height: 24, borderRadius: 3, background: colorFor(t.color), color: "#fff", fontWeight: 700, fontSize: 10, display: "grid", placeItems: "center" }}>{t.code}</div>
-                        <b>{t.name}</b>
-                      </div>
-                    </td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {t.plan}</span></td>
-                    <td className="mono"><b>${(t.spend/1000).toFixed(1)}k</b></td>
-                    <td>
-                      <div className="row row-8">
-                        <div className="bar-track" style={{ flex: 1 }}><div className="bar-fill" style={{ width: (t.spend/totalSpend*100) + "%", background: colorFor(t.color) }} /></div>
-                        <span className="mono" style={{ fontSize: 11 }}>{(t.spend/totalSpend*100).toFixed(1)}%</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-
-          <FormSection id="addons" title="Add-ons" collapsed={collapsed.addons} onToggle={toggle}>
-            <table className="sn-list-table">
-              <tbody>
-                {([
-                  ["AI Copilot Pro","Auto-RCA · playbook gen · chatops","$2,500/mo",true],
-                  ["Status Page","Public + private status pages","$400/mo",true],
-                  ["Long-term storage","3-year retention for events/logs","$1,200/mo",false],
-                  ["On-prem collector","Self-hosted data plane","Included",true],
-                  ["FedRAMP Moderate","Government-compliant region","Contact sales",false],
-                ] as [string, string, string, boolean][]).map(([n, d, p, on], i) => (
-                  <tr key={i}>
-                    <td><b>{n}</b><div className="text-mute" style={{ fontSize: 11, marginTop: 2 }}>{d}</div></td>
-                    <td className="mono" style={{ width: 140 }}>{p}</td>
-                    <td style={{ width: 110 }}>{on ? <span className="sn-state-pill svc-healthy"><i className="fa-solid fa-circle" /> Active</span> : <button className="sn-btn">Enable</button>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+      <div className="ld-head">
+        <div>
+          <h1>Billing &amp; Plans</h1>
+          <p>{ORG.plan} agreement · {tenants.length} clients</p>
         </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card pay-card">
-            <div className="sn-side-head">
-              <span><i className="fa-solid fa-bolt" /> Pay your invoice</span>
-              <span className="pay-rzp">Razorpay</span>
+        <div className="ld-head-actions">
+          <button type="button" className="ld-btn"><i className="fa-solid fa-file-invoice" aria-hidden="true" /> Invoices</button>
+          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export</button>
+          <a className="ld-btn" href={PAY_URL} target="_blank" rel="noopener noreferrer"><i className="fa-solid fa-bolt" aria-hidden="true" /> Pay invoice</a>
+          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Contract</button>
+        </div>
+      </div>
+
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-wallet" tone="info" label="Monthly spend" value={`$${(totalSpend / 1000).toFixed(0)}k`} note="sum of client spend" />
+        <StatCard icon="fa-users" tone="purple" label="Seats used" value={fmt(ORG.seatsUsed)} note={`of ${fmt(ORG.seatsTotal)} licensed`} />
+        <StatCard icon="fa-building" tone="ok" label="Clients" value={fmt(tenants.length)} note={`${enterprise} on Enterprise`} />
+        <StatCard icon="fa-receipt" tone="muted" label="Seat charges" value={`$${fmt(seatCost)}`} note={`$${SEAT_PRICE} × ${fmt(ORG.seatsUsed)} seats`} />
+      </div>
+
+      <div className="ld-split">
+        <div className="ld-rail">
+          <section className="ld-card ld-panel" aria-labelledby="bill-spend-h">
+            <div className="ld-panel-head">
+              <h2 id="bill-spend-h">Spend by Client</h2>
+              <span className="ld-muted ld-small">${fmt(totalSpend)} / mo</span>
             </div>
-            <div className="sn-side-body">
-              <div className="pay-amount-row">
-                <div>
-                  <div className="pay-amount-lbl">Amount due</div>
-                  <div className="pay-amount">${totalSpend.toLocaleString()}</div>
-                </div>
-                <span className="sn-state-pill state-progress"><i className="fa-solid fa-clock" /> Due May 1</span>
+            {tenants.length ? (
+              <div className="ld-table-wrap">
+                <table className="ld-table">
+                  <thead>
+                    <tr><th scope="col">Client</th><th scope="col">Plan</th><th scope="col">Spend / mo</th><th scope="col">Share of total</th></tr>
+                  </thead>
+                  <tbody>
+                    {tenants.map((t) => {
+                      const share = totalSpend ? (t.spend / totalSpend) * 100 : 0;
+                      return (
+                        <tr key={t.id}>
+                          <td>
+                            <div className="ld-admin-who">
+                              <span className="ld-admin-code" style={{ background: colorFor(t.color) }} aria-hidden="true">{t.code}</span>
+                              <span className="ld-strong">{t.name}</span>
+                            </div>
+                          </td>
+                          <td><Pill tone="muted">{t.plan}</Pill></td>
+                          <td className="ld-mono ld-strong">${(t.spend / 1000).toFixed(1)}k</td>
+                          <td>
+                            <div className="ld-admin-meter">
+                              <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${share}%`, background: colorFor(t.color) }} /></span>
+                              <span>{share.toFixed(1)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <Field label="Invoice" value={<span className="mono">INV-2026-05</span>} />
-              <Field label="Pay to" value="@madhurajkumar" />
-              <a className="pay-cta" href="https://razorpay.me/@madhurajkumar" target="_blank" rel="noopener noreferrer">
-                <i className="fa-solid fa-lock" /> Pay securely via Razorpay
-              </a>
-              <div className="pay-methods">
-                <span><i className="fa-solid fa-mobile-screen" /> UPI</span>
-                <span><i className="fa-solid fa-credit-card" /> Cards</span>
-                <span><i className="fa-solid fa-building-columns" /> Netbanking</span>
-                <span><i className="fa-solid fa-wallet" /> Wallets</span>
+            ) : (
+              <Empty>No clients provisioned yet.</Empty>
+            )}
+          </section>
+
+          <section className="ld-card ld-panel" aria-labelledby="bill-plan-h">
+            <div className="ld-panel-head">
+              <h2 id="bill-plan-h">Current Plan</h2>
+              <span className="ld-admin-head-tags"><Pill tone="ok">{ORG.plan}</Pill><SampleTag /></span>
+            </div>
+            <dl className="ld-dl">
+              <dt>Base</dt><dd className="ld-mono"><b>$18,000</b> / mo committed</dd>
+              <dt>Seats</dt><dd className="ld-mono">${SEAT_PRICE} × {fmt(ORG.seatsUsed)} = ${fmt(seatCost)}</dd>
+              <dt>Contract term</dt><dd>Annual · auto-renew</dd>
+              <dt>Renewal date</dt><dd>Mar 12, 2026</dd>
+            </dl>
+          </section>
+
+          <section className="ld-card ld-panel" aria-labelledby="bill-addons-h">
+            <div className="ld-panel-head">
+              <h2 id="bill-addons-h">Add-ons</h2>
+              <SampleTag />
+            </div>
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr><th scope="col">Add-on</th><th scope="col">Price</th><th scope="col">Status</th></tr>
+                </thead>
+                <tbody>
+                  {SAMPLE_ADDONS.map(([n, d, p, on]) => (
+                    <tr key={n}>
+                      <td className="ld-wrap"><span className="ld-strong">{n}</span><div className="ld-sub">{d}</div></td>
+                      <td className="ld-mono">{p}</td>
+                      <td>{on ? <Pill tone="ok"><span className="ld-pill-dot" />Active</Pill> : <button type="button" className="ld-btn ld-btn-sm">Enable</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div className="ld-rail">
+          <section className="ld-card ld-panel" aria-labelledby="bill-pay-h">
+            <div className="ld-panel-head">
+              <h2 id="bill-pay-h"><i className="fa-solid fa-bolt" aria-hidden="true" /> Pay your invoice</h2>
+              <span className="ld-muted ld-small">Razorpay</span>
+            </div>
+            <div className="ld-admin-amount">
+              <div>
+                <span className="ld-muted ld-small">Estimated amount (client spend)</span>
+                <b>${fmt(totalSpend)}</b>
               </div>
             </div>
-          </div>
+            <dl className="ld-dl">
+              <dt>Pay to</dt><dd>@madhurajkumar</dd>
+            </dl>
+            <a className="ld-btn ld-btn-primary" href={PAY_URL} target="_blank" rel="noopener noreferrer">
+              <i className="fa-solid fa-lock" aria-hidden="true" /> Pay securely via Razorpay
+            </a>
+            <ul className="ld-tags ld-admin-methods" aria-label="Accepted payment methods">
+              <li className="ld-tag"><i className="fa-solid fa-mobile-screen" aria-hidden="true" /> UPI</li>
+              <li className="ld-tag"><i className="fa-solid fa-credit-card" aria-hidden="true" /> Cards</li>
+              <li className="ld-tag"><i className="fa-solid fa-building-columns" aria-hidden="true" /> Netbanking</li>
+              <li className="ld-tag"><i className="fa-solid fa-wallet" aria-hidden="true" /> Wallets</li>
+            </ul>
+          </section>
 
-          <div className="sn-side-card">
-            <div className="sn-side-head">Billing Contact</div>
-            <div className="sn-side-body">
-              <Field label="Owner" value={<UserById id="u2" />} />
-              <Field label="AP Email" value={<span className="mono">ap@finspot.in</span>} />
-              <Field label="Payment" value="Net-30 · ACH" />
-              <Field label="Account exec" value="Sarah Chen · Argus-LinkedEye" />
+          <section className="ld-card ld-panel" aria-labelledby="bill-contact-h">
+            <div className="ld-panel-head">
+              <h2 id="bill-contact-h">Billing Contact</h2>
+              <SampleTag />
             </div>
-          </div>
-        </aside>
+            <dl className="ld-dl">
+              <dt>Owner</dt><dd>{owner?.name ?? "—"}</dd>
+              <dt>AP email</dt><dd className="ld-mono">ap@finspot.in</dd>
+              <dt>Payment</dt><dd>Net-30 · ACH</dd>
+              <dt>Account exec</dt><dd>Sarah Chen · Argus-LinkedEye</dd>
+            </dl>
+          </section>
+        </div>
       </div>
     </div>
   );

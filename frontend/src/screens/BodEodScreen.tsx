@@ -1,68 +1,108 @@
 // BOD/EOD Status — the LinkedEye trading-day lifecycle (bodeodstatus): the
 // ordered stages of a trading day with per-stage status, timing and sub-steps.
-// BOD readiness (from /bod-checks) feeds the first stage. Light-theme.
+//
+// BOD readiness (from /bod-checks) is live and drives the first stage. The
+// other stages have no status feed yet, so their position (upcoming / in
+// window / window closed) comes from the IST clock and their sub-steps are a
+// checklist of what the stage covers, not reported results.
 import React from "react";
-import { Kpi } from "@/components/primitives";
 import { useBodChecks } from "@/api/hooks";
+import { useNav } from "@/hooks/useNav";
+import { Panel, Pill, StatCard } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+import "@/styles/trading.css";
 
-type StageState = "done" | "active" | "pending" | "failed";
+type StageState = "done" | "failed" | "active" | "pending" | "closed" | "nodata";
 
-interface Step { label: string; ok: boolean | null; }  // null = pending
+interface Step { label: string; ok: boolean | null; }  // null = not reported
 interface Stage {
   id: string;
   title: string;
-  window: string;
+  /** IST window, minutes from midnight */
+  start: number;
+  end: number;
   state: StageState;
   desc: string;
   steps: Step[];
+  live: boolean;
 }
 
-const stateMeta: Record<StageState, { c: string; bg: string; ring: string; i: string; t: string }> = {
-  done:    { c: "#059669", bg: "#ecfdf5", ring: "#10b981", i: "fa-circle-check", t: "Complete" },
-  active:  { c: "#2563eb", bg: "#eff6ff", ring: "#2563eb", i: "fa-spinner fa-spin", t: "In progress" },
-  pending: { c: "#8a94a3", bg: "#f3f4f6", ring: "#cbd2da", i: "fa-clock", t: "Pending" },
-  failed:  { c: "#dc2626", bg: "#fef2f2", ring: "#ef4444", i: "fa-circle-xmark", t: "Attention" },
+const stateMeta: Record<StageState, { tone: Tone; icon: string; label: string }> = {
+  done:    { tone: "ok",    icon: "fa-circle-check",  label: "Complete" },
+  failed:  { tone: "crit",  icon: "fa-circle-xmark",  label: "Attention" },
+  active:  { tone: "info",  icon: "fa-play",          label: "In window" },
+  pending: { tone: "muted", icon: "fa-clock",         label: "Upcoming" },
+  closed:  { tone: "muted", icon: "fa-check",         label: "Window closed" },
+  nodata:  { tone: "muted", icon: "fa-circle-question", label: "No results" },
 };
 
+const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+const windowLabel = (s: { start: number; end: number }) => (s.start === s.end ? `${hm(s.start)} IST` : `${hm(s.start)} – ${hm(s.end)} IST`);
+
+/** Current IST time as { date: "YYYY-MM-DD", minutes since midnight }. */
+function istNow() {
+  const ist = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}`,
+    minutes: ist.getUTCHours() * 60 + ist.getUTCMinutes(),
+  };
+}
+
+function clockState(start: number, end: number, now: number): StageState {
+  if (now < start) return "pending";
+  if (now <= Math.max(end, start + 1)) return "active";
+  return "closed";
+}
+
 export default function BodEodScreen() {
+  const { setRoute } = useNav();
   const bod = useBodChecks().data ?? [];
   const bodDown = bod.filter((r) => r.status === 0 || r.status === 3).length;
   const bodOk = bod.filter((r) => r.status === 2).length;
   // BOD stage reflects live readiness: complete if nothing down, else attention.
-  const bodState: StageState = bod.length === 0 ? "done" : bodDown > 0 ? "failed" : "done";
+  const bodState: StageState = bod.length === 0 ? "nodata" : bodDown > 0 ? "failed" : "done";
+
+  // The clock only moves stages along the schedule; refresh it once a minute.
+  const [now, setNow] = React.useState(istNow);
+  React.useEffect(() => {
+    const t = window.setInterval(() => setNow(istNow()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const at = (start: number, end: number) => clockState(start, end, now.minutes);
 
   const STAGES: Stage[] = [
     {
-      id: "bod", title: "BOD · Beginning of Day", window: "06:00 – 09:00 IST", state: bodState,
+      id: "bod", title: "BOD · Beginning of Day", start: 360, end: 540, state: bodState, live: true,
       desc: "Pre-market readiness — connectivity, certs and adapter startup before the exchanges open.",
       steps: [
-        { label: `URL / telnet / k8s checks (${bodOk}/${bod.length || 23} ok)`, ok: bodDown === 0 },
-        { label: "NSE / BSE adapters started", ok: true },
-        { label: "Vault unseal · secrets loaded", ok: true },
-        { label: bodDown > 0 ? "SSL / reachability issues open" : "All endpoints reachable", ok: bodDown === 0 },
+        { label: bod.length ? `URL / telnet / k8s checks (${bodOk}/${bod.length} ok)` : "URL / telnet / k8s checks (no results)", ok: bod.length ? bodDown === 0 : null },
+        { label: bodDown > 0 ? "SSL / reachability issues open" : "All endpoints reachable", ok: bod.length ? bodDown === 0 : null },
+        { label: "NSE / BSE adapters started", ok: null },
+        { label: "Vault unseal · secrets loaded", ok: null },
       ],
     },
     {
-      id: "open", title: "Market Open", window: "09:15 IST", state: "done",
+      id: "open", title: "Market Open", start: 555, end: 555, state: at(555, 560), live: false,
       desc: "Exchanges open; adapters connected and streaming.",
       steps: [
-        { label: "NSE CM/FO session established", ok: true },
-        { label: "BSE session established", ok: true },
-        { label: "Market-data feed subscribed", ok: true },
+        { label: "NSE CM/FO session established", ok: null },
+        { label: "BSE session established", ok: null },
+        { label: "Market-data feed subscribed", ok: null },
       ],
     },
     {
-      id: "intraday", title: "Intraday · Live Trading", window: "09:15 – 15:30 IST", state: "active",
+      id: "intraday", title: "Intraday · Live Trading", start: 555, end: 930, state: at(555, 930), live: false,
       desc: "Order flow live. OMS latency, queue depth and feed freshness monitored continuously.",
       steps: [
-        { label: "Order round-trip p99 within SLO", ok: true },
-        { label: "NSE queue depth — peak 798, draining", ok: true },
-        { label: "Feed freshness < 50ms", ok: true },
+        { label: "Order round-trip p99 within SLO", ok: null },
+        { label: "NSE queue depth draining", ok: null },
+        { label: "Feed freshness within limit", ok: null },
         { label: "EOD reconciliation", ok: null },
       ],
     },
     {
-      id: "close", title: "Market Close", window: "15:30 IST", state: "pending",
+      id: "close", title: "Market Close", start: 930, end: 930, state: at(930, 935), live: false,
       desc: "Sessions close; final order book snapshot captured.",
       steps: [
         { label: "Close all exchange sessions", ok: null },
@@ -70,7 +110,7 @@ export default function BodEodScreen() {
       ],
     },
     {
-      id: "eod", title: "EOD · End of Day", window: "15:30 – 17:00 IST", state: "pending",
+      id: "eod", title: "EOD · End of Day", start: 930, end: 1020, state: at(930, 1020), live: false,
       desc: "Reconciliation, obligation files and regulatory reports.",
       steps: [
         { label: "Trade / order reconciliation", ok: null },
@@ -79,7 +119,7 @@ export default function BodEodScreen() {
       ],
     },
     {
-      id: "adp", title: "ADP · After-Day Processing", window: "17:00 – 20:00 IST", state: "pending",
+      id: "adp", title: "ADP · After-Day Processing", start: 1020, end: 1200, state: at(1020, 1200), live: false,
       desc: "Batch processing, database backups and next-day preparation.",
       steps: [
         { label: "Nightly batch & archival", ok: null },
@@ -89,84 +129,80 @@ export default function BodEodScreen() {
     },
   ];
 
-  const done = STAGES.filter((s) => s.state === "done").length;
-  const current = STAGES.find((s) => s.state === "active" || s.state === "failed");
+  const passed = STAGES.filter((s) => s.state === "done" || s.state === "closed").length;
+  const current = STAGES.find((s) => s.state === "failed") ?? [...STAGES].reverse().find((s) => s.state === "active");
+  const next = STAGES.find((s) => s.start > now.minutes);
+  const short = (s?: Stage) => s?.title.split(" · ")[0] ?? "—";
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Trading Ops</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <span>BOD / EOD</span>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>BOD/EOD Status</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">TRADING DAY · 2026-07-27</span>
-          {bodDown > 0
-            ? <span className="sn-pill prio-1"><i className="fa-solid fa-triangle-exclamation" /> BOD {bodDown} open</span>
-            : <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle-check" /> BOD cleared</span>}
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {current?.title.split(" · ")[0] ?? "Intraday"}</span>
+      <div className="ld-head">
+        <div>
+          <h1>Trading-Day Lifecycle</h1>
+          <p>Trading day {now.date} · BOD → open → intraday → EOD → ADP · site nextalpha</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Trading-Day Lifecycle</h1>
-            <div className="sn-form-sub">BOD → open → intraday → EOD → ADP · status via Redis, refreshed on bod_update · site nextalpha</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-clock-rotate-left" /> History</button>
-            <button className="sn-btn"><i className="fa-solid fa-rotate" /> Refresh</button>
-          </div>
+        <div className="ld-head-actions">
+          {bod.length === 0
+            ? <Pill tone="muted"><i className="fa-solid fa-circle-question" aria-hidden="true" /> BOD no results</Pill>
+            : bodDown > 0
+              ? <Pill tone="crit"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> BOD {bodDown} open</Pill>
+              : <Pill tone="ok"><i className="fa-solid fa-circle-check" aria-hidden="true" /> BOD cleared</Pill>}
+          {current && <Pill tone="info"><i className="fa-solid fa-play" aria-hidden="true" /> {short(current)}</Pill>}
+          <button type="button" className="ld-btn" disabled title="Stage history is not connected yet"><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> History</button>
+          <button type="button" className="ld-btn" disabled title="Stage status feed is not connected yet"><i className="fa-solid fa-rotate" aria-hidden="true" /> Refresh</button>
         </div>
       </div>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Stages complete" v={`${done}/${STAGES.length}`} s="through the day" tone="neutral" />
-          <Kpi l="Current stage" v={current?.title.split(" · ")[0] ?? "—"} s={current?.window ?? ""} tone="ok" />
-          <Kpi l="BOD readiness" v={bodDown > 0 ? `${bodDown} down` : "Ready"} s={`${bodOk} checks ok`} tone={bodDown > 0 ? "crit" : "ok"} />
-          <Kpi l="Next milestone" v="Market Close" s="15:30 IST" tone="warn" />
-        </div>
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-list-ol" tone="info" label="Stages passed" value={`${passed}/${STAGES.length}`} note="by schedule (BOD from live checks)" />
+        <StatCard icon="fa-play" tone="purple" label="Current stage" value={short(current)} note={current ? windowLabel(current) : "outside trading hours"} />
+        <StatCard icon={bodDown > 0 ? "fa-circle-xmark" : "fa-clipboard-check"} tone={bod.length === 0 ? "muted" : bodDown > 0 ? "crit" : "ok"}
+          label="BOD readiness" value={bod.length === 0 ? "—" : bodDown > 0 ? `${bodDown} down` : "Ready"}
+          note={bod.length ? `${bodOk} of ${bod.length} checks ok` : "no results from /bod-checks"} onClick={() => setRoute("bod-checks")} />
+        <StatCard icon="fa-flag-checkered" tone="warn" label="Next milestone" value={short(next)} note={next ? windowLabel(next) : "next trading day"} />
       </div>
 
-      {/* Timeline */}
-      <div style={{ padding: "20px 24px 28px" }}>
-        <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: "22px 24px" }}>
-          <div style={{ position: "relative" }}>
-            {/* vertical rail */}
-            <div style={{ position: "absolute", left: 15, top: 8, bottom: 8, width: 2, background: "#eef1f4" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-              {STAGES.map((s) => {
-                const m = stateMeta[s.state];
-                return (
-                  <div key={s.id} style={{ display: "flex", gap: 16, position: "relative" }}>
-                    <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: "50%", background: m.bg, border: `2px solid ${m.ring}`, display: "grid", placeItems: "center", zIndex: 1, color: m.c }}>
-                      <i className={`fa-solid ${m.i}`} style={{ fontSize: 13 }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0, paddingBottom: 4 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                        <b style={{ fontSize: 14, color: "#0f1c3f" }}>{s.title}</b>
-                        <span className="mono" style={{ fontSize: 11.5, color: "#8a94a3" }}>{s.window}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: m.c, background: m.bg, padding: "2px 9px", borderRadius: 12 }}>{m.t}</span>
-                      </div>
-                      <div style={{ fontSize: 12.5, color: "#64748b", margin: "4px 0 10px" }}>{s.desc}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 6 }}>
-                        {s.steps.map((st) => (
-                          <div key={st.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                            <i className={`fa-solid ${st.ok === null ? "fa-circle-dashed" : st.ok ? "fa-circle-check" : "fa-circle-xmark"}`}
-                               style={{ color: st.ok === null ? "#c0c7d0" : st.ok ? "#059669" : "#dc2626", fontSize: 12 }} />
-                            <span style={{ color: st.ok === null ? "#8a94a3" : "#475467" }}>{st.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+      <Panel title="Stages">
+        <p className="ld-trading-sub">
+          Only BOD reports live results. Later stages follow the IST schedule; their steps list what the stage covers — step results are not connected yet.
+        </p>
+        <ol className="ld-trading-timeline">
+          {STAGES.map((s) => {
+            const m = stateMeta[s.state];
+            return (
+              <li key={s.id} className="ld-trading-stage">
+                <span className={`ld-trading-marker ld-${m.tone}`} aria-hidden="true"><i className={`fa-solid ${m.icon}`} /></span>
+                <div className="ld-trading-stage-body">
+                  <div className="ld-trading-stage-head">
+                    <h3>{s.title}</h3>
+                    <span className="ld-mono ld-muted">{windowLabel(s)}</span>
+                    <Pill tone={m.tone}>{m.label}</Pill>
+                    {!s.live && <Pill tone="muted">Schedule only</Pill>}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
+                  <p>{s.desc}</p>
+                  <ul className="ld-trading-steps">
+                    {s.steps.map((st) => (
+                      <li key={st.label} className={st.ok === null ? "pending" : undefined}>
+                        <i className={`fa-solid ${st.ok === null ? "fa-circle-dot none" : st.ok ? "fa-circle-check ok" : "fa-circle-xmark fail"}`} aria-hidden="true" />
+                        <span>{st.label}</span>
+                        <span className="sr-only">{st.ok === null ? "(not reported)" : st.ok ? "(ok)" : "(failed)"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </Panel>
     </div>
   );
 }
