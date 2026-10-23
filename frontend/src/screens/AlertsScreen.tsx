@@ -37,7 +37,14 @@ export default function AlertsScreen() {
   const kindOf = React.useMemo(() => new Map(devices.map((d) => [d.id, d.kind])), [devices]);
   const openDevice = (a: InfraAlert) => {
     const kind = kindOf.get(a.device);
-    const route = kind === "switch" ? "switch-detail" : kind && SERVER_KINDS.has(kind) ? "server-detail" : "infra-device";
+    const route =
+      kind && SERVER_KINDS.has(kind) ? "server-detail"
+      : kind === "switch" ? "switch-detail"
+      : kind === "firewall" ? "firewall-detail"
+      : kind === "storage" ? "storage-detail"
+      : kind === "loadbal" ? "loadbal-detail"
+      : kind === "ups" ? "ups-detail"
+      : "infra-device";
     setRoute(route, { deviceId: a.device });
   };
 

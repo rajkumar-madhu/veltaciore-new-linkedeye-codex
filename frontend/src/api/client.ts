@@ -81,3 +81,27 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 export function unwrap<T>(data: Paginated<T> | T[]): T[] {
   return Array.isArray(data) ? data : data.results;
 }
+
+/** GET every page of a paginated DRF list; tolerates plain arrays. */
+export async function apiGetAll<T>(path: string, params?: Record<string, string | number | undefined>): Promise<T[]> {
+  const first = new URL(BASE + path, window.location.origin);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== "") first.searchParams.set(k, String(v));
+    }
+  }
+  const out: T[] = [];
+  let url: string | null = first.toString();
+  while (url) {
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} for ${path}`);
+    const data = (await res.json()) as Paginated<T> | T[];
+    if (Array.isArray(data)) {
+      out.push(...data);
+      break;
+    }
+    out.push(...data.results);
+    url = data.next;
+  }
+  return out;
+}
