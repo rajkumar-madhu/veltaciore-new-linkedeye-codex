@@ -5,7 +5,8 @@
 // dashboard.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
-import { useUiStore } from "@/store/ui";
+import { NO_TENANT, useUiStore } from "@/store/ui";
+import type { Tenant } from "@/lib/types";
 import { useCrossClientSummary, useTenants, type ClientSummary } from "@/api/hooks";
 import { ApiError } from "@/api/client";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
@@ -25,9 +26,13 @@ export default function CrossTenantScreen() {
   const [sort, setSort] = React.useState<SortKey>("sev1");
   const [search, setSearch] = React.useState("");
 
+  // Prefer the full tenant record; the summary row is enough to switch when
+  // the tenant list is still loading or the client is past its first page.
   const open = (c: ClientSummary) => {
-    const t = tenants.find((x) => x.id === c.id);
-    if (!t) return;
+    const t: Tenant = tenants.find((x) => x.id === c.id) ?? {
+      ...NO_TENANT, id: c.id, name: c.name, code: c.code, color: c.color, plan: c.plan,
+      incidents: c.incidents_active, sev1: c.sev1,
+    };
     setTenant(t);
     setRoute("dashboard");
   };

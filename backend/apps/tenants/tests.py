@@ -238,6 +238,17 @@ class CrossTenantSummaryTests(TestCase):
                              InfraDevice.objects.exclude(lifecycle_state="decommissioned").count())
         self.assertTrue({"id", "name", "sev1", "devices_online_pct", "sla_met_pct"} <= set(body["clients"][0]))
 
+    def test_offline_devices_count_as_down(self):
+        from apps.infra.models import InfraDevice
+        from apps.tenants.context import all_tenants
+
+        with all_tenants():
+            dev = InfraDevice.objects.exclude(lifecycle_state="decommissioned").first()
+            InfraDevice.objects.filter(pk=dev.pk).update(status="offline", tenant_id="fyers")
+        row = next(c for c in self.client.get("/api/tenants-summary/").json()["clients"] if c["id"] == "fyers")
+        self.assertEqual(row["devices_down"], 1)
+        self.assertEqual(row["devices_online_pct"], 0.0)
+
     def test_client_scoped_request_is_refused(self):
         res = self.client.get("/api/tenants-summary/", HTTP_X_TENANT_ID="fyers")
         self.assertEqual(res.status_code, 403)

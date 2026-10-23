@@ -41,6 +41,8 @@ class CrossTenantSummaryView(APIView):
             return {r["tenant_id"] or "shared": r for r in qs.values("tenant_id").annotate(**aggs)}
 
         closed = ["Resolved", "Closed", "Cancelled", "Canceled"]
+        # Same set the dashboard treats as not online.
+        DEVICE_DOWN = ["down", "critical", "offline"]
         tickets = by_tenant(
             SnIncidentRecord.objects.all(),
             total=Count("id"),
@@ -60,7 +62,7 @@ class CrossTenantSummaryView(APIView):
         )
         devices = by_tenant(
             InfraDevice.objects.exclude(lifecycle_state="decommissioned"),
-            total=Count("id"), down=Count("id", filter=Q(status__in=["down", "critical"])),
+            total=Count("id"), down=Count("id", filter=Q(status__in=DEVICE_DOWN)),
             warn=Count("id", filter=Q(status="warn")),
         )
         alerts = by_tenant(
