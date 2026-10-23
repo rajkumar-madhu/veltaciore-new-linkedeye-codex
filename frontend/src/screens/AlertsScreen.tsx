@@ -36,7 +36,7 @@ export default function AlertsScreen() {
 
   const kindOf = React.useMemo(() => new Map(devices.map((d) => [d.id, d.kind])), [devices]);
   const openDevice = (a: InfraAlert) => {
-    setRoute(deviceRoute(kindOf.get(a.device)), { deviceId: a.device });
+    setRoute(deviceRoute(a.deviceKind ?? kindOf.get(a.device)), { deviceId: a.device });
   };
 
   const bySev = (s: Sev) => alerts.filter((a) => sevOf(a.sev) === s).length;

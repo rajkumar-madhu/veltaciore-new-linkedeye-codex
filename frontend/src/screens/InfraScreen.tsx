@@ -44,9 +44,8 @@ export default function InfraScreen() {
   const regions = new Set(sites.map(s => s.region)).size;
 
   const byId = new Map<string, Device>(devices.map(d => [d.id, d]));
-  const openDevice = (id: string) => {
-    const d = byId.get(id);
-    setRoute(d ? deviceRoute(d.kind) : "infra-device", { deviceId: id });
+  const openDevice = (id: string, kind?: string) => {
+    setRoute(deviceRoute(kind ?? byId.get(id)?.kind), { deviceId: id });
   };
 
   const statusSlices: Slice[] = [
@@ -144,7 +143,7 @@ export default function InfraScreen() {
                   <tbody>
                     {alerts.map(a => (
                       <tr key={a.id}>
-                        <td><button type="button" className="ld-link ld-mono" onClick={() => openDevice(a.device)}>{a.device}</button></td>
+                        <td><button type="button" className="ld-link ld-mono" onClick={() => openDevice(a.device, a.deviceKind)}>{a.device}</button></td>
                         <td><Pill tone={sevTone(a.sev)}><span className="ld-pill-dot" />{sevLabel(a.sev)}</Pill></td>
                         <td className="ld-strong ld-wrap">{a.title}</td>
                         <td className="ld-muted ld-wrap">{a.detail}</td>

@@ -17,6 +17,16 @@ class SeededApiTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["count"], 6)
 
+    def test_alerts_carry_device_kind(self):
+        from apps.infra.models import DeviceAlert
+        from apps.tenants.context import all_tenants
+
+        res = self.client.get("/api/infra/alerts/")
+        self.assertEqual(res.status_code, 200)
+        row = res.json()["results"][0]
+        with all_tenants():
+            self.assertEqual(row["deviceKind"], DeviceAlert.objects.select_related("device").get(pk=row["id"]).device.device_type)
+
     def test_devices_have_frontend_field_names(self):
         res = self.client.get("/api/infra/devices/")
         self.assertEqual(res.status_code, 200)
