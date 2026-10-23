@@ -1,0 +1,139 @@
+/* ── Trading Ops screens (BOD/EOD, BOD checks, market calendar, order latency, CTCL) ──
+   LinkedEye ld-trading-* additions. Theme tokens only, so dark mode follows
+   [data-theme="dark"] from styles.css. Replaces screens/tradingOps.css. */
+
+/* Notice banners (spike, truncation, notes) */
+.ld-trading-note { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-left: 4px solid var(--info); font-size: 13px; color: var(--fg); line-height: 1.5; }
+.ld-trading-note > i { margin-top: 3px; font-size: 15px; color: var(--info); flex: none; }
+.ld-trading-note b { color: var(--fg); }
+.ld-trading-note p { margin: 0; }
+.ld-trading-note.crit { border-left-color: var(--critical); }
+.ld-trading-note.crit > i { color: var(--critical); }
+.ld-trading-note.warn { border-left-color: var(--warning); }
+.ld-trading-note.warn > i { color: var(--warning); }
+.ld-trading-note.muted { border-left-color: var(--border-strong); }
+.ld-trading-note.muted > i { color: var(--fg-muted); }
+.ld-trading-stack-notes { display: flex; flex-direction: column; gap: 10px; }
+
+/* Panel sub-title and a header row with a badge on the right */
+.ld-trading-sub { font-size: 12.5px; color: var(--fg-muted); margin-top: -6px; }
+.ld-trading-panel-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Collapsible section header (BOD checks / calendar tables) */
+.ld-trading-toggle { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; font: inherit; font-size: 16px; font-weight: 600; color: var(--fg); cursor: pointer; text-align: left; }
+.ld-trading-toggle i { font-size: 11px; color: var(--fg-muted); transition: transform .15s; }
+.ld-trading-toggle[aria-expanded="false"] i { transform: rotate(-90deg); }
+.ld-trading-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Table row tones */
+.ld-table tr.ld-trading-row-crit td { background: var(--critical-bg); }
+.ld-table tr.ld-trading-row-warn td { background: var(--warning-bg); }
+.ld-table tr.ld-trading-row-past td { color: var(--fg-muted); }
+.ld-table tr.ld-trading-row-next td { background: var(--info-bg); }
+
+/* Flow / pipeline strip (BOD → Redis → RabbitMQ → Notify, Noren log → CSV) */
+.ld-trading-flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+.ld-trading-flow li { display: flex; align-items: center; gap: 10px; }
+.ld-trading-flow li + li::before { content: "\f061"; font-family: "Font Awesome 6 Free"; font-weight: 900; font-size: 12px; color: var(--fg-faint); }
+.ld-trading-flow-node { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-muted); min-width: 0; }
+.ld-trading-flow-node b { display: block; font-size: 13px; color: var(--fg); }
+.ld-trading-flow-node span { display: block; font-size: 11.5px; color: var(--fg-muted); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.ld-trading-flow-node.hl { border-color: var(--accent); background: var(--info-bg); }
+
+/* Trading-day lifecycle timeline */
+.ld-trading-timeline { list-style: none; margin: 0; padding: 0; position: relative; display: flex; flex-direction: column; gap: 22px; }
+.ld-trading-timeline::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: var(--border); }
+.ld-trading-stage { position: relative; display: flex; gap: 16px; }
+.ld-trading-marker { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; z-index: 1; border: 2px solid currentColor; background: var(--bg-raised); }
+.ld-trading-marker.ld-ok { color: var(--success); }
+.ld-trading-marker.ld-info { color: var(--info); }
+.ld-trading-marker.ld-crit { color: var(--critical); }
+.ld-trading-marker.ld-muted { color: var(--fg-faint); }
+.ld-trading-stage-body { flex: 1; min-width: 0; }
+.ld-trading-stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.ld-trading-stage-head h3 { font-size: 14px; font-weight: 600; color: var(--fg); }
+.ld-trading-stage-body > p { font-size: 13px; color: var(--fg-muted); margin: 4px 0 10px; }
+.ld-trading-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 14px; }
+.ld-trading-steps li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg); }
+.ld-trading-steps li.pending { color: var(--fg-muted); }
+.ld-trading-steps i.ok { color: var(--success); }
+.ld-trading-steps i.fail { color: var(--critical); }
+.ld-trading-steps i.none { color: var(--fg-faint); }
+
+/* Segment chips (market calendar) */
+.ld-trading-segs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ld-trading-seg { border: 1px solid var(--border-strong); background: var(--bg-raised); color: var(--fg-muted); font: inherit; font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px; cursor: pointer; }
+.ld-trading-seg:hover { color: var(--fg); border-color: var(--fg-faint); }
+.ld-trading-seg[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ld-trading-seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Year calendar: 12 month tables */
+.ld-trading-year { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ld-trading-month { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; background: var(--bg-raised); min-width: 0; }
+.ld-trading-month.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.ld-trading-month caption { text-align: left; font-size: 13px; font-weight: 600; color: var(--fg); padding-bottom: 6px; caption-side: top; }
+.ld-trading-month table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ld-trading-month th { font-size: 10.5px; font-weight: 600; color: var(--fg-faint); padding: 2px 0; text-align: center; }
+.ld-trading-month td { text-align: center; padding: 1px; }
+.ld-trading-day { display: grid; place-items: center; height: 24px; border-radius: 6px; font-size: 11.5px; color: var(--fg); font-variant-numeric: tabular-nums; }
+.ld-trading-day.wkend { color: var(--fg-faint); }
+.ld-trading-day.hol { background: var(--critical-bg); color: var(--critical); font-weight: 700; }
+.ld-trading-day.mock { background: var(--info-bg); color: var(--info); font-weight: 700; }
+.ld-trading-day.today { box-shadow: 0 0 0 2px var(--accent) inset; font-weight: 700; }
+.ld-trading-cal-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--fg-muted); }
+.ld-trading-cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ld-trading-key { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.ld-trading-key.hol { background: var(--critical-bg); box-shadow: 0 0 0 1px var(--critical) inset; }
+.ld-trading-key.mock { background: var(--info-bg); box-shadow: 0 0 0 1px var(--info) inset; }
+.ld-trading-key.today { box-shadow: 0 0 0 2px var(--accent) inset; }
+
+/* Inline progress bar inside a table cell */
+.ld-trading-pbar { display: block; width: 100%; max-width: 120px; height: 5px; margin-top: 4px; border-radius: 3px; background: var(--bg-muted); overflow: hidden; }
+.ld-trading-pbar > span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+
+/* Stacked bar (confirmed vs pending) */
+.ld-trading-stack { display: flex; height: 10px; border-radius: 5px; background: var(--bg-muted); overflow: hidden; }
+.ld-trading-stack > span { display: block; height: 100%; }
+
+/* Line chart (SVG) wrapper — hover readout uses .ld-chart-tip */
+.ld-trading-chart { position: relative; min-width: 0; }
+.ld-trading-chart svg { cursor: crosshair; }
+.ld-trading-marker-line { stroke: var(--critical); stroke-dasharray: 4 3; stroke-width: 1.5; }
+.ld-trading-marker-text { font-size: 11px; font-weight: 700; fill: var(--critical); font-family: var(--font-sans); }
+.ld-trading-threshold { stroke-dasharray: 6 4; }
+
+/* Mini stat row inside a card (peak / mean / samples) */
+.ld-trading-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin: 0; }
+.ld-trading-mini > div { padding: 8px 10px; border-radius: var(--radius-sm); background: var(--bg-muted); min-width: 0; }
+.ld-trading-mini dt { font-size: 11.5px; color: var(--fg-muted); }
+.ld-trading-mini dd { margin: 2px 0 0; font-size: 16px; font-weight: 700; color: var(--fg); font-variant-numeric: tabular-nums; }
+
+/* Time-range toolbar (CTCL queue tab) */
+.ld-trading-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.ld-trading-range .ld-form-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--fg-muted); }
+.ld-trading-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Broker × segment matrix */
+.ld-trading-check { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-size: 12px; }
+.ld-table td.ld-trading-center, .ld-table th.ld-trading-center { text-align: center; }
+
+/* Badge list (stack, broker impact) */
+.ld-trading-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Filename convention token colouring */
+.ld-trading-fname { font-family: var(--font-mono); font-size: 13px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-muted); overflow-wrap: anywhere; }
+.ld-trading-fname .t1 { color: var(--success); font-weight: 700; }
+.ld-trading-fname .t2 { color: var(--accent); font-weight: 700; }
+.ld-trading-fname .t3 { color: var(--warning); font-weight: 700; }
+.ld-trading-fname .t4 { color: var(--fg-muted); }
+
+@media (max-width: 640px) {
+  .ld-trading-flow li + li::before { display: none; }
+  .ld-trading-flow li { flex: 1 1 100%; }
+  .ld-trading-flow-node { flex: 1; }
+}
+
+/* Tab panel body: same vertical rhythm as .ld-dash without its page padding */
+.ld-trading-tabpanel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ld-table td.ld-trading-barcell { min-width: 140px; }
+.ld-trading-barcell .ld-bar-track { display: block; }
