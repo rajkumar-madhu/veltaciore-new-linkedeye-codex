@@ -1,15 +1,16 @@
 // Monitors — alert-rule list + builder (the Datadog Monitors equivalent).
-// The Alerts screen only *lists* firing conditions; this lets you author a
+// The Alerts screen only *lists* firing alerts; this lets you author a
 // monitor: pick type, write the query, set warning/critical thresholds and an
-// evaluation window, and see a live preview of the metric against the threshold
-// bands before saving. Light-theme house style; illustrative but consistent.
+// evaluation window, and see a preview of the metric against the threshold
+// bands before saving. No monitor API is connected yet, so the monitors and
+// the preview series are a labelled sample.
 import React from "react";
-import { Kpi, FormSection } from "@/components/primitives";
-import { LineChart } from "@/components/deviceDetail";
-import { wave as sharedWave } from "@/lib/series";
+import "@/styles/observe.css";
+import { useNav } from "@/hooks/useNav";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
-import { StatusPill, type PillTone } from "@/components/StatusPill";
+import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 
 type MonType = "Metric" | "Anomaly" | "Composite" | "Log" | "Synthetic";
 type MonState = "ok" | "warn" | "alert" | "nodata";
@@ -37,169 +38,200 @@ const MONITORS: Monitor[] = [
   { id: "MON-07", name: "Timeout log surge > 100/min", type: "Log", query: "logs('service:oms status:error \"timeout\"').index('*').rollup('count')", state: "ok", warn: 60, crit: 100, window: "5m", scope: "oms-gateway", since: "—" },
 ];
 
-const wave = (seed: number, base: number, amp: number) => sharedWave(seed, base, amp, { f1: 0.8, f2: 1.9, cosAmp: 0.3 });
+/** Deterministic sample series for the evaluation preview. */
+const wave = (seed: number, base: number, amp: number, n = 24) =>
+  Array.from({ length: n }, (_, i) => Math.round((base + amp * Math.sin(i * 0.8 + seed) + amp * 0.3 * Math.cos(i * 1.9 + seed)) * 10) / 10);
 
-const statePill = (s: MonState) => {
-  const map: Record<MonState, { tone: PillTone; label: string; icon: string }> = {
-    ok: { tone: "ok", label: "OK", icon: "fa-circle-check" },
-    warn: { tone: "warn", label: "Warn", icon: "fa-triangle-exclamation" },
-    alert: { tone: "crit", label: "Alert", icon: "fa-fire" },
-    nodata: { tone: "muted", label: "No Data", icon: "fa-circle-question" },
-  };
-  return <StatusPill {...map[s]} />;
+const STATE: Record<MonState, { tone: Tone; label: string; icon: string }> = {
+  ok: { tone: "ok", label: "OK", icon: "fa-circle-check" },
+  warn: { tone: "warn", label: "Warn", icon: "fa-triangle-exclamation" },
+  alert: { tone: "crit", label: "Alert", icon: "fa-fire" },
+  nodata: { tone: "muted", label: "No Data", icon: "fa-circle-question" },
 };
 
+const CRIT_COLOR = "#e5383b", WARN_COLOR = "#f5a524", LINE_COLOR = "#2f6bff";
+
+const NOTIFY: [string, string, string][] = [
+  ["fa-brands fa-slack", "#trading-critical", "on Alert"],
+  ["fa-solid fa-envelope", "on-call@finspot.in", "on Alert / Warn"],
+  ["fa-solid fa-phone", "PagerDuty · Trading", "on Alert"],
+];
+
 export default function MonitorsScreen() {
+  const { setRoute } = useNav();
   const canWrite = useCanWrite();
+  const idp = React.useId();
   const [sel, setSel] = React.useState(MONITORS[0]);
   // Builder state, seeded from the selected monitor.
   const [warn, setWarn] = React.useState(sel.warn);
   const [crit, setCrit] = React.useState(sel.crit);
   const [win, setWin] = React.useState(sel.window);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   React.useEffect(() => { setWarn(sel.warn); setCrit(sel.crit); setWin(sel.window); }, [sel]);
 
   const series = wave(sel.id.length, crit * 0.8, crit * 0.35);
-  const peak = Math.max(...series, crit) * 1.1;
   const breaches = series.filter((v) => v >= crit).length;
 
   const alerting = MONITORS.filter((m) => m.state === "alert").length;
   const warning = MONITORS.filter((m) => m.state === "warn").length;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Observe</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("alerts")}>Alerts</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Monitors</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">MONITORS</span>
-          {alerting > 0 && <span className="sn-pill prio-1"><i className="fa-solid fa-fire" /> {alerting} alerting</span>}
-          <span className="sn-pill state-progress"><i className="fa-solid fa-triangle-exclamation" /> {warning} warning</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle-check" /> {MONITORS.length - alerting - warning} ok</span>
+      <div className="ld-head">
+        <div>
+          <h1>Monitors</h1>
+          <p>Metric · anomaly · composite · log · synthetic alert rules</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Monitors</h1>
-            <div className="sn-form-sub">Metric · anomaly · composite · log · synthetic alert rules · evaluated every {sel.window}</div>
-          </div>
-          <div className="sn-form-actions">
-            <ReadOnlyBadge />
-            <button className="sn-btn"><i className="fa-solid fa-download" /> Export</button>
-            {canWrite && <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New Monitor</button>}
-          </div>
+        <div className="ld-head-actions">
+          <ReadOnlyBadge />
+          <button type="button" className="ld-btn"><i className="fa-solid fa-download" aria-hidden="true" /> Export</button>
+          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Monitor</button>}
         </div>
       </div>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Monitors" v={MONITORS.length} s="configured" tone="neutral" />
-          <Kpi l="Alerting" v={alerting} s="critical threshold" tone="crit" />
-          <Kpi l="Warning" v={warning} s="warn threshold" tone="warn" />
-          <Kpi l="Muted" v={0} s="downtime scheduled" tone="ok" />
+      <div className="ld-card ld-metrics-off" role="note">
+        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <div>
+          <b>Sample data</b>
+          <p className="ld-muted ld-small">The monitor API is not connected yet. These monitors and the evaluation preview are illustrative.</p>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 16, padding: "16px 24px 24px" }}>
-        {/* Monitor list */}
-        <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, overflow: "hidden", alignSelf: "start" }}>
-          <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-            <thead>
-              <tr>
-                <th>MONITOR</th>
-                <th style={{ width: 96 }}>TYPE</th>
-                <th style={{ width: 110 }}>STATE</th>
-                <th style={{ width: 66 }}>EVERY</th>
-                <th style={{ width: 70 }}>SINCE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MONITORS.map((m) => (
-                <tr key={m.id} onClick={() => setSel(m)} style={{ cursor: "pointer", background: sel.id === m.id ? "#eff6ff" : m.state === "alert" ? "#fef2f2" : undefined }}>
-                  <td>
-                    <div style={{ fontWeight: 600, color: "#0f1c3f" }}>{m.name}</div>
-                    <div className="mono" style={{ fontSize: 10.5, color: "#8a94a3", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 360 }}>{m.query}</div>
-                  </td>
-                  <td><span style={{ fontSize: 11, fontWeight: 600, color: "#475467", background: "#f3f4f6", padding: "2px 7px", borderRadius: 4 }}>{m.type}</span></td>
-                  <td>{statePill(m.state)}</td>
-                  <td className="mono" style={{ color: "#475467" }}>{m.window}</td>
-                  <td className="text-mute" style={{ fontSize: 11 }}>{m.since}</td>
+      <div className="ld-grid ld-grid-stats">
+        <StatCard icon="fa-sliders" tone="info" label="Monitors" value={fmt(MONITORS.length)} note="configured" />
+        <StatCard icon="fa-fire" tone="crit" label="Alerting" value={fmt(alerting)} note="critical threshold" />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(warning)} note="warn threshold" />
+        <StatCard icon="fa-circle-check" tone="ok" label="OK" value={fmt(MONITORS.length - alerting - warning)} note="within thresholds" />
+      </div>
+
+      <div className="ld-split ld-split-wide">
+        <Panel title={`Monitors (${MONITORS.length})`}>
+          <div className="ld-table-wrap">
+            <table className="ld-table">
+              <thead>
+                <tr>
+                  <th scope="col">Monitor</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">State</th>
+                  <th scope="col">Every</th>
+                  <th scope="col">Since</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Builder / evaluation preview */}
-        <aside style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <b style={{ fontSize: 13 }}>{canWrite ? "Edit monitor" : "Monitor"}</b>
-              <span style={{ fontSize: 11, color: "#8a94a3" }}>{sel.type} · {sel.scope}</span>
-            </div>
-
-            <label className="mon-l">Query</label>
-            <div className="mono" style={{ fontSize: 11.5, background: "#f8fafc", border: "1px solid #eef1f4", borderRadius: 6, padding: "8px 10px", color: "#334155", marginBottom: 12, wordBreak: "break-all" }}>{sel.query}</div>
-
-            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label className="mon-l" style={{ color: "#b45309" }}>Warning ≥</label>
-                <input type="number" className="mx-input" style={{ width: "100%" }} value={warn} disabled={!canWrite} onChange={(e) => setWarn(+e.target.value)} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="mon-l" style={{ color: "#dc2626" }}>Critical ≥</label>
-                <input type="number" className="mx-input" style={{ width: "100%" }} value={crit} disabled={!canWrite} onChange={(e) => setCrit(+e.target.value)} />
-              </div>
-              <div style={{ width: 96 }}>
-                <label className="mon-l">Window</label>
-                <select className="mx-input" style={{ width: "100%" }} value={win} disabled={!canWrite} onChange={(e) => setWin(e.target.value)}>
-                  {["1m", "2m", "5m", "10m", "1h"].map((w) => <option key={w}>{w}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <label className="mon-l">Evaluation preview · last {win}</label>
-            <div style={{ position: "relative", marginTop: 4 }}>
-              <LineChart series={[series]} colors={[breaches ? "#dc2626" : "#2563eb"]} h={140} yTicks={[`${Math.round(peak)}`, `${Math.round(peak / 2)}`, "0"]} />
-            </div>
-            <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 11, color: "#475467", flexWrap: "wrap" }}>
-              <span><span style={{ display: "inline-block", width: 16, height: 2, background: "#dc2626", verticalAlign: "middle", marginRight: 4 }} /> critical {crit}</span>
-              <span><span style={{ display: "inline-block", width: 16, height: 2, background: "#f59e0b", verticalAlign: "middle", marginRight: 4 }} /> warning {warn}</span>
-              <span style={{ marginLeft: "auto", fontWeight: 600, color: breaches ? "#dc2626" : "#059669" }}>
-                {breaches ? `${breaches}/${series.length} points breach critical` : "no breach in window"}
-              </span>
-            </div>
-
-            {canWrite && (
-              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <button className="sn-btn primary" style={{ flex: 1, justifyContent: "center" }}><i className="fa-solid fa-floppy-disk" /> Save monitor</button>
-                <button className="sn-btn"><i className="fa-solid fa-volume-xmark" /> Mute</button>
-              </div>
-            )}
+              </thead>
+              <tbody>
+                {MONITORS.map((m) => {
+                  const st = STATE[m.state];
+                  return (
+                    <tr key={m.id} className={sel.id === m.id ? "ld-row-selected" : undefined}>
+                      <td>
+                        <button type="button" className="ld-link ld-strong" aria-pressed={sel.id === m.id} onClick={() => setSel(m)}>{m.name}</button>
+                        <span className="ld-sub ld-mono ld-ellipsis" title={m.query}>{m.query}</span>
+                      </td>
+                      <td><Pill tone="muted">{m.type}</Pill></td>
+                      <td><Pill tone={st.tone}><i className={`fa-solid ${st.icon}`} aria-hidden="true" /> {st.label}</Pill></td>
+                      <td className="ld-muted">{m.window}</td>
+                      <td className="ld-muted">{m.since}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
+        </Panel>
 
-          <FormSection id="notify" title="Notifications" collapsed={collapsed.notify} onToggle={toggle}>
-            <div style={{ padding: 14, fontSize: 12 }}>
-              {[
-                ["fa-slack fa-brands", "#trading-critical", "on Alert"],
-                ["fa-envelope", "on-call@finspot.in", "on Alert / Warn"],
-                ["fa-phone", "PagerDuty · Trading", "on Alert"],
-              ].map(([ic, who, when]) => (
-                <div key={who as string} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
-                  <i className={`fa-solid ${ic}`} style={{ color: "var(--accent)", width: 16 }} />
-                  <b style={{ color: "#0f1c3f" }}>{who}</b>
-                  <span style={{ marginLeft: "auto", color: "#8a94a3", fontSize: 11 }}>{when}</span>
-                </div>
-              ))}
+        <div className="ld-rail">
+          <section className="ld-card ld-panel" aria-labelledby={`${idp}-b-h`}>
+            <div className="ld-panel-head">
+              <h2 id={`${idp}-b-h`}>{canWrite ? "Edit monitor" : "Monitor"}</h2>
+              <span className="ld-muted ld-small">{sel.type} · {sel.scope}</span>
             </div>
-          </FormSection>
-        </aside>
+            <form className="ld-form" onSubmit={(e) => e.preventDefault()}>
+              <div className="ld-form-field">
+                <span>Query</span>
+                <div className="ld-obs-query">{sel.query}</div>
+              </div>
+              <div className="ld-obs-fields">
+                <div className="ld-form-field">
+                  <label htmlFor={`${idp}-warn`}>Warning ≥</label>
+                  <input id={`${idp}-warn`} type="number" className="ld-input" value={warn} disabled={!canWrite} onChange={(e) => setWarn(+e.target.value)} />
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor={`${idp}-crit`}>Critical ≥</label>
+                  <input id={`${idp}-crit`} type="number" className="ld-input" value={crit} disabled={!canWrite} onChange={(e) => setCrit(+e.target.value)} />
+                </div>
+                <div className="ld-form-field">
+                  <label htmlFor={`${idp}-win`}>Window</label>
+                  <select id={`${idp}-win`} className="ld-select" value={win} disabled={!canWrite} onChange={(e) => setWin(e.target.value)}>
+                    {["1m", "2m", "5m", "10m", "1h"].map((w) => <option key={w}>{w}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="ld-form-field">
+                <span>Evaluation preview · last {win}</span>
+                <PreviewChart series={series} warn={warn} crit={crit} breaching={breaches > 0} />
+                <div className="ld-chart-legend">
+                  <span><span className="ld-dot" style={{ background: CRIT_COLOR }} />critical {crit}</span>
+                  <span><span className="ld-dot" style={{ background: WARN_COLOR }} />warning {warn}</span>
+                  <span className={breaches ? "ld-text-crit" : "ld-text-ok"}>
+                    {breaches ? `${breaches}/${series.length} points breach critical` : "no breach in window"}
+                  </span>
+                </div>
+              </div>
+
+              {canWrite && (
+                <div className="ld-head-actions">
+                  <button type="submit" className="ld-btn ld-btn-primary"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save monitor</button>
+                  <button type="button" className="ld-btn"><i className="fa-solid fa-volume-xmark" aria-hidden="true" /> Mute</button>
+                </div>
+              )}
+            </form>
+          </section>
+
+          <Panel title="Notifications">
+            <ul className="ld-obs-list">
+              {NOTIFY.map(([ic, who, when]) => (
+                <li key={who}>
+                  <i className={ic} aria-hidden="true" />
+                  <span className="ld-strong">{who}</span>
+                  <span className="ld-obs-end">{when}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Sample metric line against the warning / critical threshold lines. */
+function PreviewChart({ series, warn, crit, breaching }: { series: number[]; warn: number; crit: number; breaching: boolean }) {
+  const W = 400, H = 150, L = 36, R = 8, T = 10, B = 10;
+  const peak = Math.max(...series, crit, warn) * 1.1 || 1;
+  const x = (i: number) => L + (i / Math.max(1, series.length - 1)) * (W - L - R);
+  const y = (v: number) => H - B - (Math.max(0, v) / peak) * (H - T - B);
+  const line = series.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const color = breaching ? CRIT_COLOR : LINE_COLOR;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="ld-trend" role="img" aria-label={`Sample series peaking at ${Math.max(...series)} against warning ${warn} and critical ${crit}`}>
+      {[0, 0.5, 1].map((f) => (
+        <g key={f}>
+          <line x1={L} x2={W - R} y1={y(peak * f)} y2={y(peak * f)} className="ld-gridline" />
+          <text x={L - 6} y={y(peak * f) + 4} textAnchor="end" className="ld-axis">{Math.round(peak * f)}</text>
+        </g>
+      ))}
+      <line x1={L} x2={W - R} y1={y(warn)} y2={y(warn)} stroke={WARN_COLOR} strokeDasharray="4 3" strokeWidth={1.5} />
+      <line x1={L} x2={W - R} y1={y(crit)} y2={y(crit)} stroke={CRIT_COLOR} strokeDasharray="4 3" strokeWidth={1.5} />
+      <polygon points={`${x(0)},${y(0)} ${line} ${x(series.length - 1)},${y(0)}`} fill={color} fillOpacity={0.1} />
+      <polyline points={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+    </svg>
   );
 }
