@@ -1,20 +1,34 @@
-// New Change form (ServiceNow style) — net-new screen for the change-create
-// flow, mirroring the incident/problem create forms.
+// New Change form — the change-create flow, mirroring the incident/problem
+// create forms. LinkedEye form layout.
+import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { SERVICES, USERS } from "@/data/core";
-import { FormSection, FormRow, Field, Sev } from "@/components/primitives";
+import { Panel, Pill } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import { useCreateChange } from "@/api/hooks";
 
 const CATEGORIES = ["Network", "Server", "Firewall", "Kubernetes", "Security", "Trading", "CDN", "Database"];
 const CHANGE_TYPES = ["Normal", "Standard", "Emergency"];
 const RISKS = ["Low", "Medium", "High"];
 const STATES = ["New", "Scheduled", "CAB Review", "Approved", "Implement"];
+const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "ok" };
+const RISK_TONE: Record<string, Tone> = { High: "crit", Medium: "warn", Low: "ok" };
+
+function FormField({ id, label, required, wide, children }: { id?: string; label: string; required?: boolean; wide?: boolean; children: React.ReactNode }) {
+  const text = <>{label}{required && <span className="ld-req" aria-hidden="true"> *</span>}</>;
+  return (
+    <div className={`ld-form-field${wide ? " ld-sd-wide" : ""}`}>
+      {id ? <label htmlFor={id}>{text}</label> : <span>{text}</span>}
+      {children}
+    </div>
+  );
+}
 
 export default function ChangeNewScreen() {
   const { setRoute } = useNav();
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+  const idp = React.useId();
+  const formId = `${idp}-form`;
   const [priority, setPriority] = React.useState("2");
   const [title, setTitle] = React.useState("");
   const [service, setService] = React.useState("payments-primary");
@@ -55,116 +69,133 @@ export default function ChangeNewScreen() {
     }
   };
 
+  const f = (name: string) => `${idp}-${name}`;
+  const priN = parseInt(priority, 10);
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("changes")}>Change Management</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("changes")}>Change Management</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>New Change</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">CHG-NEW</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> Draft</span>
-          <span className={`sn-pill ${risk === "High" ? "prio-1" : "state-neutral"}`}><i className="fa-solid fa-gauge-high" /> {risk} risk</span>
+      <div className="ld-head">
+        <div>
+          <h1>Create New Change</h1>
+          <p>Fields marked <span className="ld-req">*</span> are required · routes to CAB when risk is High</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Create New Change</h1>
-            <div className="sn-form-sub">Required fields marked with *  ·  Routes to CAB when risk is High</div>
-            {error && (
-              <div className="sn-form-sub" style={{ color: "var(--critical)", marginTop: 4 }}>
-                <i className="fa-solid fa-triangle-exclamation" /> {error}
-              </div>
-            )}
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn" onClick={() => setRoute("changes")}><i className="fa-solid fa-xmark" /> Cancel</button>
-            <button className="sn-btn"><i className="fa-solid fa-floppy-disk" /> Save Draft</button>
-            <button className="sn-btn primary" onClick={submit} disabled={create.isPending}>
-              <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Saving…" : "Submit"}
-            </button>
-          </div>
+        <div className="ld-head-actions">
+          <Pill tone="muted"><i className="fa-solid fa-pen" aria-hidden="true" /> Draft</Pill>
+          <Pill tone={RISK_TONE[risk] ?? "muted"}><i className="fa-solid fa-gauge-high" aria-hidden="true" /> {risk} risk</Pill>
+          <button type="button" className="ld-btn" onClick={() => setRoute("changes")}><i className="fa-solid fa-xmark" aria-hidden="true" /> Cancel</button>
+          <button type="button" className="ld-btn"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Draft</button>
+          <button type="submit" form={formId} className="ld-btn ld-btn-primary" disabled={create.isPending}>
+            <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} aria-hidden="true" /> {create.isPending ? "Saving…" : "Submit change"}
+          </button>
         </div>
       </div>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="basic" title="Change Details" collapsed={collapsed.basic} onToggle={toggle}>
-            <FormRow>
-              <Field label="Number" value={<span className="mono text-mute">auto-generated on save</span>} />
-              <Field label="Requested by" value={<span><a className="sn-link">priya.r@finspot.in</a> (you)</span>} required />
-            </FormRow>
-            <FormRow>
-              <Field label="Summary" value={<input className="select" placeholder="e.g. Kubernetes control-plane upgrade prod-west" value={title} onChange={e => setTitle(e.target.value)} style={{ width: "100%" }} />} required />
-              <Field label="Category" value={<select className="select" value={category} onChange={e => setCategory(e.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>} required />
-            </FormRow>
-            <FormRow>
-              <Field label="Type" value={<select className="select" value={type} onChange={e => setType(e.target.value)}>{CHANGE_TYPES.map(t => <option key={t}>{t}</option>)}</select>} required />
-              <Field label="Priority" value={
-                <span className="row row-8">
-                  <select className="select" value={priority} onChange={e => setPriority(e.target.value)}>
-                    <option value="1">1 — Critical</option>
-                    <option value="2">2 — High</option>
-                    <option value="3">3 — Moderate</option>
-                    <option value="4">4 — Low</option>
-                  </select>
-                  <Sev n={parseInt(priority, 10)} />
+      {error && (
+        <div className="ld-card ld-sd-alert ld-sd-alert-crit" role="alert">
+          <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> <span>{error}</span>
+        </div>
+      )}
+
+      <div className="ld-split">
+        <form id={formId} className="ld-form ld-rail" noValidate onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          <Panel title="Change Details">
+            <div className="ld-sd-fields">
+              <FormField label="Number"><span className="ld-sd-static ld-mono ld-muted">auto-generated on save</span></FormField>
+              <FormField label="Requested by" required><span className="ld-sd-static">priya.r@finspot.in (you)</span></FormField>
+              <FormField id={f("title")} label="Summary" required>
+                <input id={f("title")} className="ld-input" aria-required="true" aria-invalid={!!error && !title.trim()} placeholder="e.g. Kubernetes control-plane upgrade prod-west" value={title} onChange={e => setTitle(e.target.value)} />
+              </FormField>
+              <FormField id={f("category")} label="Category" required>
+                <select id={f("category")} className="ld-select" value={category} onChange={e => setCategory(e.target.value)}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>
+              </FormField>
+              <FormField id={f("type")} label="Type" required>
+                <select id={f("type")} className="ld-select" value={type} onChange={e => setType(e.target.value)}>{CHANGE_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+              </FormField>
+              <FormField id={f("priority")} label="Priority">
+                <select id={f("priority")} className="ld-select" value={priority} onChange={e => setPriority(e.target.value)}>
+                  <option value="1">1 — Critical</option>
+                  <option value="2">2 — High</option>
+                  <option value="3">3 — Moderate</option>
+                  <option value="4">4 — Low</option>
+                </select>
+                <span><Pill tone={SEV_TONE[priN] ?? "muted"}>Sev {priN}</Pill></span>
+              </FormField>
+            </div>
+          </Panel>
+
+          <Panel title="Risk & Scheduling">
+            <div className="ld-sd-fields">
+              <FormField id={f("risk")} label="Risk" required>
+                <select id={f("risk")} className="ld-select" value={risk} onChange={e => setRisk(e.target.value)}>{RISKS.map(r => <option key={r}>{r}</option>)}</select>
+              </FormField>
+              <FormField id={f("state")} label="Initial state">
+                <select id={f("state")} className="ld-select" value={state} onChange={e => setState(e.target.value)}>{STATES.map(s => <option key={s}>{s}</option>)}</select>
+              </FormField>
+              <FormField id={f("window")} label="Change window">
+                <input id={f("window")} className="ld-input" value={changeWindow} onChange={e => setChangeWindow(e.target.value)} />
+              </FormField>
+              <FormField id={f("service")} label="Affected service / CI">
+                <select id={f("service")} className="ld-select" value={service} onChange={e => setService(e.target.value)}>{SERVICES.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}</select>
+              </FormField>
+              <FormField id={f("owner")} label="Assigned to" required>
+                <select id={f("owner")} className="ld-select" value={owner} onChange={e => setOwner(e.target.value)}>{USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.team}</option>)}</select>
+              </FormField>
+              <FormField label="Approval">
+                <span className="ld-sd-static">
+                  {risk === "High" ? <span className="ld-text-warn">CAB required · meets Fri 14:00 UTC</span> : <span className="ld-text-ok">Standard approval</span>}
                 </span>
-              } />
-            </FormRow>
-          </FormSection>
+              </FormField>
+            </div>
+          </Panel>
 
-          <FormSection id="risk" title="Risk & Scheduling" collapsed={collapsed.risk} onToggle={toggle}>
-            <FormRow>
-              <Field label="Risk" value={<select className="select" value={risk} onChange={e => setRisk(e.target.value)}>{RISKS.map(r => <option key={r}>{r}</option>)}</select>} required />
-              <Field label="Initial state" value={<select className="select" value={state} onChange={e => setState(e.target.value)}>{STATES.map(s => <option key={s}>{s}</option>)}</select>} />
-            </FormRow>
-            <FormRow>
-              <Field label="Change window" value={<input className="select" value={changeWindow} onChange={e => setChangeWindow(e.target.value)} style={{ width: "100%" }} />} />
-              <Field label="Affected service / CI" value={<select className="select" value={service} onChange={e => setService(e.target.value)}>{SERVICES.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}</select>} />
-            </FormRow>
-            <FormRow>
-              <Field label="Assigned to" value={<select className="select" value={owner} onChange={e => setOwner(e.target.value)}>{USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.team}</option>)}</select>} required />
-              <Field label="Approval" value={risk === "High" ? <span className="tone-warn"><b>CAB required</b> · meets Fri 14:00 UTC</span> : <span className="tone-ok">Standard approval</span>} />
-            </FormRow>
-          </FormSection>
-
-          <FormSection id="plan" title="Implementation Plan" collapsed={collapsed.plan} onToggle={toggle}>
-            <div style={{ padding: 14 }}>
+          <Panel title="Implementation Plan">
+            <FormField id={f("plan")} label="Plan">
               <textarea
+                id={f("plan")}
+                className="ld-input ld-textarea ld-sd-textarea"
                 value={plan}
                 onChange={e => setPlan(e.target.value)}
                 placeholder="Steps, rollback plan, validation checks, blast-radius notes…"
-                style={{ width: "100%", minHeight: 120, padding: 10, fontSize: 12.5, fontFamily: "var(--font-sans)", border: "1px solid #d2d6dc", borderRadius: 3 }}
               />
-              <div className="row row-8" style={{ marginTop: 8 }}>
-                <button className="sn-btn"><i className="fa-solid fa-robot" /> AI: Draft rollback plan</button>
-                <button className="sn-btn"><i className="fa-solid fa-paperclip" /> Attach runbook</button>
-              </div>
+            </FormField>
+            <div className="ld-sd-actions">
+              <button type="button" className="ld-btn ld-btn-sm"><i className="fa-solid fa-robot" aria-hidden="true" /> AI: Draft rollback plan</button>
+              <button type="button" className="ld-btn ld-btn-sm"><i className="fa-solid fa-paperclip" aria-hidden="true" /> Attach runbook</button>
             </div>
-          </FormSection>
-        </div>
+          </Panel>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Change Preview</div>
-            <div className="sn-side-body">
-              <Field label="Summary" value={<b>{title || "—"}</b>} />
-              <Field label="Type / Risk" value={<span>{type} · <b className={risk === "High" ? "tone-crit" : ""}>{risk}</b></span>} />
-              <Field label="Window" value={changeWindow} />
-              <Field label="Owner" value={USERS.find(u => u.id === owner)?.name ?? "—"} />
-            </div>
+          <div className="ld-sd-actions ld-sd-actions-end">
+            <button type="button" className="ld-btn" onClick={() => setRoute("changes")}>Cancel</button>
+            <button type="submit" className="ld-btn ld-btn-primary" disabled={create.isPending}>
+              <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} aria-hidden="true" /> {create.isPending ? "Saving…" : "Submit change"}
+            </button>
           </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">CAB Guidance</div>
-            <div className="sn-side-body" style={{ padding: 14, fontSize: 12.5, lineHeight: 1.6, color: "var(--fg-muted)" }}>
+        </form>
+
+        <aside className="ld-rail" aria-label="Preview">
+          <Panel title="Change Preview">
+            <dl className="ld-dl">
+              <dt>Summary</dt><dd><b>{title || "—"}</b></dd>
+              <dt>Type / Risk</dt><dd>{type} · <span className={risk === "High" ? "ld-text-crit" : undefined}>{risk}</span></dd>
+              <dt>Window</dt><dd>{changeWindow}</dd>
+              <dt>Owner</dt><dd>{USERS.find(u => u.id === owner)?.name ?? "—"}</dd>
+            </dl>
+          </Panel>
+          <Panel title="CAB Guidance">
+            <p className="ld-muted ld-small">
               {risk === "High"
                 ? "High-risk changes require CAB review and a tested rollback plan before implementation."
                 : "Standard/low-risk changes can proceed on the pre-approved schedule."}
-            </div>
-          </div>
+            </p>
+          </Panel>
         </aside>
       </div>
     </div>
