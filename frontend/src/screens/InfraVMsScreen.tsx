@@ -1,212 +1,210 @@
-// Virtual Machines dashboard, ServiceNow form-style.
-// Ported from screens/infra-vms.jsx.
+// Virtual machines — LinkedEye list layout: fleet summary cards, a cluster
+// roll-up, the VM table with state tabs, and a capacity / top-CPU rail.
+// Every figure is derived from the VMs hook; each VM opens vm-detail.
 import React from "react";
+import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
 import { useVms } from "@/api/hooks";
-import { VMS } from "@/data/infra";
-import { Kpi, FormSection, Field } from "@/components/primitives";
+import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+
+const barColor = (t: Tone) => (t === "crit" ? "#e5383b" : t === "warn" ? "#f5a524" : "#16a34a");
+
+function Usage({ v, warn, crit, label }: { v: number; warn: number; crit: number; label: string }) {
+  const t: Tone = v > crit ? "crit" : v > warn ? "warn" : "ok";
+  return (
+    <span className="ld-infra-usage">
+      <span className="ld-bar-track ld-bar-inline" role="img" aria-label={`${label} ${v}%`}>
+        <span className="ld-bar-fill" style={{ width: `${Math.min(100, v)}%`, background: barColor(t) }} />
+      </span>
+      <b>{v}%</b>
+    </span>
+  );
+}
+
+const TABS: [string, string][] = [["all", "All VMs"], ["running", "Running"], ["stopped", "Stopped"], ["hot", "Hot · CPU/Mem"]];
+
+const QUICK_ACTIONS: [string, string][] = [
+  ["fa-plus", "Provision VM"],
+  ["fa-tower-broadcast", "Bulk Migrate"],
+  ["fa-camera", "Snapshot"],
+  ["fa-pause", "Suspend Dev"],
+  ["fa-rotate", "Sync vCenter"],
+  ["fa-circle-nodes", "View Topology"],
+];
+
+const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((s, x) => s + x, 0) / xs.length) : 0);
 
 export default function InfraVMsScreen() {
   const { setRoute } = useNav();
   const { data } = useVms();
   const vms = data ?? [];
   const [tab, setTab] = React.useState("all");
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
 
   const filtered = tab === "all" ? vms : tab === "running" ? vms.filter(v => v.state === "running") : tab === "stopped" ? vms.filter(v => v.state === "stopped") : vms.filter(v => v.cpuUse > 60 || v.memUse > 75);
 
-  const totalVCPU = vms.reduce((s, v) => s + parseInt(v.cpu), 0);
-  const totalMem = vms.reduce((s, v) => s + parseInt(v.mem), 0);
-  const running = vms.filter(v => v.state === "running").length;
-  const avgCpu = Math.round(vms.filter(v => v.state === "running").reduce((s, v) => s + v.cpuUse, 0) / running);
-  const avgMem = Math.round(vms.filter(v => v.state === "running").reduce((s, v) => s + v.memUse, 0) / running);
+  const totalVCPU = vms.reduce((s, v) => s + (parseInt(v.cpu) || 0), 0);
+  const totalMem = vms.reduce((s, v) => s + (parseInt(v.mem) || 0), 0);
+  const runningVms = vms.filter(v => v.state === "running");
+  const running = runningVms.length;
+  const stopped = vms.filter(v => v.state === "stopped").length;
+  const avgCpu = avg(runningVms.map(v => v.cpuUse));
+  const avgMem = avg(runningVms.map(v => v.memUse));
+
+  // Cluster roll-up from the VM list: hosts, VM count and the average use of
+  // the running VMs in each cluster.
+  const clusters = [...new Set(vms.map(v => v.cluster))].map(name => {
+    const members = vms.filter(v => v.cluster === name);
+    const live = members.filter(v => v.state === "running");
+    const cpu = avg(live.map(v => v.cpuUse));
+    const mem = avg(live.map(v => v.memUse));
+    return { name, hosts: new Set(members.map(v => v.host)).size, vms: members.length, running: live.length, cpu, mem, hot: cpu > 70 || mem > 70 };
+  });
+  const topCpu = [...runningVms].sort((a, b) => b.cpuUse - a.cpuUse).slice(0, 5);
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra")}>Infrastructure</a><span className="sn-bc-sep">›</span>
+    <div className="ld-dash">
+      <nav className="ld-crumbs" aria-label="Breadcrumb">
+        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
+        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
         <span>Virtual Machines</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">VMS</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {running} Running</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-cube" /> 612 total fleet</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> 3 vSphere clusters</span>
+      <div className="ld-head">
+        <div>
+          <h1>Virtual Machines</h1>
+          <p>{fmt(vms.length)} VMs in {clusters.length} cluster{clusters.length === 1 ? "" : "s"} · {fmt(totalVCPU)} vCPU · {fmt(totalMem)} GB RAM allocated</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Virtual Machines</h1>
-            <div className="sn-form-sub">vCenter sync 2 minutes ago · {totalVCPU} vCPU · {totalMem} GB RAM allocated</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-rotate" /> Sync vCenter</button>
-            <button className="sn-btn"><i className="fa-solid fa-tower-broadcast" /> Migrate</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> Provision VM</button>
-          </div>
+        <div className="ld-head-actions">
+          <button type="button" className="ld-btn"><i className="fa-solid fa-rotate" aria-hidden="true" /> Sync vCenter</button>
+          <button type="button" className="ld-btn"><i className="fa-solid fa-tower-broadcast" aria-hidden="true" /> Migrate</button>
+          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Provision VM</button>
         </div>
       </div>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="Running" v={running} s="+4 in 24h" tone="ok" />
-        <Kpi l="Total Fleet" v="612" s="across 3 clusters" tone="neutral" />
-        <Kpi l="Avg CPU" v={avgCpu + "%"} s="+3% vs avg" tone={avgCpu > 60 ? "warn" : "ok"} />
-        <Kpi l="Avg Memory" v={avgMem + "%"} s="capacity OK" tone={avgMem > 75 ? "warn" : "ok"} />
-        <Kpi l="Snapshots" v="38" s="-12 reclaimed" tone="ok" />
-        <Kpi l="Stopped" v={vms.filter(v => v.state === "stopped").length} s="dev/QA" tone="neutral" />
+      <div className="ld-grid ld-grid-stats ld-grid-6">
+        <StatCard icon="fa-play" tone="ok" label="Running" value={fmt(running)} note={`of ${fmt(vms.length)} VMs`} onClick={() => setTab("running")} />
+        <StatCard icon="fa-cube" tone="info" label="Total VMs" value={fmt(vms.length)} note={`across ${clusters.length} cluster${clusters.length === 1 ? "" : "s"}`} onClick={() => setTab("all")} />
+        <StatCard icon="fa-microchip" tone={avgCpu > 60 ? "warn" : "ok"} label="Avg CPU" value={running ? `${avgCpu}%` : "—"} note="of running VMs" />
+        <StatCard icon="fa-memory" tone={avgMem > 75 ? "warn" : "ok"} label="Avg memory" value={running ? `${avgMem}%` : "—"} note="of running VMs" />
+        <StatCard icon="fa-fire" tone="warn" label="Hot" value={fmt(vms.filter(v => v.cpuUse > 60 || v.memUse > 75).length)} note="CPU > 60% or mem > 75%" onClick={() => setTab("hot")} />
+        <StatCard icon="fa-stop" tone="muted" label="Stopped" value={fmt(stopped)} note="powered off" onClick={() => setTab("stopped")} />
       </div>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="clusters" title="vSphere Clusters" badge="3 active" collapsed={collapsed.clusters} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Cluster</th><th style={{width:100}}>Site</th><th style={{width:90}}>Hosts</th><th style={{width:90}}>VMs</th><th style={{width:120}}>CPU usage</th><th style={{width:120}}>RAM usage</th><th style={{width:110}}>Status</th></tr></thead>
-              <tbody>
-                {([
-                  ["blr-prod","dc-blr-1",2,vms.filter(v=>v.cluster==="blr-prod").length,68,74,"warn"],
-                  ["blr-stg","dc-blr-1",1,vms.filter(v=>v.cluster==="blr-stg").length,22,38,"ok"],
-                  ["fra-prod","dc-fra-1",1,vms.filter(v=>v.cluster==="fra-prod").length,34,52,"ok"],
-                ] as [string, string, number, number, number, number, string][]).map((r,i) => (
-                  <tr key={i}>
-                    <td><b className="mono">{r[0]}</b></td>
-                    <td className="mono text-mute">{r[1]}</td>
-                    <td className="mono">{r[2]}</td>
-                    <td className="mono">{r[3]}</td>
-                    <td>
-                      <div className="sn-sla">
-                        <div className="sn-sla-bar" style={{width:80}}><div className="sn-sla-fill" style={{width:r[4]+"%",background:r[4]>70?"var(--warning)":"var(--success)"}} /></div>
-                        <span className="mono" style={{fontSize:11.5}}>{r[4]}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="sn-sla">
-                        <div className="sn-sla-bar" style={{width:80}}><div className="sn-sla-fill" style={{width:r[5]+"%",background:r[5]>70?"var(--warning)":"var(--success)"}} /></div>
-                        <span className="mono" style={{fontSize:11.5}}>{r[5]}%</span>
-                      </div>
-                    </td>
-                    <td><span className={`sn-state-pill ${r[6]==="warn"?"state-mitigating":"svc-healthy"}`}><i className="fa-solid fa-circle" /> {r[6]==="warn"?"degraded":"healthy"}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-
-          <div className="sn-activity-section">
-            <div className="sn-activity-tabs">
-              {[["all","All VMs"],["running","Running"],["stopped","Stopped"],["hot","Hot · CPU/Mem"]].map(([id,l]) => (
-                <button key={id} className={`sn-act-tab${tab===id?" active":""}`} onClick={() => setTab(id)}>{l}</button>
-              ))}
-            </div>
-            <table className="sn-list-table">
+      <Panel title={`Clusters (${clusters.length})`}>
+        {clusters.length ? (
+          <div className="ld-table-wrap">
+            <table className="ld-table">
               <thead>
-                <tr>
-                  <th style={{width:30}}><input type="checkbox" /></th>
-                  <th style={{width:160}}>VM</th>
-                  <th style={{width:130}}>Host</th>
-                  <th style={{width:110}}>Cluster</th>
-                  <th>OS</th>
-                  <th style={{width:120}}>vCPU / RAM</th>
-                  <th style={{width:120}}>IP</th>
-                  <th style={{width:120}}>CPU</th>
-                  <th style={{width:120}}>Memory</th>
-                  <th style={{width:100}}>State</th>
-                </tr>
+                <tr><th scope="col">Cluster</th><th scope="col">Hosts</th><th scope="col">VMs</th><th scope="col">Avg CPU (running)</th><th scope="col">Avg RAM (running)</th><th scope="col">Status</th></tr>
               </thead>
               <tbody>
-                {filtered.map(v => (
-                  <tr key={v.id} onClick={() => setRoute("vm-detail", { vmId: v.id })} style={{ cursor: "pointer" }}>
-                    <td onClick={e => e.stopPropagation()}><input type="checkbox" /></td>
-                    <td><button type="button" className="ld-link ld-mono" onClick={(e) => { e.stopPropagation(); setRoute("vm-detail", { vmId: v.id }); }}><b>{v.id}</b></button></td>
-                    <td className="mono text-mute">{v.host}</td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {v.cluster}</span></td>
-                    <td><span style={{fontSize:11.5}}>{v.os}</span></td>
-                    <td className="mono" style={{fontSize:11.5}}>{v.cpu} / {v.mem}</td>
-                    <td className="mono" style={{fontSize:11.5}}>{v.ip}</td>
-                    <td>
-                      {v.state === "running" ? (
-                        <div className="sn-sla">
-                          <div className="sn-sla-bar" style={{width:60}}><div className="sn-sla-fill" style={{width:v.cpuUse+"%",background:v.cpuUse>75?"var(--critical)":v.cpuUse>60?"var(--warning)":"var(--success)"}} /></div>
-                          <span className="mono" style={{fontSize:11}}>{v.cpuUse}%</span>
-                        </div>
-                      ) : <span className="text-mute mono">—</span>}
-                    </td>
-                    <td>
-                      {v.state === "running" ? (
-                        <div className="sn-sla">
-                          <div className="sn-sla-bar" style={{width:60}}><div className="sn-sla-fill" style={{width:v.memUse+"%",background:v.memUse>80?"var(--critical)":v.memUse>65?"var(--warning)":"var(--success)"}} /></div>
-                          <span className="mono" style={{fontSize:11}}>{v.memUse}%</span>
-                        </div>
-                      ) : <span className="text-mute mono">—</span>}
-                    </td>
-                    <td><span className={`sn-state-pill ${v.state==="running"?"svc-healthy":"state-neutral"}`}><i className="fa-solid fa-circle" /> {v.state}</span></td>
+                {clusters.map(c => (
+                  <tr key={c.name}>
+                    <td className="ld-mono">{c.name}</td>
+                    <td>{c.hosts}</td>
+                    <td>{c.vms}<span className="ld-sub">{c.running} running</span></td>
+                    <td>{c.running ? <Usage v={c.cpu} warn={70} crit={85} label="CPU" /> : <span className="ld-muted">—</span>}</td>
+                    <td>{c.running ? <Usage v={c.mem} warn={70} crit={85} label="RAM" /> : <span className="ld-muted">—</span>}</td>
+                    <td><Pill tone={c.hot ? "warn" : "ok"}><span className="ld-pill-dot" />{c.hot ? "Degraded" : "Healthy"}</Pill></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <Empty>No clusters reported yet.</Empty>
+        )}
+      </Panel>
+
+      <div className="ld-split">
+        <section className="ld-card ld-panel" aria-labelledby="vms-h">
+          <div className="ld-panel-head">
+            <h2 id="vms-h">Virtual machines ({fmt(filtered.length)})</h2>
+          </div>
+          <div className="ld-tabs" role="tablist" aria-label="Filter VMs by state">
+            {TABS.map(([id, l]) => (
+              <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ld-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{l}</button>
+            ))}
+          </div>
+          {filtered.length ? (
+            <div className="ld-table-wrap">
+              <table className="ld-table">
+                <thead>
+                  <tr>
+                    <th scope="col">VM</th>
+                    <th scope="col"><span className="sr-only">Select</span></th>
+                    <th scope="col">Host</th>
+                    <th scope="col">Cluster</th>
+                    <th scope="col">OS</th>
+                    <th scope="col">vCPU / RAM</th>
+                    <th scope="col">IP</th>
+                    <th scope="col">CPU</th>
+                    <th scope="col">Memory</th>
+                    <th scope="col">State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(v => (
+                    <tr key={v.id}>
+                      <td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("vm-detail", { vmId: v.id })}>{v.id}</button></td>
+                      <td><input type="checkbox" aria-label={`Select ${v.id}`} /></td>
+                      <td className="ld-muted ld-mono">{v.host}</td>
+                      <td><Pill tone="muted">{v.cluster}</Pill></td>
+                      <td>{v.os}</td>
+                      <td className="ld-mono">{v.cpu} / {v.mem}</td>
+                      <td className="ld-mono">{v.ip}</td>
+                      <td>{v.state === "running" ? <Usage v={v.cpuUse} warn={60} crit={75} label="CPU" /> : <span className="ld-muted">—</span>}</td>
+                      <td>{v.state === "running" ? <Usage v={v.memUse} warn={65} crit={80} label="Memory" /> : <span className="ld-muted">—</span>}</td>
+                      <td><Pill tone={v.state === "running" ? "ok" : "muted"}><span className="ld-pill-dot" />{v.state}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>{vms.length ? "No VMs in this view." : "No VMs reported yet."}</Empty>
+          )}
+        </section>
+
+        <div className="ld-rail">
+          <Panel title="Capacity Summary">
+            <dl className="ld-dl">
+              <dt>Allocated vCPU</dt><dd><b>{fmt(totalVCPU)}</b> cores</dd>
+              <dt>Allocated RAM</dt><dd><b>{fmt(totalMem)}</b> GB</dd>
+              <dt>Avg CPU</dt><dd className={avgCpu > 60 ? "ld-text-warn" : "ld-text-ok"}>{running ? `${avgCpu}%` : "—"}</dd>
+              <dt>Avg memory</dt><dd className={avgMem > 75 ? "ld-text-warn" : "ld-text-ok"}>{running ? `${avgMem}%` : "—"}</dd>
+            </dl>
+          </Panel>
+
+          <Panel title="Top by CPU">
+            {topCpu.length ? (
+              <ul className="ld-bars">
+                {topCpu.map(v => (
+                  <li key={v.id}>
+                    <span className="ld-bar-label"><button type="button" className="ld-link ld-mono" onClick={() => setRoute("vm-detail", { vmId: v.id })}>{v.id}</button></span>
+                    <span className="ld-bar-track">
+                      <span className="ld-bar-fill" style={{ width: `${Math.min(100, v.cpuUse)}%`, background: barColor(v.cpuUse > 75 ? "crit" : v.cpuUse > 60 ? "warn" : "ok") }} />
+                    </span>
+                    <span className="ld-bar-value">{v.cpuUse}%</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>No running VMs.</Empty>
+            )}
+          </Panel>
+
+          <Panel title="Quick Actions">
+            <div className="ld-infra-actions">
+              {QUICK_ACTIONS.map(([ic, lbl]) => (
+                <button key={lbl} type="button" className="ld-btn ld-btn-sm"><i className={`fa-solid ${ic}`} aria-hidden="true" /> {lbl}</button>
+              ))}
+            </div>
+          </Panel>
         </div>
-
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Capacity Summary</div>
-            <div className="sn-side-body">
-              <Field label="Allocated vCPU" value={<span><b>{totalVCPU}</b> cores</span>} />
-              <Field label="Allocated RAM" value={<span><b>{totalMem}</b> GB</span>} />
-              <Field label="Avg CPU" value={<span className={avgCpu > 60 ? "tone-warn" : "tone-ok"}><b>{avgCpu}%</b></span>} />
-              <Field label="Avg Memory" value={<span className={avgMem > 75 ? "tone-warn" : "tone-ok"}><b>{avgMem}%</b></span>} />
-              <Field label="Headroom" value={<span className="tone-ok"><b>32%</b> free</span>} />
-              <Field label="Last vMotion" value="14 min ago · vm-prod-api-02" />
-            </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Quick Actions</div>
-            <div className="sn-side-body sn-actions-grid">
-              {[
-                ["fa-plus","Provision VM"],
-                ["fa-tower-broadcast","Bulk Migrate"],
-                ["fa-camera","Snapshot"],
-                ["fa-pause","Suspend Dev"],
-                ["fa-rotate","Sync vCenter"],
-                ["fa-circle-nodes","View Topology"],
-              ].map(([ic,lbl]) => (
-                <button key={lbl} className="sn-action"><i className={`fa-solid ${ic}`} /><span>{lbl}</span></button>
-              ))}
-            </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Top by CPU <span className="sn-side-count">3</span></div>
-            <div className="sn-side-body">
-              {vms.filter(v => v.state === "running").sort((a,b) => b.cpuUse - a.cpuUse).slice(0,3).map(v => (
-                <div key={v.id} className="sn-related-row">
-                  <div><div className="sn-related-title mono">{v.id}</div><div className="sn-related-meta">{v.host} · {v.cluster}</div></div>
-                  <span className={`sn-state-pill ${v.cpuUse > 70 ? "state-mitigating" : "svc-healthy"}`}><i className="fa-solid fa-circle" /> {v.cpuUse}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="sn-side-card">
-            <div className="sn-side-head">Recent Events</div>
-            <div className="sn-side-body">
-              {[
-                ["VM provisioned","vm-prod-api-03","8m ago"],
-                ["Snapshot taken","vm-prod-web-01","32m ago"],
-                ["vMotion completed","vm-prod-api-02","14m ago"],
-                ["Stopped (idle policy)","vm-test-04","2h ago"],
-              ].map(([action, vm, time], i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title">{action}</div><div className="sn-related-meta mono">{vm}</div></div>
-                  <span className="text-mute mono" style={{ fontSize: 11 }}>{time}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
   );
