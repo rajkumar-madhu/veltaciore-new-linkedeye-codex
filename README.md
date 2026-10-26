@@ -52,6 +52,32 @@ on operational lists) when it is.
 docker compose up --build
 ```
 
+## Live monitoring data (Prometheus + Loki)
+
+Device, server and VM charts, processes, services, iDRAC / iLO and event logs
+read your own Prometheus and Loki. Until they are connected those panels say
+"not connected" instead of drawing anything.
+
+1. `cp .env.example .env` and set `PROMETHEUS_URL` (plus `PROMETHEUS_TOKEN` if
+   it needs one) and `LOKI_URL` / `LOKI_HOST_LABEL`. `.env` is git-ignored;
+   never commit tokens.
+2. `docker compose up -d` (compose reads `.env`). Outside Docker, export the
+   same variables before starting the API.
+3. Check what the API can see:
+
+   ```bash
+   docker compose exec api python manage.py check_monitoring --devices
+   ```
+
+   It prints the Prometheus version, scrape jobs (targets up / total), which
+   exporter families have series, and for each device whether its selector
+   (IP / port, or `metrics_labels`) matches any series. A device listed as
+   "no series" needs its IP corrected or `metrics_labels` set, e.g.
+   `{"instance": "srv01.example:9182"}`.
+
+The API host must be able to reach Prometheus and Loki; if they are only on
+your internal network, run the API there.
+
 ## Tests
 
 ```bash

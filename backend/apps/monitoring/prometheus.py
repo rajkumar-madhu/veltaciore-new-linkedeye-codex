@@ -178,6 +178,15 @@ NETWORK_KINDS = {"switch", "router", "firewall", "loadbal", "ups", "generic"}
 DEFAULT_PORTS = {"node": 9100, "windows": 9182}
 
 
+# One series per exporter family, used to check that a device is scraped.
+KEY_METRIC = {
+    "node": "node_cpu_seconds_total",
+    "windows": "windows_cpu_time_total",
+    "snmp": "sysUpTime",
+    "vmware-host": "vmware_host_cpu_usage",
+}
+
+
 def family_for_device(device) -> str | None:
     agent = (device.agent or device.exporter_type or "").lower()
     kind = device.device_type
@@ -287,6 +296,12 @@ def rate_window(step: int) -> str:
 # ── Query ───────────────────────────────────────────────────────────────────
 def _api(path: str, params: dict) -> list[dict]:
     """GET a Prometheus HTTP API path; returns data.result or raises PrometheusUnavailable."""
+    data = api_data(path, params)
+    return data.get("result", []) if isinstance(data, dict) else []
+
+
+def api_data(path: str, params: dict | None = None):
+    """GET a Prometheus HTTP API path; returns the response's `data` or raises PrometheusUnavailable."""
     base = getattr(settings, "PROMETHEUS_URL", "")
     if not base:
         raise PrometheusUnavailable("PROMETHEUS_URL is not configured.")
@@ -307,7 +322,7 @@ def _api(path: str, params: dict) -> list[dict]:
         raise PrometheusUnavailable(f"Prometheus query failed: {exc}") from exc
     if body.get("status") != "success":
         raise PrometheusUnavailable(body.get("error", "Prometheus returned an error."))
-    return body.get("data", {}).get("result", [])
+    return body.get("data", {})
 
 
 def _num(val) -> float | None:
