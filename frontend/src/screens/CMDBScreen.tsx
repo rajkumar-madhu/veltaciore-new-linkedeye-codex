@@ -2,17 +2,55 @@
 // the class taxonomy as filter chips (each opens an editable class dialog),
 // the configuration-item table and a rail with the selected CI or class.
 import React from "react";
-import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
-import { Empty, Pill, StatCard, fmt } from "@/components/ld";
+import { Empty, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, TextButton, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { useConfigItems } from "@/api/hooks";
 import { CIS } from "@/data/itsm";
 import type { ConfigItem } from "@/lib/types";
 
 import { Icon } from "@/components/Icon";
-import { CheckIcon, ChevronRightIcon, FileInputIcon, FilterIcon, PencilIcon, PlusIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { CheckIcon, FileInputIcon, FilterIcon, PencilIcon, PlusIcon, RefreshCwIcon, XIcon } from "lucide-react";
+// Class chips, CI row link, form controls and the class dialog
+// (were ld-chip / ld-link ld-mono / ld-admin-* / le-modal-* classes).
+const chipClass = (active: boolean) =>
+  cx(
+    "inline-flex flex-col items-center justify-center gap-1 min-w-[104px] min-h-[76px] py-2.5 px-3 border rounded-lg cursor-pointer shadow-sm [&_.ld-icon]:text-2xl",
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+    active ? "bg-accent border-accent text-white [&_.ld-icon]:text-white" : "bg-bg-raised border-line text-fg hover:border-line-strong [&_.ld-icon]:text-accent",
+  );
+const chipLabel = (active: boolean) => cx("text-sm", active ? "text-white" : "text-fg-muted");
+const rowLink = cx(
+  "border-0 bg-transparent p-0 font-mono text-xs font-medium text-accent text-left cursor-pointer hover:underline",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+);
+// mono table cell: the cell keeps its 13px size and colour
+const monoCell = "font-mono font-semibold";
+const formGrid = "grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-x-4 gap-y-3";
+const field = cx(ui.field, "[&>label]:font-semibold");
+const input = cx(ui.input, "[&[readonly]]:bg-bg-muted [&[readonly]]:text-fg-muted disabled:bg-bg-muted disabled:text-fg-muted");
+// (ld-input's `font: inherit` came after ld-mono, so the weight stays normal)
+const monoInput = "font-mono !text-[12.5px]";
+const swatch = cx(
+  "w-[26px] h-[26px] p-0 rounded-[6px] border-2 border-transparent cursor-pointer",
+  "aria-pressed:border-fg aria-pressed:shadow-[inset_0_0_0_2px_var(--bg-raised)]",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+);
+const m = {
+  backdrop: "fixed inset-0 bg-[rgba(10,20,51,0.5)] backdrop-blur-[3px] z-[1200] grid place-items-center py-10 px-5 overflow-y-auto",
+  modal: "bg-bg-raised rounded-[12px] max-w-full shadow-pop border border-line overflow-hidden flex flex-col max-h-[calc(100vh-80px)] animate-[modalpop_0.16s_cubic-bezier(.2,.8,.3,1)]",
+  head: "flex items-center gap-3 py-4 px-4.5 border-b border-line",
+  icon: "w-[38px] h-[38px] rounded-[9px] grid place-items-center text-[17px] shrink-0",
+  titles: "flex-1 min-w-0",
+  title: "text-[15.5px] font-bold text-fg leading-[1.25] whitespace-nowrap overflow-hidden text-ellipsis",
+  subtitle: "text-xs text-fg-subtle mt-0.5",
+  close: "w-[30px] h-[30px] rounded-[7px] border border-line bg-bg-raised text-fg-subtle cursor-pointer grid place-items-center shrink-0 hover:bg-bg-muted hover:text-fg",
+  body: "p-4.5 overflow-y-auto",
+  foot: "flex items-center justify-end gap-2 py-[13px] px-4.5 border-t border-line bg-bg-muted flex-wrap",
+};
+
 // Editable CI class taxonomy. `cls` matches the value on CI rows so the table can filter.
 interface ClassDef {
   key: string;
@@ -100,29 +138,29 @@ export default function CMDBScreen() {
   const down = cis.filter(c => c.health === "down").length;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Configuration</span>
-        <Icon icon={ChevronRightIcon} />
-        {cls ? <button type="button" className="ld-link" onClick={clearFilter}>CMDB · CIs</button> : <span>CMDB · CIs</span>}
-        {cls && <><Icon icon={ChevronRightIcon} /><span>{cls.label}</span></>}
-      </nav>
+    <Page>
+      <Crumbs
+        items={[
+          { label: "Home", onClick: () => setRoute("dashboard") },
+          { label: "Configuration" },
+          { label: "CMDB · CIs", onClick: cls ? clearFilter : undefined },
+          ...(cls ? [{ label: cls.label }] : []),
+        ]}
+      />
 
-      <div className="ld-head">
-        <div>
-          <h1>Configuration Management Database</h1>
-          <p>Discovered configuration items, their classes, owners and dependencies</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Re-sync</button>
-          <button type="button" className="ld-btn"><Icon icon={FileInputIcon} /> Import</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New CI</button>
-        </div>
-      </div>
+      <PageHead
+        title="Configuration Management Database"
+        subtitle="Discovered configuration items, their classes, owners and dependencies"
+        actions={
+          <>
+            <Button><Icon icon={RefreshCwIcon} /> Re-sync</Button>
+            <Button><Icon icon={FileInputIcon} /> Import</Button>
+            <Button variant="primary"><Icon icon={PlusIcon} /> New CI</Button>
+          </>
+        }
+      />
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <StatCard icon="fa-sitemap" tone="info" label="Total CIs" value={fmt(cis.length)} note="all classes" onClick={clearFilter} />
         <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(healthy)} note="reporting OK" />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Degraded" value={fmt(degraded)} note="needs attention" />
@@ -130,46 +168,45 @@ export default function CMDBScreen() {
         <StatCard icon="fa-layer-group" tone="purple" label="Classes" value={fmt(classes.length)} note="taxonomy" />
       </div>
 
-      <section className="ld-card ld-panel" aria-labelledby="cmdb-cls-h">
-        <div className="ld-panel-head">
-          <h2 id="cmdb-cls-h">CI Class Taxonomy</h2>
-          <span className="ld-muted ld-small">Select a class to view, edit and filter its CIs</span>
+      <section className={cx(ui.card, ui.panel)} aria-labelledby="cmdb-cls-h">
+        <div className={ui.panelHead}>
+          <h2 className={ui.panelTitle} id="cmdb-cls-h">CI Class Taxonomy</h2>
+          <span className="text-fg-muted text-xs">Select a class to view, edit and filter its CIs</span>
         </div>
-        <div className="ld-chips">
+        <div className="flex flex-wrap gap-2.5">
           {classes.map(c => (
             <button
               key={c.key}
               type="button"
-              className={`ld-chip${activeClass === c.key ? " active" : ""}`}
+              className={chipClass(activeClass === c.key)}
               onClick={() => openClass(c.key)}
               aria-pressed={activeClass === c.key}
             >
               <Icon className={`fa-solid ${c.icon}`} style={activeClass === c.key ? undefined : { color: c.color }} />
-              <span className="ld-chip-label">{c.label}</span>
-              <span className="ld-chip-count">{fmt(countOf(c.key))}</span>
+              <span className={chipLabel(activeClass === c.key)}>{c.label}</span>
+              <span className="text-md font-bold">{fmt(countOf(c.key))}</span>
             </button>
           ))}
         </div>
       </section>
 
-      <div className="ld-split ld-split-wide">
-        <section className="ld-card ld-panel" aria-labelledby="cmdb-ci-h">
-          <div className="ld-panel-head">
-            <h2 id="cmdb-ci-h">Configuration Items</h2>
-            <span className="ld-muted ld-small">{activeClass ? `${visibleCIs.length} in ${cls!.label}` : `${cis.length} shown`}</span>
+      <div className={ui.splitWide}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby="cmdb-ci-h">
+          <div className={ui.panelHead}>
+            <h2 className={ui.panelTitle} id="cmdb-ci-h">Configuration Items</h2>
+            <span className="text-fg-muted text-xs">{activeClass ? `${visibleCIs.length} in ${cls!.label}` : `${cis.length} shown`}</span>
           </div>
           {activeClass && (
-            <div className="ld-toolbar">
-              <span className="ld-tag">
+            <div className={ui.toolbar}>
+              <span className={ui.tag}>
                 <Icon className={`fa-solid ${cls!.icon}`} style={{ color: cls!.color }} /> Class: <b>{cls!.label}</b>
               </span>
-              <button type="button" className="ld-btn ld-btn-sm" onClick={clearFilter}><Icon icon={XIcon} /> Clear filter</button>
-              <span className="ld-muted ld-small">{visibleCIs.length} of {cis.length} CIs</span>
+              <Button size="sm" onClick={clearFilter}><Icon icon={XIcon} /> Clear filter</Button>
+              <span className="text-fg-muted text-xs">{visibleCIs.length} of {cis.length} CIs</span>
             </div>
           )}
           {visibleCIs.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">CI</th>
@@ -185,38 +222,37 @@ export default function CMDBScreen() {
                   {visibleCIs.map(ci => {
                     const isSel = sideMode === "ci" && selected.id === ci.id;
                     return (
-                      <tr key={ci.id} className={isSel ? "ld-row-selected" : undefined}>
+                      <tr key={ci.id} className={isSel ? ui.rowSelected : undefined}>
                         <td>
-                          <button type="button" className="ld-link ld-mono ld-strong ld-admin-row-btn" aria-pressed={isSel} onClick={() => selectCI(ci)}>{ci.name}</button>
-                          <div className="ld-sub ld-mono">{ci.id}</div>
+                          <button type="button" className={rowLink} aria-pressed={isSel} onClick={() => selectCI(ci)}>{ci.name}</button>
+                          <div className={cx(ui.sub, ui.mono)}>{ci.id}</div>
                         </td>
                         <td>{ci.cls}</td>
                         <td><Pill tone="muted">{ci.env}</Pill></td>
-                        <td className="ld-mono ld-muted">{ci.region}</td>
-                        <td>{ownerName(ci.owner) ?? <span className="ld-muted">—</span>}</td>
-                        <td><Pill tone={healthTone(ci.health)}><span className="ld-pill-dot" />{ci.health}</Pill></td>
-                        <td className="ld-mono">{ci.deps}</td>
+                        <td className={monoCell}>{ci.region}</td>
+                        <td>{ownerName(ci.owner) ?? <span className="text-fg-muted">—</span>}</td>
+                        <td><Pill tone={healthTone(ci.health)}><PillDot />{ci.health}</Pill></td>
+                        <td className={monoCell}>{ci.deps}</td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>No CIs of this class in the current discovery scope.</Empty>
           )}
         </section>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           {sideMode === "class" && cls ? (
-            <section className="ld-card ld-panel" aria-labelledby="cmdb-side-cls-h">
-              <div className="ld-panel-head">
-                <h2 id="cmdb-side-cls-h"><Icon className={`fa-solid ${cls.icon}`} style={{ color: cls.color }} /> CI Class</h2>
+            <section className={cx(ui.card, ui.panel)} aria-labelledby="cmdb-side-cls-h">
+              <div className={ui.panelHead}>
+                <h2 className={ui.panelTitle} id="cmdb-side-cls-h"><Icon className={`fa-solid ${cls.icon}`} style={{ color: cls.color }} /> CI Class</h2>
                 {!editing
-                  ? <button type="button" className="ld-btn ld-btn-sm" onClick={startEdit}><Icon icon={PencilIcon} /> Edit</button>
-                  : <span className="ld-admin-actions">
-                      <button type="button" className="ld-btn ld-btn-sm" onClick={cancelEdit}>Cancel</button>
-                      <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={saveEdit}><Icon icon={CheckIcon} /> Save</button>
+                  ? <Button size="sm" onClick={startEdit}><Icon icon={PencilIcon} /> Edit</Button>
+                  : <span className="flex flex-wrap items-center gap-2">
+                      <Button size="sm" onClick={cancelEdit}>Cancel</Button>
+                      <Button variant="primary" size="sm" onClick={saveEdit}><Icon icon={CheckIcon} /> Save</Button>
                     </span>
                 }
               </div>
@@ -227,17 +263,17 @@ export default function CMDBScreen() {
               )}
             </section>
           ) : (
-            <section className="ld-card ld-panel" aria-labelledby="cmdb-side-ci-h">
-              <div className="ld-panel-head"><h2 id="cmdb-side-ci-h">Selected CI</h2></div>
+            <section className={cx(ui.card, ui.panel)} aria-labelledby="cmdb-side-ci-h">
+              <div className={ui.panelHead}><h2 className={ui.panelTitle} id="cmdb-side-ci-h">Selected CI</h2></div>
               {selected ? (
-                <dl className="ld-dl">
-                  <dt>Name</dt><dd className="ld-mono ld-strong">{selected.name}</dd>
-                  <dt>ID</dt><dd className="ld-mono">{selected.id}</dd>
-                  <dt>Class</dt><dd><button type="button" className="ld-link" onClick={() => openClass(selected.cls)}>{selected.cls}</button></dd>
+                <dl className={ui.dl}>
+                  <dt>Name</dt><dd className="font-mono text-xs font-medium">{selected.name}</dd>
+                  <dt>ID</dt><dd className={ui.mono}>{selected.id}</dd>
+                  <dt>Class</dt><dd><TextButton onClick={() => openClass(selected.cls)}>{selected.cls}</TextButton></dd>
                   <dt>Environment</dt><dd>{selected.env}</dd>
-                  <dt>Region</dt><dd className="ld-mono">{selected.region}</dd>
-                  <dt>Owner</dt><dd>{ownerName(selected.owner) ?? <span className="ld-muted">unassigned</span>}</dd>
-                  <dt>Status</dt><dd><Pill tone={healthTone(selected.health)}><span className="ld-pill-dot" />{selected.health}</Pill></dd>
+                  <dt>Region</dt><dd className={ui.mono}>{selected.region}</dd>
+                  <dt>Owner</dt><dd>{ownerName(selected.owner) ?? <span className="text-fg-muted">unassigned</span>}</dd>
+                  <dt>Status</dt><dd><Pill tone={healthTone(selected.health)}><PillDot />{selected.health}</Pill></dd>
                   <dt>Dependencies</dt><dd>{selected.deps} CIs</dd>
                 </dl>
               ) : (
@@ -246,16 +282,16 @@ export default function CMDBScreen() {
             </section>
           )}
 
-          <section className="ld-card ld-panel" aria-labelledby="cmdb-chg-h">
-            <div className="ld-panel-head">
-              <h2 id="cmdb-chg-h">Recent Changes</h2>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="cmdb-chg-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="cmdb-chg-h">Recent Changes</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {SAMPLE_CHANGES.map(([t, when, ref]) => (
-                <li key={ref}>
-                  <span className="ld-activity-text">{t} <span className="ld-muted ld-small">· {when}</span></span>
-                  <span className="ld-mono-name">{ref}</span>
+                <li key={ref} className={ui.activityItem}>
+                  <span className={ui.activityText}>{t} <span className="text-fg-muted text-xs">· {when}</span></span>
+                  <span className="font-mono text-[12.5px] text-accent">{ref}</span>
                 </li>
               ))}
             </ul>
@@ -277,15 +313,15 @@ export default function CMDBScreen() {
           visibleCount={visibleCIs.length}
         />
       )}
-    </div>
+    </Page>
   );
 }
 
 function ClassDetails({ cls, count }: { cls: ClassDef; count: number }) {
   return (
-    <dl className="ld-dl">
-      <dt>Class name</dt><dd className="ld-strong">{cls.label}</dd>
-      <dt>CI type key</dt><dd className="ld-mono">{cls.cls}</dd>
+    <dl className={ui.dl}>
+      <dt>Class name</dt><dd className="font-medium">{cls.label}</dd>
+      <dt>CI type key</dt><dd className={ui.mono}>{cls.cls}</dd>
       <dt>Description</dt><dd>{cls.desc}</dd>
       <dt>Parent class</dt><dd>{cls.parent}</dd>
       <dt>Owner team</dt><dd>{cls.ownerTeam}</dd>
@@ -293,8 +329,8 @@ function ClassDetails({ cls, count }: { cls: ClassDef; count: number }) {
       <dt>CI count</dt><dd>{fmt(count)} loaded</dd>
       <dt>Attributes</dt>
       <dd>
-        <ul className="ld-tags">
-          {cls.attrs.map(a => <li key={a} className="ld-tag ld-mono">{a}</li>)}
+        <ul className="list-none flex flex-wrap justify-start gap-1.5 m-0 p-0">
+          {cls.attrs.map(a => <li key={a} className={cx(ui.tag, "font-mono")}>{a}</li>)}
         </ul>
       </dd>
     </dl>
@@ -304,49 +340,49 @@ function ClassDetails({ cls, count }: { cls: ClassDef; count: number }) {
 function ClassForm({ idPrefix, draft, setDraft }: { idPrefix: string; draft: ClassDef; setDraft: React.Dispatch<React.SetStateAction<ClassDef | null>> }) {
   const id = (k: string) => `${idPrefix}-${k}`;
   return (
-    <div className="ld-form">
-      <div className="ld-admin-form-grid">
-        <div className="ld-form-field">
-          <label htmlFor={id("label")}>Class name <span className="ld-req">*</span></label>
-          <input id={id("label")} className="ld-input" value={draft.label} onChange={e => setDraft(d => ({ ...d!, label: e.target.value }))} />
+    <div className={ui.form}>
+      <div className={formGrid}>
+        <div className={field}>
+          <label htmlFor={id("label")}>Class name <span className={ui.req}>*</span></label>
+          <input id={id("label")} className={input} value={draft.label} onChange={e => setDraft(d => ({ ...d!, label: e.target.value }))} />
         </div>
-        <div className="ld-form-field">
+        <div className={field}>
           <label htmlFor={id("cls")}>CI type key</label>
-          <input id={id("cls")} className="ld-input ld-mono" value={draft.cls} disabled />
-          <span className="ld-admin-hint">Immutable — used as the discovery join key.</span>
+          <input id={id("cls")} className={cx(input, monoInput)} value={draft.cls} disabled />
+          <span className="text-xs text-fg-subtle">Immutable — used as the discovery join key.</span>
         </div>
-        <div className="ld-form-field ld-admin-span">
+        <div className={cx(field, "col-[1/-1]")}>
           <label htmlFor={id("desc")}>Description</label>
-          <textarea id={id("desc")} className="ld-input ld-textarea" rows={3} value={draft.desc} onChange={e => setDraft(d => ({ ...d!, desc: e.target.value }))} />
+          <textarea id={id("desc")} className={ui.textarea} rows={3} value={draft.desc} onChange={e => setDraft(d => ({ ...d!, desc: e.target.value }))} />
         </div>
-        <div className="ld-form-field">
+        <div className={field}>
           <label htmlFor={id("parent")}>Parent class</label>
-          <select id={id("parent")} className="ld-select" value={draft.parent} onChange={e => setDraft(d => ({ ...d!, parent: e.target.value }))}>
+          <select id={id("parent")} className={ui.select} value={draft.parent} onChange={e => setDraft(d => ({ ...d!, parent: e.target.value }))}>
             {PARENT_CLASSES.map(o => <option key={o}>{o}</option>)}
           </select>
         </div>
-        <div className="ld-form-field">
+        <div className={field}>
           <label htmlFor={id("tier")}>Tier</label>
-          <select id={id("tier")} className="ld-select" value={draft.tier} onChange={e => setDraft(d => ({ ...d!, tier: e.target.value }))}>
+          <select id={id("tier")} className={ui.select} value={draft.tier} onChange={e => setDraft(d => ({ ...d!, tier: e.target.value }))}>
             {CLASS_TIERS.map(o => <option key={o}>{o}</option>)}
           </select>
         </div>
-        <div className="ld-form-field ld-admin-span">
+        <div className={cx(field, "col-[1/-1]")}>
           <label htmlFor={id("owner")}>Owner team</label>
-          <input id={id("owner")} className="ld-input" value={draft.ownerTeam} onChange={e => setDraft(d => ({ ...d!, ownerTeam: e.target.value }))} />
+          <input id={id("owner")} className={input} value={draft.ownerTeam} onChange={e => setDraft(d => ({ ...d!, ownerTeam: e.target.value }))} />
         </div>
-        <fieldset className="ld-form-field ld-admin-span ld-admin-fieldset">
+        <fieldset className={cx(field, "col-[1/-1] border-0 p-0 m-0 min-w-0 [&>legend]:mb-1 [&>legend]:font-semibold")}>
           <legend>Class colour</legend>
-          <div className="ld-admin-swatches">
+          <div className="flex flex-wrap gap-1.5">
             {CLASS_COLORS.map(col => (
-              <button key={col} type="button" className="ld-admin-swatch" style={{ background: col }} aria-pressed={draft.color === col} onClick={() => setDraft(d => ({ ...d!, color: col }))} aria-label={`Colour ${col}`} />
+              <button key={col} type="button" className={swatch} style={{ background: col }} aria-pressed={draft.color === col} onClick={() => setDraft(d => ({ ...d!, color: col }))} aria-label={`Colour ${col}`} />
             ))}
           </div>
         </fieldset>
-        <div className="ld-form-field ld-admin-span">
-          <label htmlFor={id("attrs")}>Attributes <span className="ld-req">*</span></label>
-          <input id={id("attrs")} className="ld-input ld-mono" value={draft.attrs.join(", ")} onChange={e => setDraft(d => ({ ...d!, attrs: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))} placeholder="comma-separated" />
-          <span className="ld-admin-hint">Schema fields discovered and indexed for every CI of this class.</span>
+        <div className={cx(field, "col-[1/-1]")}>
+          <label htmlFor={id("attrs")}>Attributes <span className={ui.req}>*</span></label>
+          <input id={id("attrs")} className={cx(input, monoInput)} value={draft.attrs.join(", ")} onChange={e => setDraft(d => ({ ...d!, attrs: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))} placeholder="comma-separated" />
+          <span className="text-xs text-fg-subtle">Schema fields discovered and indexed for every CI of this class.</span>
         </div>
       </div>
     </div>
@@ -383,32 +419,32 @@ export function ClassModal({
   }, [onClose]);
 
   return (
-    <div className="le-modal-backdrop" onClick={onClose}>
-      <div className="le-modal ld-admin-modal" role="dialog" aria-modal="true" aria-labelledby="cmdb-modal-h" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <div className="le-modal-head">
-          <div className="le-modal-icon" style={{ color: cls.color, background: cls.color + "18" }} aria-hidden="true"><Icon className={`fa-solid ${cls.icon}`} /></div>
-          <div className="le-modal-titles">
-            <h3 id="cmdb-modal-h">{cls.label}</h3>
-            <p>CI Class · {cls.cls} · {fmt(visibleCount)} configuration items loaded</p>
+    <div className={m.backdrop} onClick={onClose}>
+      <div className={cx(m.modal, "w-[720px]")} role="dialog" aria-modal="true" aria-labelledby="cmdb-modal-h" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <div className={m.head}>
+          <div className={m.icon} style={{ color: cls.color, background: cls.color + "18" }} aria-hidden="true"><Icon className={`fa-solid ${cls.icon}`} /></div>
+          <div className={m.titles}>
+            <h3 id="cmdb-modal-h" className={m.title}>{cls.label}</h3>
+            <p className={m.subtitle}>CI Class · {cls.cls} · {fmt(visibleCount)} configuration items loaded</p>
           </div>
-          <button type="button" className="le-modal-x" onClick={onClose} aria-label="Close"><Icon icon={XIcon} /></button>
+          <button type="button" className={m.close} onClick={onClose} aria-label="Close"><Icon icon={XIcon} /></button>
         </div>
 
-        <div className="le-modal-body">
+        <div className={cx(m.body, "flex flex-col gap-3")}>
           {!editing ? <ClassDetails cls={cls} count={visibleCount} /> : <ClassForm idPrefix="cmdb-modal" draft={draft!} setDraft={setDraft} />}
         </div>
 
-        <div className="le-modal-foot">
+        <div className={m.foot}>
           {!editing ? (
             <>
-              <button type="button" className="ld-btn" onClick={onShowCIs}><Icon icon={FilterIcon} /> Show {visibleCount} CIs</button>
-              <button type="button" className="ld-btn" onClick={onClose}>Close</button>
-              <button type="button" className="ld-btn ld-btn-primary" onClick={onEdit}><Icon icon={PencilIcon} /> Edit class</button>
+              <Button onClick={onShowCIs}><Icon icon={FilterIcon} /> Show {visibleCount} CIs</Button>
+              <Button onClick={onClose}>Close</Button>
+              <Button variant="primary" onClick={onEdit}><Icon icon={PencilIcon} /> Edit class</Button>
             </>
           ) : (
             <>
-              <button type="button" className="ld-btn" onClick={onCancel}>Cancel</button>
-              <button type="button" className="ld-btn ld-btn-primary" onClick={onSave}><Icon icon={CheckIcon} /> Save changes</button>
+              <Button onClick={onCancel}>Cancel</Button>
+              <Button variant="primary" onClick={onSave}><Icon icon={CheckIcon} /> Save changes</Button>
             </>
           )}
         </div>

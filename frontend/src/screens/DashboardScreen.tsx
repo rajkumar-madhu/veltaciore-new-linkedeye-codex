@@ -17,11 +17,22 @@ import {
   useInfraAlerts,
 } from "@/api/hooks";
 import { DEVICE_KINDS } from "@/data/infra";
-import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, TrendChart, countBy, fmt, dailyTrend, openedAt } from "@/components/ld";
+import { Donut, Empty, Legend, PALETTE, Panel, Pill, PillDot, StatCard, TrendChart, countBy, fmt, dailyTrend, openedAt } from "@/components/ld";
 import type { Tone, Slice } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
 import { BellIcon, CalendarIcon } from "lucide-react";
+import { Input, Page, PageHead, Select, Table, Tile, cx, toneText, ui } from "@/components/ui";
+
+// donut + legend row (was ld-donut-row)
+const donutRow = "flex flex-wrap items-center gap-4.5";
+// ticket number link (was ld-link ld-mono: mono size / weight win)
+const idLink = cx(
+  "border-0 bg-transparent p-0 font-mono text-xs font-semibold text-accent cursor-pointer hover:underline",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+);
+// "Live" marker (was ld-live; its green had no dark-mode variant, unlike ui.live)
+const live = "inline-flex items-center gap-1 ml-2 text-[#137a3f]";
 const RESOLVED_STATES = new Set(["Resolved", "Closed", "Cancelled", "Canceled"]);
 
 const CHANGE_DONE_STATES = new Set(["Completed", "Closed", "Cancelled", "Canceled"]);
@@ -187,37 +198,37 @@ export default function DashboardScreen() {
   const recentAlerts = alerts.slice(0, 6);
 
   return (
-    <div className="ld-dash">
-      <div className="ld-head">
-        <div>
-          <h1>Dashboard</h1>
-          <p>Complete view of your IT infrastructure, services, and support operations</p>
-        </div>
-        <div className="ld-head-actions ld-period">
-          <label className="ld-inline-label" htmlFor={`${id}-period`}><Icon icon={CalendarIcon} /> Period</label>
-          <select id={`${id}-period`} className="ld-select" value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
-            {PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
-          {period === "custom" && (
-            <>
-              <label className="sr-only" htmlFor={`${id}-from`}>From</label>
-              <input id={`${id}-from`} type="date" className="ld-input" value={fromDay} max={toDay} onChange={(e) => setFromDay(e.target.value)} />
-              <span className="ld-muted" aria-hidden="true">–</span>
-              <label className="sr-only" htmlFor={`${id}-to`}>To</label>
-              <input id={`${id}-to`} type="date" className="ld-input" value={toDay} min={fromDay} max={toDateInput(Date.now())} onChange={(e) => setToDay(e.target.value)} />
-            </>
-          )}
-        </div>
-      </div>
-      {customInvalid && <p className="ld-text-crit ld-small" role="alert">The start date must be on or before the end date. Showing all time.</p>}
+    <Page>
+      <PageHead
+        title="Dashboard"
+        subtitle="Complete view of your IT infrastructure, services, and support operations"
+        actions={
+          <>
+            <label className="text-sm text-fg-muted" htmlFor={`${id}-period`}><Icon icon={CalendarIcon} /> Period</label>
+            <Select id={`${id}-period`} value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
+              {PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </Select>
+            {period === "custom" && (
+              <>
+                <label className="sr-only" htmlFor={`${id}-from`}>From</label>
+                <Input id={`${id}-from`} type="date" className="w-auto" value={fromDay} max={toDay} onChange={(e) => setFromDay(e.target.value)} />
+                <span className="text-fg-muted" aria-hidden="true">–</span>
+                <label className="sr-only" htmlFor={`${id}-to`}>To</label>
+                <Input id={`${id}-to`} type="date" className="w-auto" value={toDay} min={fromDay} max={toDateInput(Date.now())} onChange={(e) => setToDay(e.target.value)} />
+              </>
+            )}
+          </>
+        }
+      />
+      {customInvalid && <p className={cx(toneText.crit, "text-xs")} role="alert">The start date must be on or before the end date. Showing all time.</p>}
       {period !== "all" && (
-        <p className="ld-muted ld-small">
+        <p className="text-fg-muted text-xs">
           Tickets and changes opened in <b>{periodLabel}</b>: {fmt(tickets.length)} of {fmt(allTickets.length)} tickets, {fmt(changes.length)} of {fmt(allChanges.length)} changes.
           Incidents, devices, alerts and services show the current state.
         </p>
       )}
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard
           icon="fa-ticket"
           tone="info"
@@ -252,17 +263,17 @@ export default function DashboardScreen() {
         />
       </div>
 
-      <div className="ld-grid ld-grid-3">
+      <div className={cx(ui.grid, ui.cols[3])}>
         <Panel title={`Ticket Trend · ${periodLabel}`}>
-          <div className="ld-chart-legend">
-            <span><span className="ld-dot" style={{ background: "#2f6bff" }} />Opened</span>
-            <span><span className="ld-dot" style={{ background: "#16a34a" }} />Since resolved</span>
+          <div className="flex gap-3.5 text-sm text-fg-muted -mt-1 [&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5">
+            <span><span className={ui.dot} style={{ background: "#2f6bff" }} />Opened</span>
+            <span><span className={ui.dot} style={{ background: "#16a34a" }} />Since resolved</span>
           </div>
           {tickets.length ? <TrendChart days={days} /> : <Empty>No tickets yet.</Empty>}
         </Panel>
         <Panel title="Tickets by Status" action={{ label: "View All", onClick: () => setRoute("incidents") }}>
           {tickets.length ? (
-            <div className="ld-donut-row">
+            <div className={donutRow}>
               <Donut slices={statusSlices} center={fmt(tickets.length)} sub="Total" label={`${tickets.length} tickets by status`} />
               <Legend slices={statusSlices} />
             </div>
@@ -272,10 +283,10 @@ export default function DashboardScreen() {
         </Panel>
         <Panel title="SLA Compliance" action={{ label: "SLAs", onClick: () => setRoute("slas") }}>
           {slaTotal ? (
-            <div className="ld-donut-row">
-              <div className="ld-donut-col">
+            <div className={donutRow}>
+              <div className="flex flex-col items-center gap-1">
                 <Donut slices={slaSlices} center={slaPct} label={`${slaPct} of ticket SLAs met`} />
-                <span className="ld-donut-caption">SLA Met</span>
+                <span className="text-base font-medium text-fg">SLA Met</span>
               </div>
               <Legend slices={slaSlices} />
             </div>
@@ -285,7 +296,7 @@ export default function DashboardScreen() {
         </Panel>
       </div>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard
           icon="fa-bell"
           tone="crit"
@@ -320,11 +331,10 @@ export default function DashboardScreen() {
         />
       </div>
 
-      <div className="ld-grid ld-grid-tables">
+      <div className={cx(ui.grid, ui.cols.tables)}>
         <Panel title="Recent Tickets" action={{ label: "View All", onClick: () => setRoute("incidents") }}>
           {recentTickets.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr><th scope="col">#</th><th scope="col">Title</th><th scope="col">Priority</th><th scope="col">Status</th></tr>
                 </thead>
@@ -334,55 +344,51 @@ export default function DashboardScreen() {
                     return (
                       <tr key={t.id}>
                         <td>
-                          <button type="button" className="ld-link ld-mono" onClick={() => setRoute("incident-detail", { id: t.id })}>
+                          <button type="button" className={idLink} onClick={() => setRoute("incident-detail", { id: t.id })}>
                             {t.id}
                           </button>
                         </td>
-                        <td className="ld-ellipsis" title={`${t.title} · opened ${t.opened}`}>{t.title}</td>
+                        <td className="max-w-[220px] overflow-hidden text-ellipsis" title={`${t.title} · opened ${t.opened}`}>{t.title}</td>
                         <td><Pill tone={p.tone}>{p.label}</Pill></td>
                         <td><Pill tone={STATE_TONE[t.state] ?? "muted"}>{t.state}</Pill></td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>No tickets yet.</Empty>
           )}
         </Panel>
         <Panel title="Infrastructure Health" action={{ label: "View All", onClick: () => setRoute("infra") }}>
           {infraHealth.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr><th scope="col">Component</th><th scope="col">Status</th><th scope="col">Details</th></tr>
                 </thead>
                 <tbody>
                   {infraHealth.map((h) => (
                     <tr key={h.kind}>
-                      <td className="ld-strong">{h.label}</td>
-                      <td><Pill tone={h.tone}><span className="ld-pill-dot" />{h.status}</Pill></td>
-                      <td className="ld-muted ld-wrap">{h.detail}</td>
+                      <td className="font-medium">{h.label}</td>
+                      <td><Pill tone={h.tone}><PillDot />{h.status}</Pill></td>
+                      <td className={ui.cellWrap}>{h.detail}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>No devices onboarded yet.</Empty>
           )}
         </Panel>
         <Panel title="Busiest Devices" action={{ label: "View All", onClick: () => setRoute("infra-assets") }}>
-          <p className="ld-muted ld-small ld-load-src">
+          <p className="text-fg-muted text-xs -mt-1 mb-2">
             {load?.sample ? <><Pill tone="muted">Sample data</Pill> Generated CPU / memory; set PROMETHEUS_URL on the API for live values.</>
-              : liveCount ? <><span className="ld-live"><span className="ld-pill-dot" /> Live</span> from Prometheus for {liveCount} of {busiest.length}; others from the inventory.</>
+              : liveCount ? <><span className={live}><PillDot /> Live</span> from Prometheus for {liveCount} of {busiest.length}; others from the inventory.</>
               : load?.source === "prometheus" ? "No live samples for these devices yet; values from the inventory."
               : "Prometheus not connected; values from the inventory."}
           </p>
           {busiest.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr><th scope="col">Device</th><th scope="col">CPU</th><th scope="col">Memory</th></tr>
                 </thead>
@@ -390,33 +396,32 @@ export default function DashboardScreen() {
                   {busiest.map(({ d, cpu, mem, live }) => (
                     <tr key={d.id}>
                       <td>
-                        <span className="ld-strong">{d.hostname || d.id}</span>
-                        <span className="ld-sub">{kindLabel(d.kind)}{live ? " · live" : ""}</span>
+                        <span className="font-medium">{d.hostname || d.id}</span>
+                        <span className={ui.sub}>{kindLabel(d.kind)}{live ? " · live" : ""}</span>
                       </td>
                       <td><Pill tone={loadTone(cpu)}>{Math.round(cpu)}%</Pill></td>
                       <td><Pill tone={loadTone(mem)}>{Math.round(mem)}%</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>No devices onboarded yet.</Empty>
           )}
         </Panel>
       </div>
 
-      <div className="ld-grid ld-grid-3">
+      <div className={cx(ui.grid, ui.cols[3])}>
         <Panel title="Top 5 Ticket Categories">
           {categories.length ? (
-            <ul className="ld-bars">
+            <ul className={ui.bars}>
               {categories.map(([label, value], i) => (
-                <li key={label}>
-                  <span className="ld-bar-label">{label}</span>
-                  <span className="ld-bar-track">
-                    <span className="ld-bar-fill" style={{ width: `${(value / topCategory) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                <li key={label} className={ui.barItem}>
+                  <span className={ui.barLabel}>{label}</span>
+                  <span className={ui.barTrack}>
+                    <span className={ui.barFill} style={{ width: `${(value / topCategory) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
                   </span>
-                  <span className="ld-bar-value">{value}</span>
+                  <span className={ui.barValue}>{value}</span>
                 </li>
               ))}
             </ul>
@@ -426,7 +431,7 @@ export default function DashboardScreen() {
         </Panel>
         <Panel title="Assets by Type" action={{ label: "View All", onClick: () => setRoute("infra-assets") }}>
           {assetSlices.length ? (
-            <div className="ld-donut-row">
+            <div className={donutRow}>
               <Donut slices={assetSlices} center={fmt(devices.length)} sub="Assets" label={`${devices.length} assets by type`} />
               <Legend slices={assetSlices} />
             </div>
@@ -436,18 +441,18 @@ export default function DashboardScreen() {
         </Panel>
         <Panel title="Recent Alerts" action={{ label: "View All", onClick: () => setRoute("alerts") }}>
           {recentAlerts.length ? (
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {recentAlerts.map((a) => {
                 const tone: Tone = a.sev === "critical" ? "crit" : a.sev === "warning" || a.sev === "warn" ? "warn" : "info";
                 return (
-                  <li key={a.id}>
-                    <span className={`ld-tile ld-tile-sm ld-${tone}`} aria-hidden="true">
+                  <li key={a.id} className={ui.activityItem}>
+                    <Tile tone={tone} size="sm">
                       <Icon icon={BellIcon} />
+                    </Tile>
+                    <span className={ui.activityText}>
+                      {a.title} · <span className="text-fg-muted">{a.device}</span>
                     </span>
-                    <span className="ld-activity-text">
-                      {a.title} · <span className="ld-muted">{a.device}</span>
-                    </span>
-                    <span className="ld-muted ld-nowrap">{a.since}</span>
+                    <span className="text-fg-muted whitespace-nowrap">{a.since}</span>
                   </li>
                 );
               })}
@@ -457,6 +462,6 @@ export default function DashboardScreen() {
           )}
         </Panel>
       </div>
-    </div>
+    </Page>
   );
 }

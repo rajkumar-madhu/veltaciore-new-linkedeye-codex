@@ -3,16 +3,42 @@
 // an example script and a simulated execution dialog. The catalog is a local
 // sample (no runbook endpoint yet) and is labelled as such.
 import React from "react";
-import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
-import { Empty, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, StatCard, countBy, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Tab, Table, Tabs, cx, toneBg, toneText, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 
 import { Icon } from "@/components/Icon";
-import { BotIcon, CheckIcon, ChevronRightIcon, CircleCheckIcon, CopyIcon, FileInputIcon, HistoryIcon, LockIcon, PencilIcon, PlayIcon, PlusIcon, SquareIcon } from "lucide-react";
+import { BotIcon, CheckIcon, CircleCheckIcon, CopyIcon, FileInputIcon, HistoryIcon, LockIcon, PencilIcon, PlayIcon, PlusIcon, SquareIcon } from "lucide-react";
+// Category chip (static), success meter, code block (were ld-chip / ld-admin-meter / ld-code ld-admin-term)
+const chip = cx(
+  "inline-flex flex-col items-center justify-center gap-1 min-w-[104px] min-h-[76px] py-2.5 px-3 border border-line rounded-lg bg-bg-raised text-fg cursor-default shadow-sm hover:border-line-strong",
+  "[&_.ld-icon]:text-2xl [&_.ld-icon]:text-accent",
+);
+const meter = "flex items-center gap-2 min-w-[150px]";
+const meterTrack = "flex-[1_1_60px] h-2 rounded-[5px] bg-bg-muted overflow-hidden";
+const meterFill = "block h-2 rounded-[5px]";
+const meterValue = "font-mono text-xs text-fg whitespace-nowrap";
+const codeBlock = "m-0 py-3.5 px-4 rounded bg-[#0b1220] text-[#e2e8f0] font-mono text-[12.5px] leading-[1.7] overflow-x-auto whitespace-pre-wrap";
+const term = { c: "text-[#94a3b8]", p: "text-[#38bdf8]", ok: "text-[#4ade80]", run: "text-[#fbbf24]" };
+// mono table cell: the cell keeps its 13px size
+const monoCell = "font-mono font-semibold";
+// Run dialog shell (was le-modal-* + ld-admin-modal / ld-admin-modal-top)
+const runBackdrop = "fixed inset-0 bg-[rgba(10,20,51,0.5)] backdrop-blur-[3px] z-[1200] grid justify-items-center items-start pt-[6vh] pb-10 px-5 overflow-y-auto max-sm:pt-4";
+const m = {
+  modal: "bg-bg-raised rounded-[12px] max-w-full shadow-pop border border-line overflow-hidden flex flex-col max-h-[calc(100vh-80px)] animate-[modalpop_0.16s_cubic-bezier(.2,.8,.3,1)]",
+  head: "flex items-center gap-3 py-4 px-4.5 border-b border-line",
+  icon: "w-[38px] h-[38px] rounded-[9px] grid place-items-center text-[17px] shrink-0",
+  titles: "flex-1 min-w-0",
+  title: "text-[15.5px] font-bold text-fg leading-[1.25] whitespace-nowrap overflow-hidden text-ellipsis",
+  subtitle: "text-xs text-fg-subtle mt-0.5",
+  body: "p-4.5 overflow-y-auto",
+  foot: "flex items-center justify-end gap-2 py-[13px] px-4.5 border-t border-line bg-bg-muted flex-wrap",
+};
+
 interface Runbook {
   id: string;
   title: string;
@@ -98,29 +124,24 @@ export default function RunbooksScreen() {
   const tags = countBy(RUNBOOKS, (r) => r.tag);
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Automation</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>Runbooks</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Automation" }, { label: "Runbooks" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Runbook Library</h1>
-          <p>Operational playbooks · executable shell / kubectl / terraform / ansible · {fmt(totalRuns)} recorded executions</p>
-        </div>
-        <div className="ld-head-actions">
-          <ReadOnlyBadge />
-          <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> Run History</button>
-          <button type="button" className="ld-btn"><Icon icon={FileInputIcon} /> Import</button>
-          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Runbook</button>}
-        </div>
-      </div>
+      <PageHead
+        title="Runbook Library"
+        subtitle={<>Operational playbooks · executable shell / kubectl / terraform / ansible · {fmt(totalRuns)} recorded executions</>}
+        actions={
+          <>
+            <ReadOnlyBadge />
+            <Button><Icon icon={HistoryIcon} /> Run History</Button>
+            <Button><Icon icon={FileInputIcon} /> Import</Button>
+            {canWrite && <Button variant="primary"><Icon icon={PlusIcon} /> New Runbook</Button>}
+          </>
+        }
+      />
 
-      <div className="ld-grid ld-grid-6">
+      {/* six-up row; the stat cards keep their full size, as in the reference */}
+      <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
         <StatCard icon="fa-book-bookmark" tone="info" label="Total runbooks" value={fmt(RUNBOOKS.length)} note="published" onClick={() => setTab("all")} />
         <StatCard icon="fa-bolt" tone="ok" label="Auto-executable" value={fmt(autoCount)} note="zero-touch" onClick={() => setTab("auto")} />
         <StatCard icon="fa-play" tone="purple" label="Executions" value={fmt(totalRuns)} note="across all runbooks" />
@@ -129,37 +150,36 @@ export default function RunbooksScreen() {
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Failed runs" value={fmt(failedRuns)} note="estimated from success rate" />
       </div>
 
-      <section className="ld-card ld-panel" aria-labelledby="rb-cat-h">
-        <div className="ld-panel-head"><h2 id="rb-cat-h">Categories</h2></div>
-        <div className="ld-chips">
+      <section className={cx(ui.card, ui.panel)} aria-labelledby="rb-cat-h">
+        <div className={ui.panelHead}><h2 className={ui.panelTitle} id="rb-cat-h">Categories</h2></div>
+        <div className="flex flex-wrap gap-2.5">
           {tags.map(([tag, n]) => {
             const meta = TAG_META[tag] ?? { label: tag, icon: "fa-tag", color: "#6b7785" };
             return (
-              <span key={tag} className="ld-chip ld-choice-static">
+              <span key={tag} className={chip}>
                 <Icon className={`fa-solid ${meta.icon}`} style={{ color: meta.color }} />
-                <span className="ld-chip-label">{meta.label}</span>
-                <span className="ld-chip-count">{n}</span>
+                <span className="text-sm text-fg-muted">{meta.label}</span>
+                <span className="text-md font-bold">{n}</span>
               </span>
             );
           })}
         </div>
       </section>
 
-      <div className="ld-split">
-        <div className="ld-rail">
-          <section className="ld-card ld-panel" aria-labelledby="rb-list-h">
-            <div className="ld-panel-head">
-              <h2 id="rb-list-h">Runbooks</h2>
-              <span className="ld-muted ld-small">{fmt(filtered.length)} shown</span>
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="rb-list-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="rb-list-h">Runbooks</h2>
+              <span className="text-fg-muted text-xs">{fmt(filtered.length)} shown</span>
             </div>
-            <div className="ld-tabs" role="tablist" aria-label="Runbook filters">
+            <Tabs aria-label="Runbook filters">
               {TABS.map(([id, l]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ld-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{l}</button>
+                <Tab key={id} active={tab === id} onClick={() => setTab(id)}>{l}</Tab>
               ))}
-            </div>
+            </Tabs>
             {filtered.length ? (
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead>
                     <tr>
                       <th scope="col">Number</th>
@@ -177,107 +197,106 @@ export default function RunbooksScreen() {
                   <tbody>
                     {filtered.map(r => (
                       <tr key={r.id}>
-                        <td className="ld-mono ld-strong">{r.id}</td>
-                        <td className="ld-wrap">
-                          <span className="ld-mono-name">{r.title}</span>
-                          <div className="ld-sub">{r.desc}</div>
+                        <td className="font-mono font-medium">{r.id}</td>
+                        <td className={ui.cellWrap}>
+                          <span className="font-mono text-[12.5px] text-accent">{r.title}</span>
+                          <div className={ui.sub}>{r.desc}</div>
                         </td>
-                        <td className="ld-mono">{r.svc}</td>
+                        <td className={monoCell}>{r.svc}</td>
                         <td><Pill tone="muted">{r.lang}</Pill></td>
-                        <td className="ld-mono">{fmt(r.runs)}</td>
+                        <td className={monoCell}>{fmt(r.runs)}</td>
                         <td>
-                          <div className="ld-admin-meter">
-                            <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${r.success}%`, background: successColor(r.success) }} /></span>
-                            <span>{r.success}%</span>
+                          <div className={meter}>
+                            <span className={meterTrack}><span className={meterFill} style={{ width: `${r.success}%`, background: successColor(r.success) }} /></span>
+                            <span className={meterValue}>{r.success}%</span>
                           </div>
                         </td>
-                        <td className="ld-mono">{r.avg}</td>
+                        <td className={monoCell}>{r.avg}</td>
                         <td>{ownerName(r.owner)}</td>
-                        <td>{r.auto ? <Pill tone="ok"><span className="ld-pill-dot" />Auto</Pill> : <Pill tone="warn"><span className="ld-pill-dot" />Manual</Pill>}</td>
+                        <td>{r.auto ? <Pill tone="ok"><PillDot />Auto</Pill> : <Pill tone="warn"><PillDot />Manual</Pill>}</td>
                         <td>
                           {canWrite ? (
-                            <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={() => setRunning(r)} aria-label={`Run ${r.title}`}>
+                            <Button variant="primary" size="sm" onClick={() => setRunning(r)} aria-label={`Run ${r.title}`}>
                               <Icon icon={PlayIcon} /> Run
-                            </button>
+                            </Button>
                           ) : (
-                            <button type="button" className="ld-btn ld-btn-sm" disabled title="Read-only">
+                            <Button size="sm" disabled title="Read-only">
                               <Icon icon={LockIcon} /> Run
-                            </button>
+                            </Button>
                           )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
             ) : (
               <Empty>No runbooks match this filter.</Empty>
             )}
           </section>
 
-          <section className="ld-card ld-panel" aria-labelledby="rb-feat-h">
-            <div className="ld-panel-head">
-              <h2 id="rb-feat-h">Featured Runbook · pool-expansion-v3</h2>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="rb-feat-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="rb-feat-h">Featured Runbook · pool-expansion-v3</h2>
               <Pill tone="muted">Example script</Pill>
             </div>
-            <pre className="ld-code ld-admin-term">
-              <span className="c"># Step 1 · Verify pool utilization above 90%</span>{"\n"}
-              <span className="p">$</span> aws rds describe-db-clusters --db-cluster-identifier payments-primary \{"\n"}
+            <pre className={codeBlock}>
+              <span className={term.c}># Step 1 · Verify pool utilization above 90%</span>{"\n"}
+              <span className={term.p}>$</span> aws rds describe-db-clusters --db-cluster-identifier payments-primary \{"\n"}
               {"    "}--query 'DBClusters[0].DBClusterMembers[*].DBInstanceIdentifier'{"\n"}
-              <span className="c"># Step 2 · Scale connection pool from 120 → 200</span>{"\n"}
-              <span className="p">$</span> kubectl set env deployment/payments-primary \{"\n"}
+              <span className={term.c}># Step 2 · Scale connection pool from 120 → 200</span>{"\n"}
+              <span className={term.p}>$</span> kubectl set env deployment/payments-primary \{"\n"}
               {"    "}DB_POOL_SIZE=200 -n production{"\n"}
-              <span className="c"># Step 3 · Wait for rollout</span>{"\n"}
-              <span className="p">$</span> kubectl rollout status deployment/payments-primary -n production{"\n"}
-              <span className="c"># Step 4 · Verify recovery against the SLO</span>{"\n"}
-              <span className="p">$</span> linkedeye verify --slo checkout-availability --window 5m
+              <span className={term.c}># Step 3 · Wait for rollout</span>{"\n"}
+              <span className={term.p}>$</span> kubectl rollout status deployment/payments-primary -n production{"\n"}
+              <span className={term.c}># Step 4 · Verify recovery against the SLO</span>{"\n"}
+              <span className={term.p}>$</span> linkedeye verify --slo checkout-availability --window 5m
             </pre>
-            <div className="ld-admin-actions">
+            <div className="flex flex-wrap items-center gap-2">
               {canWrite
-                ? <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRunning(RUNBOOKS[0])}><Icon icon={PlayIcon} /> Dry Run</button>
-                : <button type="button" className="ld-btn" disabled title="Read-only"><Icon icon={LockIcon} /> Dry Run</button>}
-              {canWrite && <button type="button" className="ld-btn"><Icon icon={PencilIcon} /> Edit</button>}
-              <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> History ({fmt(RUNBOOKS[0].runs)})</button>
-              <button type="button" className="ld-btn"><Icon icon={CopyIcon} /> Copy</button>
+                ? <Button variant="primary" onClick={() => setRunning(RUNBOOKS[0])}><Icon icon={PlayIcon} /> Dry Run</Button>
+                : <Button disabled title="Read-only"><Icon icon={LockIcon} /> Dry Run</Button>}
+              {canWrite && <Button><Icon icon={PencilIcon} /> Edit</Button>}
+              <Button><Icon icon={HistoryIcon} /> History ({fmt(RUNBOOKS[0].runs)})</Button>
+              <Button><Icon icon={CopyIcon} /> Copy</Button>
             </div>
           </section>
         </div>
 
-        <div className="ld-rail">
-          <section className="ld-card ld-panel" aria-labelledby="rb-exec-h">
-            <div className="ld-panel-head">
-              <h2 id="rb-exec-h">Recent Executions</h2>
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="rb-exec-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="rb-exec-h">Recent Executions</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {SAMPLE_EXECUTIONS.map(([rb, trig, time, st], i) => (
-                <li key={i}>
-                  <span className="ld-activity-text"><span className="ld-mono">{rb}</span> <span className="ld-muted ld-small">· {trig} · {time}</span></span>
-                  <Pill tone={st === "success" ? "ok" : "crit"}><span className="ld-pill-dot" />{st}</Pill>
+                <li key={i} className={ui.activityItem}>
+                  <span className={ui.activityText}><span className={ui.mono}>{rb}</span> <span className="text-fg-muted text-xs">· {trig} · {time}</span></span>
+                  <Pill tone={st === "success" ? "ok" : "crit"}><PillDot />{st}</Pill>
                 </li>
               ))}
             </ul>
           </section>
 
           <Panel title="Quick Actions">
-            <div className="ld-admin-quick">
+            <div className="grid grid-cols-2 gap-2 [&>button]:justify-start">
               {QUICK_ACTIONS.map(([ic, l]) => (
-                <button key={l} type="button" className="ld-btn ld-btn-sm"><Icon className={`fa-solid ${ic}`} /> {l}</button>
+                <Button key={l} size="sm"><Icon className={`fa-solid ${ic}`} /> {l}</Button>
               ))}
             </div>
           </Panel>
 
           <Panel title="AI Authoring">
-            <p className="ld-small">Generate runbook drafts from resolved incidents.</p>
-            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={BotIcon} /> Generate from INC-48291</button>
+            <p className="text-xs">Generate runbook drafts from resolved incidents.</p>
+            <Button variant="primary"><Icon icon={BotIcon} /> Generate from INC-48291</Button>
           </Panel>
         </div>
       </div>
 
-      <p className="ld-muted ld-small">Sample runbook library — runbook storage and execution are not connected to the backend yet.</p>
+      <p className="text-fg-muted text-xs">Sample runbook library — runbook storage and execution are not connected to the backend yet.</p>
 
       {running && <RunOverlay rb={running} onClose={() => setRunning(null)} />}
-    </div>
+    </Page>
   );
 }
 
@@ -305,48 +324,48 @@ function RunOverlay({ rb, onClose }: { rb: Runbook; onClose: () => void }) {
   const pct = Math.round((done / steps.length) * 100);
 
   return (
-    <div className="le-modal-backdrop ld-admin-modal-top" onClick={finished ? onClose : undefined}>
-      <div className="le-modal ld-admin-modal" role="dialog" aria-modal="true" aria-labelledby="rb-run-h" onClick={(e) => e.stopPropagation()}>
-        <div className="le-modal-head">
-          <span className={`le-modal-icon ${finished ? "ld-ok" : "ld-info"}`} aria-hidden="true">
+    <div className={runBackdrop} onClick={finished ? onClose : undefined}>
+      <div className={cx(m.modal, "w-[720px]")} role="dialog" aria-modal="true" aria-labelledby="rb-run-h" onClick={(e) => e.stopPropagation()}>
+        <div className={m.head}>
+          <span className={cx(m.icon, toneBg[finished ? "ok" : "info"])} aria-hidden="true">
             <Icon className={`fa-solid ${finished ? "fa-circle-check" : "fa-circle-notch fa-spin"}`} />
           </span>
-          <div className="le-modal-titles">
-            <h3 id="rb-run-h">Executing <span className="ld-mono">{rb.title}</span> · {rb.id}</h3>
-            <p>{rb.lang} · {elapsed}s · simulated run</p>
+          <div className={m.titles}>
+            <h3 id="rb-run-h" className={m.title}>Executing <span className={ui.mono}>{rb.title}</span> · {rb.id}</h3>
+            <p className={m.subtitle}>{rb.lang} · {elapsed}s · simulated run</p>
           </div>
           <Pill tone="muted">Simulation</Pill>
         </div>
 
-        <div className={`ld-admin-progress${finished ? " done" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Execution progress">
-          <span style={{ width: `${pct}%` }} />
+        <div className="h-1 bg-bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Execution progress">
+          <span className={cx("block h-full [transition:width_0.4s]", finished ? "bg-[#16a34a]" : "bg-accent")} style={{ width: `${pct}%` }} />
         </div>
 
-        <div className="le-modal-body">
-          <pre className="ld-code ld-admin-term ld-admin-term-scroll" aria-live="polite">
+        <div className={cx(m.body, "flex flex-col gap-3")}>
+          <pre className={cx(codeBlock, "max-h-[340px] overflow-y-auto")} aria-live="polite">
             {steps.slice(0, Math.max(done, 1)).map((st, i) => {
               const complete = i < done;
               const active = i === done && !finished;
               return (
                 <React.Fragment key={i}>
-                  <span className="c"># {st.title}</span>{"\n"}
-                  <span className="p">$</span> {st.cmd}{"\n"}
-                  {complete && <><span className="ok">  ✓ {st.out}</span>{"\n"}</>}
-                  {active && <><span className="run">  … running</span>{"\n"}</>}
+                  <span className={term.c}># {st.title}</span>{"\n"}
+                  <span className={term.p}>$</span> {st.cmd}{"\n"}
+                  {complete && <><span className={term.ok}>  ✓ {st.out}</span>{"\n"}</>}
+                  {active && <><span className={term.run}>  … running</span>{"\n"}</>}
                 </React.Fragment>
               );
             })}
-            {finished && <span className="ok">{"\n"}✓ Runbook {rb.title} completed · {steps.length} steps · {elapsed}s (simulated)</span>}
+            {finished && <span className={term.ok}>{"\n"}✓ Runbook {rb.title} completed · {steps.length} steps · {elapsed}s (simulated)</span>}
           </pre>
         </div>
 
-        <div className="le-modal-foot">
+        <div className={m.foot}>
           {!finished ? (
-            <button type="button" className="ld-btn" onClick={onClose}><Icon icon={SquareIcon} /> Abort</button>
+            <Button onClick={onClose}><Icon icon={SquareIcon} /> Abort</Button>
           ) : (
             <>
-              <span className="ld-admin-status spacer"><Icon icon={CircleCheckIcon} className="ld-text-ok" /> Simulation finished — nothing was executed</span>
-              <button type="button" className="ld-btn ld-btn-primary" onClick={onClose}><Icon icon={CheckIcon} /> Close</button>
+              <span className="inline-flex items-center gap-1.5 text-sm text-fg-muted flex-1 mr-auto"><Icon icon={CircleCheckIcon} className={toneText.ok} /> Simulation finished — nothing was executed</span>
+              <Button variant="primary" onClick={onClose}><Icon icon={CheckIcon} /> Close</Button>
             </>
           )}
         </div>

@@ -1,16 +1,21 @@
 // People & Roles — LinkedEye layout: people summary cards, the user inventory
 // table and a role-distribution rail. Users come from the local seed
 // (data/core); there is no directory endpoint yet.
-import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { USERS } from "@/data/core";
 import { colorFor } from "@/components/Shell";
-import { Empty, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, StatCard, countBy, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, KeyRoundIcon, UserCogIcon, UserPlusIcon } from "lucide-react";
+import { KeyRoundIcon, UserCogIcon, UserPlusIcon } from "lucide-react";
+// identity cell (avatar + name / email) — were ld-admin-* classes
+const who = "flex items-center gap-2.5 min-w-0";
+const whoBody = "flex flex-col items-start gap-px min-w-0";
+const avatar = "flex-none w-7 h-7 rounded-full grid place-items-center text-2xs font-bold text-white bg-fg-subtle";
+
 const ROLE_TONE: Record<string, Tone> = {
   Admin: "crit",
   "Incident Commander": "purple",
@@ -42,27 +47,21 @@ export default function UsersScreen() {
   const roleMax = roles[0]?.[1] || 1;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>{tenant.name}</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>People &amp; Roles</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: tenant.name }, { label: "People & Roles" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>People &amp; Roles</h1>
-          <p>Who can sign in to {tenant.name}, what role they hold and whether they are in an on-call rotation</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={UserCogIcon} /> Role Matrix</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={UserPlusIcon} /> Invite People</button>
-        </div>
-      </div>
+      <PageHead
+        title="People & Roles"
+        subtitle={<>Who can sign in to {tenant.name}, what role they hold and whether they are in an on-call rotation</>}
+        actions={
+          <>
+            <Button><Icon icon={UserCogIcon} /> Role Matrix</Button>
+            <Button variant="primary"><Icon icon={UserPlusIcon} /> Invite People</Button>
+          </>
+        }
+      />
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <StatCard icon="fa-users" tone="info" label="Total users" value={fmt(USERS.length)} note={`${teams} teams`} />
         <StatCard icon="fa-circle-check" tone="ok" label="Online" value={fmt(online)} note={`${USERS.length - online} away or offline`} />
         <StatCard icon="fa-user-shield" tone="crit" label="Admins" value={fmt(admins)} note="full workspace access" />
@@ -70,15 +69,14 @@ export default function UsersScreen() {
         <StatCard icon="fa-user-gear" tone="muted" label="Roles" value={fmt(roles.length)} note="in use" />
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby="users-h">
-          <div className="ld-panel-head">
-            <h2 id="users-h">User Inventory</h2>
-            <span className="ld-muted ld-small">{fmt(USERS.length)} users</span>
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby="users-h">
+          <div className={ui.panelHead}>
+            <h2 className={ui.panelTitle} id="users-h">User Inventory</h2>
+            <span className="text-fg-muted text-xs">{fmt(USERS.length)} users</span>
           </div>
           {USERS.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">User</th>
@@ -94,38 +92,37 @@ export default function UsersScreen() {
                   {USERS.map((u) => (
                     <tr key={u.id}>
                       <td>
-                        <div className="ld-admin-who">
-                          <span className="ld-admin-avatar" style={{ background: colorFor(u.color) }} aria-hidden="true">{initials(u.name)}</span>
-                          <span className="ld-admin-who-body">
-                            <span className="ld-strong">{u.name}</span>
-                            <span className="ld-sub ld-mono">{u.email}</span>
+                        <div className={who}>
+                          <span className={avatar} style={{ background: colorFor(u.color) }} aria-hidden="true">{initials(u.name)}</span>
+                          <span className={whoBody}>
+                            <span className="font-medium">{u.name}</span>
+                            <span className={cx(ui.sub, ui.mono)}>{u.email}</span>
                           </span>
                         </div>
                       </td>
                       <td><Pill tone={ROLE_TONE[u.role] ?? "muted"}>{u.role}</Pill></td>
                       <td>{u.team}</td>
-                      <td>{onCall(u.role) ? <Pill tone="info"><span className="ld-pill-dot" />Rotating</Pill> : <span className="ld-muted">—</span>}</td>
+                      <td>{onCall(u.role) ? <Pill tone="info"><PillDot />Rotating</Pill> : <span className="text-fg-muted">—</span>}</td>
                       <td><Pill tone="muted"><Icon icon={KeyRoundIcon} /> SSO</Pill></td>
-                      <td className="ld-muted">{u.last}</td>
-                      <td><Pill tone={STATUS_TONE[u.status] ?? "muted"}><span className="ld-pill-dot" />{u.status}</Pill></td>
+                      <td>{u.last}</td>
+                      <td><Pill tone={STATUS_TONE[u.status] ?? "muted"}><PillDot />{u.status}</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>No users in this workspace yet.</Empty>
           )}
         </section>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Role Distribution">
-            <ul className="ld-bars">
+            <ul className={ui.bars}>
               {roles.map(([role, n]) => (
-                <li key={role}>
-                  <span className="ld-bar-label">{role}</span>
-                  <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${(n / roleMax) * 100}%`, background: "var(--accent)" }} /></span>
-                  <span className="ld-bar-value">{n}</span>
+                <li key={role} className={ui.barItem}>
+                  <span className={ui.barLabel}>{role}</span>
+                  <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${(n / roleMax) * 100}%`, background: "var(--accent)" }} /></span>
+                  <span className={ui.barValue}>{n}</span>
                 </li>
               ))}
             </ul>
@@ -133,7 +130,7 @@ export default function UsersScreen() {
         </div>
       </div>
 
-      <p className="ld-muted ld-small">Sample user directory — identity provisioning is not connected to the backend yet.</p>
-    </div>
+      <p className="text-fg-muted text-xs">Sample user directory — identity provisioning is not connected to the backend yet.</p>
+    </Page>
   );
 }

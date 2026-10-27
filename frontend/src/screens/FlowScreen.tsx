@@ -2,13 +2,31 @@
 // properties, the step canvas (as a responsive vertical flow) and a rail with
 // recent runs. There is no flow-execution endpoint yet, so run history and
 // suggestions are labelled as sample data.
-import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
-import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, Tile, cx, toneBg, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, HistoryIcon, PlayIcon, TestTubeIcon, WorkflowIcon } from "lucide-react";
+import { HistoryIcon, PlayIcon, TestTubeIcon, WorkflowIcon } from "lucide-react";
+// Entity title row (was ld-head ld-entity-head / ld-entity / ld-tile ld-info)
+const entityHead = "flex flex-wrap items-start justify-between gap-3";
+const entity = "flex items-center gap-3.5 min-w-0";
+const entityTile = cx("flex-none w-14 h-14 rounded-[12px] grid place-items-center text-5xl", toneBg.info);
+const entityTitle = cx(ui.h1, "flex items-center gap-2.5 flex-wrap");
+const entityMeta = cx(
+  ui.headSub,
+  "flex flex-wrap gap-x-3.5 gap-y-1 [&>span+span]:before:content-['|'] [&>span+span]:before:mr-3.5 [&>span+span]:before:text-line-strong",
+);
+// Flow canvas: vertical step list joined by connectors, then a parallel branch row (were ld-admin-flow / -branch / -node)
+const flow = cx(
+  "list-none flex flex-col items-center gap-0 m-0 py-2 px-0",
+  "[&>li]:flex [&>li]:flex-col [&>li]:items-center [&>li]:w-full",
+  "[&>li+li]:before:content-[''] [&>li+li]:before:block [&>li+li]:before:w-0.5 [&>li+li]:before:h-5.5 [&>li+li]:before:bg-line-strong",
+);
+const branch = "list-none m-0 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3 w-full pt-3 border-t-2 border-line-strong";
+const node = "flex items-start gap-2.5 py-2.5 px-3 border border-line border-l-4 rounded bg-bg-raised shadow-sm";
+
 interface FlowStep { kind: "trigger" | "ai" | "logic" | "action"; icon: string; title: string; sub: string }
 
 const NODE_COLOR: Record<FlowStep["kind"], string> = { trigger: "#2563eb", ai: "#8b5cf6", logic: "#f59e0b", action: "#6b7785" };
@@ -33,14 +51,14 @@ const SAMPLE_RUNS: [string, string, "success" | "failed"][] = [
   ["2d ago", "INC-48201", "success"],
 ];
 
-function FlowNode({ step }: { step: FlowStep }) {
+function FlowNode({ step, wide }: { step: FlowStep; wide?: boolean }) {
   const c = NODE_COLOR[step.kind];
   return (
-    <div className="ld-admin-node" style={{ ["--node" as string]: c }}>
-      <span className="ld-tile ld-tile-sm" style={{ color: c, background: `${c}20` }} aria-hidden="true"><Icon className={`fa-solid ${step.icon}`} /></span>
+    <div className={cx(node, wide ? "w-full" : "w-[min(100%,260px)]")} style={{ borderLeftColor: c }}>
+      <Tile tone="muted" size="sm" style={{ color: c, background: `${c}20` }}><Icon className={`fa-solid ${step.icon}`} /></Tile>
       <span>
-        <span className="ld-admin-node-title">{step.title}</span>
-        <span className="ld-admin-node-sub">{step.sub}</span>
+        <span className="text-sm font-semibold text-fg">{step.title}</span>
+        <span className="block text-xs text-fg-muted">{step.sub}</span>
       </span>
     </div>
   );
@@ -52,43 +70,37 @@ export default function FlowScreen() {
   const sampleOk = SAMPLE_RUNS.filter((r) => r[2] === "success").length;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Automation</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>Flow Designer</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Automation" }, { label: "Flow Designer" }]} />
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={WorkflowIcon} /></span>
+      <div className={entityHead}>
+        <div className={entity}>
+          <span className={entityTile} aria-hidden="true"><Icon icon={WorkflowIcon} /></span>
           <div>
-            <h1 className="ld-entity-title">Sev-1 Auto-Response <Pill tone="ok"><span className="ld-pill-dot" />Active</Pill></h1>
-            <p className="ld-entity-meta ld-muted"><span className="ld-mono">FLOW-0042</span><span>Triggered when a Sev 1 is declared</span></p>
+            <h1 className={entityTitle}>Sev-1 Auto-Response <Pill tone="ok"><PillDot />Active</Pill></h1>
+            <p className={entityMeta}><span className={ui.mono}>FLOW-0042</span><span>Triggered when a Sev 1 is declared</span></p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> History</button>
-            <button type="button" className="ld-btn"><Icon icon={TestTubeIcon} /> Test Run</button>
-            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlayIcon} /> Activate</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button><Icon icon={HistoryIcon} /> History</Button>
+            <Button><Icon icon={TestTubeIcon} /> Test Run</Button>
+            <Button variant="primary"><Icon icon={PlayIcon} /> Activate</Button>
           </div>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-list-ol" tone="info" label="Steps" value={fmt(STEP_COUNT)} note={`${BRANCH_STEPS.length} parallel actions`} />
         <StatCard icon="fa-bolt" tone="purple" label="Trigger" value="Sev-1" note="incident declared" />
         <StatCard icon="fa-toggle-on" tone="ok" label="State" value="Active" note="enabled" />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Flow Properties">
-            <dl className="ld-dl">
-              <dt>Name</dt><dd className="ld-strong">Sev-1 Auto-Response</dd>
+            <dl className={ui.dl}>
+              <dt>Name</dt><dd className="font-medium">Sev-1 Auto-Response</dd>
               <dt>Application</dt><dd>Incident Management</dd>
               <dt>Trigger</dt><dd>When Sev-1 incident declared</dd>
               <dt>Run as</dt><dd>System Service Account</dd>
@@ -97,19 +109,19 @@ export default function FlowScreen() {
             </dl>
           </Panel>
 
-          <section className="ld-card ld-panel" aria-labelledby="flow-canvas-h">
-            <div className="ld-panel-head">
-              <h2 id="flow-canvas-h">Flow Canvas</h2>
-              <span className="ld-muted ld-small">{STEP_COUNT} steps</span>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="flow-canvas-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="flow-canvas-h">Flow Canvas</h2>
+              <span className="text-fg-muted text-xs">{STEP_COUNT} steps</span>
             </div>
-            <ol className="ld-admin-flow" aria-label="Flow steps in order">
+            <ol className={flow} aria-label="Flow steps in order">
               {MAIN_STEPS.map((s) => (
                 <li key={s.title}><FlowNode step={s} /></li>
               ))}
               <li>
-                <ul className="ld-admin-branch" aria-label="Actions run in parallel">
+                <ul className={branch} aria-label="Actions run in parallel">
                   {BRANCH_STEPS.map((s) => (
-                    <li key={s.title}><FlowNode step={s} /></li>
+                    <li key={s.title}><FlowNode step={s} wide /></li>
                   ))}
                 </ul>
               </li>
@@ -117,34 +129,34 @@ export default function FlowScreen() {
           </section>
         </div>
 
-        <div className="ld-rail">
-          <section className="ld-card ld-panel" aria-labelledby="flow-runs-h">
-            <div className="ld-panel-head">
-              <h2 id="flow-runs-h">Recent Runs</h2>
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="flow-runs-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="flow-runs-h">Recent Runs</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {SAMPLE_RUNS.map(([t, inc, st], i) => (
-                <li key={i}>
-                  <span className="ld-activity-text"><span className="ld-mono">{inc}</span> <span className="ld-muted ld-small">· {t}</span></span>
-                  <Pill tone={st === "success" ? "ok" : "crit"}><span className="ld-pill-dot" />{st}</Pill>
+                <li key={i} className={ui.activityItem}>
+                  <span className={ui.activityText}><span className={ui.mono}>{inc}</span> <span className="text-fg-muted text-xs">· {t}</span></span>
+                  <Pill tone={st === "success" ? "ok" : "crit"}><PillDot />{st}</Pill>
                 </li>
               ))}
             </ul>
-            <span className="ld-muted ld-small">{sampleOk} of {SAMPLE_RUNS.length} sample runs succeeded</span>
+            <span className="text-fg-muted text-xs">{sampleOk} of {SAMPLE_RUNS.length} sample runs succeeded</span>
           </section>
 
-          <section className="ld-card ld-panel" aria-labelledby="flow-ai-h">
-            <div className="ld-panel-head">
-              <h2 id="flow-ai-h">AI Suggestions</h2>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="flow-ai-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="flow-ai-h">AI Suggestions</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <p className="ld-small">Add an "Attach runbook link" step after paging on-call so responders land on the right playbook.</p>
+            <p className="text-xs">Add an "Attach runbook link" step after paging on-call so responders land on the right playbook.</p>
           </section>
         </div>
       </div>
 
-      <p className="ld-muted ld-small">Flow execution history is not connected to the backend yet.</p>
-    </div>
+      <p className="text-fg-muted text-xs">Flow execution history is not connected to the backend yet.</p>
+    </Page>
   );
 }

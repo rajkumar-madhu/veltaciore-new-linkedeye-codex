@@ -2,14 +2,23 @@
 // client list, then per-client quota meters and quota alerts. No usage
 // metering endpoint exists yet, so the quota figures are sample data and are
 // labelled as such.
-import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { useTenants } from "@/api/hooks";
 import { colorFor } from "@/components/Shell";
-import { Empty, Pill, StatCard, fmt } from "@/components/ld";
+import { Empty, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, cx, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { BellIcon, ChevronRightIcon, FileOutputIcon } from "lucide-react";
+import { BellIcon, FileOutputIcon } from "lucide-react";
+// identity cell and quota meter (were ld-admin-* classes)
+const who = "flex items-center gap-2.5 min-w-0";
+const codeTile = "flex-none w-7 h-7 rounded grid place-items-center text-[10.5px] font-bold text-white bg-fg-subtle";
+const meter = "flex items-center gap-2 min-w-[150px]";
+const meterTrack = "flex-[1_1_60px] h-2 rounded-[5px] bg-bg-muted overflow-hidden";
+const meterFill = "block h-2 rounded-[5px]";
+const meterValue = "font-mono text-xs text-fg whitespace-nowrap";
+const headTags = "inline-flex items-center gap-1.5 flex-wrap";
+
 // Sample quota utilisation by client position (no metering API yet).
 const SAMPLE_EVENTS = [72, 84, 112, 48, 22, 66];
 const SAMPLE_STORAGE = [38, 52, 78, 30, 12, 44];
@@ -27,11 +36,11 @@ const meterColor = (pct: number) => (pct > 85 ? "#e5383b" : pct > 70 ? "#f5a524"
 
 function QuotaCell({ pct, label }: { pct: number; label: string }) {
   return (
-    <div className="ld-admin-meter">
-      <span className="ld-bar-track" role="img" aria-label={`${Math.min(pct, 100)}% used`}>
-        <span className="ld-bar-fill" style={{ width: `${Math.min(pct, 100)}%`, background: meterColor(pct) }} />
+    <div className={meter}>
+      <span className={meterTrack} role="img" aria-label={`${Math.min(pct, 100)}% used`}>
+        <span className={meterFill} style={{ width: `${Math.min(pct, 100)}%`, background: meterColor(pct) }} />
       </span>
-      <span>{label}</span>
+      <span className={meterValue}>{label}</span>
     </div>
   );
 }
@@ -47,41 +56,34 @@ export default function AdminUsageScreen() {
   const enterprise = tenants.filter((t) => t.plan === "Enterprise").length;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Super-admin</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>Usage &amp; Quotas</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Super-admin" }, { label: "Usage & Quotas" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Usage &amp; Quotas</h1>
-          <p>Event ingest, storage and API consumption by client · monthly window</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={BellIcon} /> Quota Alerts</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={FileOutputIcon} /> Export</button>
-        </div>
-      </div>
+      <PageHead
+        title="Usage & Quotas"
+        subtitle="Event ingest, storage and API consumption by client · monthly window"
+        actions={
+          <>
+            <Button><Icon icon={BellIcon} /> Quota Alerts</Button>
+            <Button variant="primary"><Icon icon={FileOutputIcon} /> Export</Button>
+          </>
+        }
+      />
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-building" tone="info" label="Clients" value={fmt(tenants.length)} note={`${enterprise} on Enterprise`} />
         <StatCard icon="fa-users" tone="purple" label="Client users" value={fmt(users)} note="across all clients" />
         <StatCard icon="fa-ticket" tone="warn" label="Open incidents" value={fmt(incidents)} note="across all clients" />
         <StatCard icon="fa-fire" tone="crit" label="Sev 1" value={fmt(sev1)} note="open Sev 1 incidents" />
       </div>
 
-      <section className="ld-card ld-panel" aria-labelledby="usage-quota-h">
-        <div className="ld-panel-head">
-          <h2 id="usage-quota-h">Per-Client Quotas</h2>
-          <span className="ld-admin-head-tags"><Pill tone="muted">Sample data</Pill><span className="ld-muted ld-small">monthly</span></span>
+      <section className={cx(ui.card, ui.panel)} aria-labelledby="usage-quota-h">
+        <div className={ui.panelHead}>
+          <h2 className={ui.panelTitle} id="usage-quota-h">Per-Client Quotas</h2>
+          <span className={headTags}><Pill tone="muted">Sample data</Pill><span className="text-fg-muted text-xs">monthly</span></span>
         </div>
         {tenants.length ? (
-          <div className="ld-table-wrap">
-            <table className="ld-table">
+          <Table>
               <thead>
                 <tr>
                   <th scope="col">Client</th>
@@ -100,9 +102,9 @@ export default function AdminUsageScreen() {
                   return (
                     <tr key={t.id}>
                       <td>
-                        <div className="ld-admin-who">
-                          <span className="ld-admin-code" style={{ background: colorFor(t.color) }} aria-hidden="true">{t.code}</span>
-                          <span className="ld-strong">{t.name}</span>
+                        <div className={who}>
+                          <span className={codeTile} style={{ background: colorFor(t.color) }} aria-hidden="true">{t.code}</span>
+                          <span className="font-medium">{t.name}</span>
                         </div>
                       </td>
                       <td><QuotaCell pct={ev} label={`${ev}M / ${ev < 80 ? 100 : 120}M`} /></td>
@@ -113,37 +115,34 @@ export default function AdminUsageScreen() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            </Table>
         ) : (
           <Empty>No clients provisioned yet.</Empty>
         )}
       </section>
 
-      <section className="ld-card ld-panel" aria-labelledby="usage-alerts-h">
-        <div className="ld-panel-head">
-          <h2 id="usage-alerts-h">Quota Alerts</h2>
+      <section className={cx(ui.card, ui.panel)} aria-labelledby="usage-alerts-h">
+        <div className={ui.panelHead}>
+          <h2 className={ui.panelTitle} id="usage-alerts-h">Quota Alerts</h2>
           <Pill tone="muted">Sample data</Pill>
         </div>
-        <div className="ld-table-wrap">
-          <table className="ld-table">
+        <Table>
             <thead>
               <tr><th scope="col">Client</th><th scope="col">Alert</th><th scope="col">Severity</th></tr>
             </thead>
             <tbody>
               {SAMPLE_ALERTS.map(([t, msg, kind], i) => (
                 <tr key={i}>
-                  <td className="ld-strong">{t}</td>
-                  <td className="ld-wrap">{msg}</td>
-                  <td><Pill tone={kind}><span className="ld-pill-dot" />{kind === "crit" ? "Critical" : "Warning"}</Pill></td>
+                  <td className="font-medium">{t}</td>
+                  <td className={ui.cellWrap}>{msg}</td>
+                  <td><Pill tone={kind}><PillDot />{kind === "crit" ? "Critical" : "Warning"}</Pill></td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
       </section>
 
-      <p className="ld-muted ld-small">Usage metering is not connected to the backend yet — quota figures and alerts are sample data.</p>
-    </div>
+      <p className="text-fg-muted text-xs">Usage metering is not connected to the backend yet — quota figures and alerts are sample data.</p>
+    </Page>
   );
 }
