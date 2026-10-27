@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.changes",
     "apps.alerts",
     "apps.apm",
+    "apps.domains",
     "apps.audit",
     "apps.integrations",
     "apps.policy",
@@ -195,6 +196,8 @@ PROMETHEUS_TIMEOUT = float(os.environ.get("PROMETHEUS_TIMEOUT", "10"))
 # Sample charts / tables (labelled "Sample data" in the UI) while Prometheus
 # or Loki is not configured. Default on in DEBUG, off in production; a set
 # PROMETHEUS_URL / LOKI_URL always wins.
+# Days before expiry a TLS certificate is shown as "Expiring".
+DOMAIN_SSL_WARN_DAYS = int(os.environ.get("DOMAIN_SSL_WARN_DAYS", "30"))
 METRICS_SAMPLE_DATA = os.environ.get("METRICS_SAMPLE_DATA", "1" if DEBUG else "0") == "1"
 
 # Logs (Windows Event Logs, syslog, journald) from the provisioned Loki.

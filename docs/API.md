@@ -42,6 +42,11 @@ Headers:
 | `GET /infra/alerts/` | sev, site, acknowledged, resolved |
 | `GET /infra/vms/` | cluster, state |
 | `GET /infra/exporters/` | |
+| `GET POST /infra/domains/` · `GET PATCH DELETE /infra/domains/{id}/` | monitored domain names with their service ports (`services: [{name, type, port}]`, replaced on write). DNS / SSL / port results are read-only. filters: type, active, dns_status, ssl_status, site |
+| `POST /infra/domains/{id}/check/` | resolve, read the TLS certificate (Expiring within `DOMAIN_SSL_WARN_DAYS`, default 30) and probe each port now; Celery beat does every active domain every 15 min |
+| `GET POST /infra/service-domains/` · `GET PATCH DELETE /infra/service-domains/{id}/` | business domains for the heatmap: `services` (APM names), `devices` (ids), `device_kinds` (every device of the kind). Only the client's own (or shared) services and devices can be attached |
+
+Rows with no client (`shared: true`) are visible to every client and can only be changed from the all-clients scope (403 otherwise).
 
 ## Trading Ops
 | Endpoint | Shape |

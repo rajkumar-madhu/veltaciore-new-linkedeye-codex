@@ -155,3 +155,15 @@ button.ld-infra-unit { cursor: pointer; }
 /* ── logs ─────────────────────────────────────────────────────────────────── */
 .ld-infra-log td { vertical-align: top; }
 .ld-infra-log td.ld-wrap { font-family: var(--font-mono); font-size: 12px; }
+
+/* ── Domains ─────────────────────────────────────────────────────────── */
+.ld-dom-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ld-dom-error { margin: 0; padding: 8px 12px; border-radius: var(--radius); background: var(--critical-bg); color: var(--critical); font-size: 13px; }
+.ld-dom-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.ld-dom-row > .ld-form-field { flex: 1 1 160px; }
+.ld-dom-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg); min-height: 38px; }
+.ld-dom-fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.ld-dom-fieldset legend { font-size: 12px; color: var(--fg-muted); padding: 0 4px; }
+.ld-dom-fieldset > .ld-btn { align-self: flex-start; }
+.ld-dom-svc { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) 90px auto; gap: 6px; }
+@media (max-width: 560px) { .ld-dom-svc { grid-template-columns: 1fr 1fr; } }

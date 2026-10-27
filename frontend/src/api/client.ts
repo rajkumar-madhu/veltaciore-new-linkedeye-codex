@@ -20,10 +20,34 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** DRF error body ({detail} or {field: [messages]}) when the API sent one */
+  body?: unknown;
+  constructor(status: number, message: string, body?: unknown) {
     super(message);
     this.status = status;
+    this.body = body;
   }
+}
+
+/** One readable line from an API error, e.g. "name: This domain is already monitored." */
+export function apiErrorText(e: unknown): string {
+  if (!(e instanceof ApiError)) return e instanceof Error ? e.message : "Request failed.";
+  const b = e.body as Record<string, unknown> | undefined;
+  if (b && typeof b === "object") {
+    if (typeof b.detail === "string") return b.detail;
+    const parts = Object.entries(b).map(([k, v]) => {
+      const msg = Array.isArray(v) ? v.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ") : String(v);
+      return k === "non_field_errors" ? msg : `${k}: ${msg}`;
+    });
+    if (parts.length) return parts.join(" · ");
+  }
+  return e.status === 403 ? "You do not have permission to do this." : e.message;
+}
+
+async function failed(res: Response, path: string): Promise<ApiError> {
+  let body: unknown;
+  try { body = await res.json(); } catch { body = undefined; }
+  return new ApiError(res.status, `${res.status} ${res.statusText} for ${path}`, body);
 }
 
 export interface Paginated<T> {
@@ -79,7 +103,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} for ${path}`);
+  if (!res.ok) throw await failed(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -89,8 +113,13 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} for ${path}`);
+  if (!res.ok) throw await failed(res, path);
   return res.json() as Promise<T>;
+}
+
+export async function apiDelete(path: string): Promise<void> {
+  const res = await fetch(BASE + path, { method: "DELETE", headers: authHeaders() });
+  if (!res.ok) throw await failed(res, path);
 }
 
 /** Unwrap DRF pagination when present; tolerate plain arrays. */

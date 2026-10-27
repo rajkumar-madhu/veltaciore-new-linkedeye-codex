@@ -1,12 +1,15 @@
 // Service health heatmap — LinkedEye layout: a domain / service × signal grid
 // on the left, a domain summary and the selected domain's details on the
-// right. Everything is derived from live API data: APM services form the
-// Applications domain, and devices are grouped by kind into infrastructure
-// domains. A signal with no source for a row is drawn grey ("No data").
+// right. Domains come from /api/infra/service-domains/ (business domains such
+// as "Trading" that list APM services, devices and device kinds); with none
+// defined, services form an Applications domain and devices are grouped by
+// kind. Every cell is live API data; a signal with no source is grey.
 import React from "react";
 import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
-import { useAllDevices, useAllServices, useDeviceLoad, useInfraAlerts } from "@/api/hooks";
+import { useAllDevices, useAllServices, useDeviceLoad, useInfraAlerts, useServiceDomains } from "@/api/hooks";
+import type { ServiceDomain } from "@/api/hooks";
+import { DomainEditor } from "@/components/ServiceDomainEditor";
 import type { Device, InfraAlert, Service } from "@/lib/types";
 import { deviceRoute } from "@/lib/deviceRoute";
 import { Empty, Pill, fmt } from "@/components/ld";
@@ -38,7 +41,11 @@ interface Row {
   usage: Map<string, { cpu: number | null; mem: number | null }>;
   service?: Service;
 }
-interface Domain { id: string; name: string; icon: string; description: string; rows: Row[]; alerts: InfraAlert[] }
+interface Domain {
+  id: string; name: string; icon: string; description: string; rows: Row[]; alerts: InfraAlert[];
+  /** the saved business domain this group shows, if any */
+  source?: ServiceDomain;
+}
 
 // Infrastructure domains by device kind; anything else lands in "Other devices".
 const INFRA: { id: string; name: string; icon: string; description: string; kinds: Record<string, string> }[] = [
@@ -51,6 +58,9 @@ const INFRA: { id: string; name: string; icon: string; description: string; kind
   { id: "monitoring", name: "Monitoring", icon: "fa-tower-broadcast", description: "Exporters and probes that collect the data",
     kinds: { exporter: "Exporters", probe: "Probes" } },
 ];
+
+/** Display label for a device kind. */
+export const KIND_LABEL: Record<string, string> = Object.assign({}, ...INFRA.map((g) => g.kinds));
 
 const RANK: Record<Health, number> = { crit: 3, warn: 2, ok: 1, unknown: 0 };
 const worst = (hs: Health[]): Health => hs.reduce<Health>((w, h) => (RANK[h] > RANK[w] ? h : w), "unknown");
@@ -117,43 +127,72 @@ function useDomains() {
   const servicesQ = useAllServices();
   const alertsQ = useInfraAlerts();
   const loadQ = useDeviceLoad();
+  const sdQ = useServiceDomains();
   const devices = devicesQ.data ?? [];
   const services = servicesQ.data ?? [];
   const alerts = alertsQ.data ?? [];
+  const saved = sdQ.data ?? [];
   // Live CPU / memory where Prometheus reports it; generated samples are not
   // mixed in here, the inventory's last values stand in instead.
   const load = new Map(loadQ.data?.source === "prometheus" && !loadQ.data.sample ? loadQ.data.devices.map((l) => [l.id, l]) : []);
 
   const domains = React.useMemo(() => {
+    const alertsFor = (ds: Device[]) => { const ids = new Set(ds.map((d) => d.id)); return alerts.filter((a) => ids.has(a.device)); };
+    /** One row per device kind, in the INFRA order, unknown kinds last. */
+    const kindRows = (ds: Device[]) => {
+      const byKind = new Map<string, Device[]>();
+      ds.forEach((d) => byKind.set(d.kind, [...(byKind.get(d.kind) ?? []), d]));
+      const order = Object.keys(KIND_LABEL);
+      return [...byKind.keys()]
+        .sort((x, y) => (order.indexOf(x) + 1 || 999) - (order.indexOf(y) + 1 || 999) || x.localeCompare(y))
+        .map((k) => deviceRow(`kind:${k}`, KIND_LABEL[k] ?? k, byKind.get(k)!, alertsFor(byKind.get(k)!), load));
+    };
     const out: Domain[] = [];
+
+    if (saved.length) {
+      const svcByName = new Map(services.map((x) => [x.name, x]));
+      const usedSvc = new Set<string>(), usedDev = new Set<string>();
+      for (const sd of saved) {
+        const kinds = new Set(sd.device_kinds), ids = new Set(sd.devices);
+        const ds = devices.filter((d) => ids.has(d.id) || kinds.has(d.kind));
+        const ss = sd.services.map((n) => svcByName.get(n)).filter((x): x is Service => !!x);
+        ss.forEach((x) => usedSvc.add(x.name));
+        ds.forEach((d) => usedDev.add(d.id));
+        out.push({ id: `sd:${sd.id}`, name: sd.name, icon: sd.icon, description: sd.description, source: sd,
+          rows: [...ss.map(serviceRow), ...kindRows(ds)], alerts: alertsFor(ds) });
+      }
+      const restSvc = services.filter((x) => !usedSvc.has(x.name));
+      const restDev = devices.filter((d) => !usedDev.has(d.id));
+      if (restSvc.length || restDev.length) {
+        out.push({ id: "unassigned", name: "Not in a domain", icon: "fa-circle-question", description: "Services and devices no domain lists yet",
+          rows: [...restSvc.map(serviceRow), ...kindRows(restDev)], alerts: alertsFor(restDev) });
+      }
+      return out;
+    }
+
+    // No saved domains: Applications + one domain per INFRA group.
     if (services.length) {
       out.push({ id: "applications", name: "Applications", icon: "fa-cubes", description: "Business services traced by APM",
         rows: services.map(serviceRow), alerts: [] });
     }
-    const byKind = new Map<string, Device[]>();
-    devices.forEach((d) => byKind.set(d.kind, [...(byKind.get(d.kind) ?? []), d]));
-    const alertsFor = (ds: Device[]) => { const ids = new Set(ds.map((d) => d.id)); return alerts.filter((a) => ids.has(a.device)); };
     const placed = new Set<string>();
     for (const g of INFRA) {
-      const rows = Object.entries(g.kinds).filter(([k]) => byKind.has(k)).map(([k, label]) => {
-        placed.add(k);
-        const ds = byKind.get(k)!;
-        return deviceRow(`kind:${k}`, label, ds, alertsFor(ds), load);
-      });
-      if (rows.length) out.push({ id: g.id, name: g.name, icon: g.icon, description: g.description, rows, alerts: alertsFor(rows.flatMap((r) => r.devices)) });
+      const ds = devices.filter((d) => d.kind in g.kinds);
+      ds.forEach((d) => placed.add(d.id));
+      if (ds.length) out.push({ id: g.id, name: g.name, icon: g.icon, description: g.description, rows: kindRows(ds), alerts: alertsFor(ds) });
     }
-    const rest = [...byKind.keys()].filter((k) => !placed.has(k)).sort();
-    if (rest.length) {
-      const rows = rest.map((k) => deviceRow(`kind:${k}`, k, byKind.get(k)!, alertsFor(byKind.get(k)!), load));
-      out.push({ id: "other", name: "Other devices", icon: "fa-microchip", description: "Device kinds without a domain", rows, alerts: alertsFor(rows.flatMap((r) => r.devices)) });
-    }
+    const rest = devices.filter((d) => !placed.has(d.id));
+    if (rest.length) out.push({ id: "other", name: "Other devices", icon: "fa-microchip", description: "Device kinds without a domain", rows: kindRows(rest), alerts: alertsFor(rest) });
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devicesQ.data, servicesQ.data, alertsQ.data, loadQ.data]);
+  }, [devicesQ.data, servicesQ.data, alertsQ.data, loadQ.data, sdQ.data]);
 
   return {
     domains,
-    loading: devicesQ.isLoading || servicesQ.isLoading,
+    saved,
+    devices,
+    services,
+    loading: devicesQ.isLoading || servicesQ.isLoading || sdQ.isLoading,
     unreachable: devicesQ.isError && servicesQ.isError,
     updatedAt: Math.max(devicesQ.dataUpdatedAt, servicesQ.dataUpdatedAt),
     liveLoad: load.size > 0,
@@ -165,7 +204,9 @@ const avg = (vs: (number | null)[]) => { const n = vs.filter((v): v is number =>
 
 export default function HeatmapScreen() {
   const { setRoute } = useNav();
-  const { domains, loading, unreachable, updatedAt, liveLoad } = useDomains();
+  const { domains, saved, devices, services, loading, unreachable, updatedAt, liveLoad } = useDomains();
+  // "new", a saved domain's id, or null when the editor is closed
+  const [editing, setEditing] = React.useState<number | "new" | null>(null);
   const [domainFilter, setDomainFilter] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [showValues, setShowValues] = React.useState(false);
@@ -208,6 +249,9 @@ export default function HeatmapScreen() {
           )}
           <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}>
             <i className="fa-solid fa-sitemap" aria-hidden="true" /> View Topology
+          </button>
+          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setEditing("new")}>
+            <i className="fa-solid fa-plus" aria-hidden="true" /> Add Domain
           </button>
         </div>
       </div>
@@ -296,7 +340,7 @@ export default function HeatmapScreen() {
               <Empty>Nothing matches these filters.</Empty>
             )}
             <p className="ld-muted ld-small ld-heat-note">
-              Grey means the signal has no source for that row: APM gives services availability, response and errors; devices give status, alerts and CPU / memory ({liveLoad ? "live from Prometheus where reported, otherwise" : ""} last inventory values).
+              Grey means the signal has no source for that row: APM gives services availability, response and errors; devices give status, alerts and CPU / memory ({liveLoad ? "live from Prometheus where reported, otherwise the last inventory values" : "last inventory values"}).
             </p>
           </section>
 
@@ -334,7 +378,7 @@ export default function HeatmapScreen() {
                             <button type="button" className="ld-link ld-strong" onClick={() => pick(d.id)}>
                               <i className={`fa-solid ${d.icon}`} aria-hidden="true" /> {d.name}
                             </button>
-                            <span className="ld-sub">{d.rows.length} {d.id === "applications" ? "service" : "device kind"}{d.rows.length === 1 ? "" : "s"}</span>
+                            <span className="ld-sub">{d.rows.length} {d.rows.every((r) => r.service) ? "service" : d.rows.every((r) => !r.service) ? "device kind" : "row"}{d.rows.length === 1 ? "" : "s"}</span>
                           </td>
                           <td><Pill tone={TONE[h]}><span className="ld-pill-dot" />{LABEL[h]}</Pill></td>
                           <td>{a == null ? "—" : pct(a)}</td>
@@ -348,7 +392,19 @@ export default function HeatmapScreen() {
               </div>
             </section>
 
-            {current && <DomainDetails domain={current} rowId={selectedRow} tab={tab} setTab={setTab} onRow={(r) => setSelectedRow(r)} />}
+            {editing != null ? (
+              <DomainEditor
+                key={editing}
+                domain={editing === "new" ? undefined : saved.find((x) => x.id === editing)}
+                services={services}
+                devices={devices}
+                kindLabel={KIND_LABEL}
+                onDone={(savedId) => { setEditing(null); if (savedId) pick(`sd:${savedId}`); }}
+              />
+            ) : current && (
+              <DomainDetails domain={current} rowId={selectedRow} tab={tab} setTab={setTab} onRow={(r) => setSelectedRow(r)}
+                onEdit={current.source ? () => setEditing(current.source!.id) : undefined} />
+            )}
           </div>
         </div>
       )}
@@ -356,8 +412,9 @@ export default function HeatmapScreen() {
   );
 }
 
-function DomainDetails({ domain, rowId, tab, setTab, onRow }: {
+function DomainDetails({ domain, rowId, tab, setTab, onRow, onEdit }: {
   domain: Domain; rowId: string; tab: "overview" | "alerts"; setTab: (t: "overview" | "alerts") => void; onRow: (id: string) => void;
+  onEdit?: () => void;
 }) {
   const { setRoute } = useNav();
   const h = domainHealth(domain);
@@ -365,24 +422,26 @@ function DomainDetails({ domain, rowId, tab, setTab, onRow }: {
   const row = domain.rows.find((r) => r.id === rowId);
   const sevRank: Record<string, number> = { critical: 0, warn: 1, warning: 1, info: 2 };
   const alerts = [...domain.alerts].sort((x, y) => (sevRank[x.sev] ?? 3) - (sevRank[y.sev] ?? 3));
-  const tabs = [{ id: "overview" as const, label: "Overview" }, ...(domain.id === "applications" ? [] : [{ id: "alerts" as const, label: `Alerts (${alerts.length})` }])];
+  const hasDevices = domain.rows.some((r) => !r.service);
+  const hasServices = domain.rows.some((r) => r.service);
+  const tabs = [{ id: "overview" as const, label: "Overview" }, ...(hasDevices ? [{ id: "alerts" as const, label: `Alerts (${alerts.length})` }] : [])];
 
   return (
     <section className="ld-card ld-heat-panel" aria-labelledby="ld-heat-detail">
       <div className="ld-heat-detail-head">
         <h2 id="ld-heat-detail">Domain details — {domain.name}</h2>
         <Pill tone={TONE[h]}><span className="ld-pill-dot" />{LABEL[h]}</Pill>
+        {onEdit && <button type="button" className="ld-btn ld-btn-sm ld-heat-edit" onClick={onEdit}><i className="fa-solid fa-pen" aria-hidden="true" /> Edit domain</button>}
       </div>
       <div className="ld-tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
-        <button type="button" className="ld-tab" onClick={() => setRoute(domain.id === "applications" ? "apm" : "infra-assets")}>
-          {domain.id === "applications" ? "APM" : "Assets"} <i className="fa-solid fa-arrow-right" aria-hidden="true" />
-        </button>
+        {hasServices && <button type="button" className="ld-tab" onClick={() => setRoute("apm")}>APM <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
+        {hasDevices && <button type="button" className="ld-tab" onClick={() => setRoute("infra-assets")}>Assets <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
       </div>
 
-      {tab === "alerts" && domain.id !== "applications" ? (
+      {tab === "alerts" && hasDevices ? (
         alerts.length ? (
           <ul className="ld-activity">
             {alerts.slice(0, 8).map((x) => (
@@ -405,8 +464,8 @@ function DomainDetails({ domain, rowId, tab, setTab, onRow }: {
             <table className="ld-table">
               <thead>
                 <tr>
-                  <th scope="col">{domain.id === "applications" ? "Service" : "Device kind"}</th><th scope="col">Health</th><th scope="col">Availability</th>
-                  <th scope="col">{domain.id === "applications" ? "Error rate" : "Alerts"}</th><th scope="col">{domain.id === "applications" ? "p95" : "CPU"}</th>
+                  <th scope="col">{hasServices && hasDevices ? "Service / device kind" : hasServices ? "Service" : "Device kind"}</th><th scope="col">Health</th><th scope="col">Availability</th>
+                  <th scope="col">{hasServices && hasDevices ? "Errors / alerts" : hasServices ? "Error rate" : "Alerts"}</th><th scope="col">{hasServices && hasDevices ? "p95 / CPU" : hasServices ? "p95" : "CPU"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -415,8 +474,8 @@ function DomainDetails({ domain, rowId, tab, setTab, onRow }: {
                     <td><button type="button" className="ld-link" onClick={() => (r.service ? setRoute("apm") : onRow(r.id))}>{r.name}</button></td>
                     <td><Pill tone={TONE[r.cells.health.health]}>{r.service ? r.cells.health.value : LABEL[r.cells.health.health]}</Pill></td>
                     <td>{r.cells.availability.value}</td>
-                    <td>{domain.id === "applications" ? r.cells.errors.value : r.cells.alerts.value}</td>
-                    <td>{domain.id === "applications" ? r.cells.response.value : r.cells.cpu.value}</td>
+                    <td>{r.service ? r.cells.errors.value : r.cells.alerts.value}</td>
+                    <td>{r.service ? r.cells.response.value : r.cells.cpu.value}</td>
                   </tr>
                 ))}
               </tbody>

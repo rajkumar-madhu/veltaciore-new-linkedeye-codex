@@ -527,4 +527,8 @@ class Command(BaseCommand):
                 },
             )
 
+        # ── Domains (DNS names + heatmap business domains) ──────────────────
+        from apps.domains.seed import seed as seed_domains
+        seed_domains()
+
         self.stdout.write(self.style.SUCCESS("Demo data seeded."))

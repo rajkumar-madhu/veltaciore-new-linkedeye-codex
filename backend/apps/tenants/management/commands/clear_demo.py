@@ -23,6 +23,7 @@ class Command(BaseCommand):
     @system_task  # seeds / clears every tenant's data
     def handle(self, *args, **opts):
         from apps.apm.models import Service
+        from apps.domains.models import DomainService, MonitoredDomain, ServiceDomain
         from apps.changes.models import ChangeRequest, SnChangeRecord
         from apps.cmdb.models import Article, ConfigItem
         from apps.incidents.models import Incident, Sla, SnIncidentRecord
@@ -40,6 +41,7 @@ class Command(BaseCommand):
         )
 
         models = [
+            DomainService, MonitoredDomain, ServiceDomain,
             DeviceInterface, DeviceAlert, VirtualMachine, TopologyConnection,
             InfraDevice, Site, Exporter, Incident, SnIncidentRecord, Sla,
             Problem, SnProblemRecord, ChangeRequest, SnChangeRecord, ConfigItem,
