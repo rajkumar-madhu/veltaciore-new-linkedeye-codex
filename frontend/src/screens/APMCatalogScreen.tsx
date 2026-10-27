@@ -85,7 +85,7 @@ const menu = "m-0 absolute right-0 top-[calc(100%+4px)] z-20 flex flex-col gap-0
 const backdrop = "fixed inset-0 z-40 bg-[rgba(10,20,51,0.32)] border-0 p-0 cursor-default";
 const drawerCls = "fixed top-0 right-0 bottom-0 z-[41] w-[min(380px,100vw)] flex flex-col gap-3.5 px-4.5 py-4 overflow-y-auto bg-bg-raised border-l border-line shadow-lg";
 /** Six-up stat row: 180px columns (the old dense-card overrides never reached StatCard). */
-const sixUp = "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]";
+const sixUp = ui.cols[6];
 // Status text in a table cell / figure box: in light mode the cell's own colour
 // won (only the weight showed); in dark mode the status colour won.
 const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;

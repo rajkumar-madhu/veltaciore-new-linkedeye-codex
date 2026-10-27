@@ -52,7 +52,7 @@ export default function AdminTenantsScreen() {
       />
 
       {/* six-up row; the stat cards keep their full size, as in the reference */}
-      <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
+      <div className={cx(ui.grid, ui.cols[6])}>
         <StatCard icon="fa-building" tone="info" label="Total clients" value={fmt(tenants.length)} note="provisioned" />
         <StatCard icon="fa-users" tone="purple" label="Seats used" value={fmt(ORG.seatsUsed)} note={`${seatPct}% of ${fmt(ORG.seatsTotal)}`} />
         <StatCard icon="fa-heart-pulse" tone="ok" label="Healthy" value={fmt(healthy)} note="health above 95%" />

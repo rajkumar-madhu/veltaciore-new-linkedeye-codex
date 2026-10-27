@@ -27,7 +27,7 @@ const entityTile = "flex-none grid place-items-center w-14 h-14 rounded-[12px] t
 const entityTitle = cx(ui.h1, "flex items-center gap-2.5 flex-wrap");
 const entityMeta = cx(ui.headSub, "flex flex-wrap gap-x-3.5 gap-y-1 [&>span+span]:before:content-['|'] [&>span+span]:before:mr-3.5 [&>span+span]:before:text-line-strong");
 /** Six-up stat row: 180px columns (the old dense-card overrides never reached StatCard). */
-const sixUp = "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]";
+const sixUp = ui.cols[6];
 /** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
 const cellMono = "font-mono font-semibold";
 /** Row highlight for a failing pod. */

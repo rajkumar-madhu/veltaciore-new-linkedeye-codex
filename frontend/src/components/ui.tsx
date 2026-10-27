@@ -57,7 +57,8 @@ export const ui = {
     2: "grid-cols-[repeat(auto-fit,minmax(340px,1fr))]",
     3: "grid-cols-[repeat(auto-fit,minmax(340px,1fr))] max-sm:grid-cols-1",
     5: "grid-cols-[repeat(auto-fit,minmax(200px,1fr))]",
-    6: "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]",
+    // six-up row of compact stat cards (was .ld-grid-6 .ld-stat: smaller tile and value)
+    6: "grid-cols-[repeat(auto-fit,minmax(180px,1fr))] [&_[data-stat]]:gap-3 [&_[data-stat]]:p-3.5 [&_[data-stat-tile]]:w-11 [&_[data-stat-tile]]:h-11 [&_[data-stat-tile]]:text-2xl [&_[data-stat-value]]:text-3xl",
     tables: "grid-cols-[repeat(auto-fit,minmax(340px,1fr))] min-[1360px]:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,1fr)] max-sm:grid-cols-1",
   },
   split: "grid grid-cols-1 gap-3.5 items-start xl:grid-cols-[minmax(0,1fr)_320px]",

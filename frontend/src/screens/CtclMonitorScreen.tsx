@@ -467,9 +467,7 @@ export default function CtclMonitorScreen() {
                 </p>
               </div>
             )}
-
-            {/* six-up columns only: the old denser-card rules never reached StatCard, so ui.cols[6] would shrink the cards */}
-            <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
+            <div className={cx(ui.grid, ui.cols[6])}>
               <StatCard icon="fa-network-wired" tone="info" label="CTCL lines" value={`${activeLines.length}/${known.length}`} note={`active · ${[...new Set(known.map((l) => l.segment))].join(" · ")}`} onClick={() => setTab("ctclmap")} />
               <StatCard icon="fa-users" tone="purple" label="Broker clients" value={fmt(brokers.length)} note="mapped to CTCL codes" onClick={() => setTab("ctclmap")} />
               {charted.map((c) => {

@@ -141,7 +141,7 @@ export default function RunbooksScreen() {
       />
 
       {/* six-up row; the stat cards keep their full size, as in the reference */}
-      <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
+      <div className={cx(ui.grid, ui.cols[6])}>
         <StatCard icon="fa-book-bookmark" tone="info" label="Total runbooks" value={fmt(RUNBOOKS.length)} note="published" onClick={() => setTab("all")} />
         <StatCard icon="fa-bolt" tone="ok" label="Auto-executable" value={fmt(autoCount)} note="zero-touch" onClick={() => setTab("auto")} />
         <StatCard icon="fa-play" tone="purple" label="Executions" value={fmt(totalRuns)} note="across all runbooks" />

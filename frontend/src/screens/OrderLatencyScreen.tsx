@@ -323,9 +323,7 @@ export default function OrderLatencyScreen() {
                 </p>
               </div>
             )}
-
-            {/* six-up columns only: the old denser-card rules never reached StatCard, so ui.cols[6] would shrink the cards */}
-            <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
+            <div className={cx(ui.grid, ui.cols[6])}>
               <StatCard icon="fa-receipt" tone="info" label="Total orders" value={fmt(totalOrders)} note={labels.length ? `${labels[0]} → ${labels[labels.length - 1]} IST` : "no hourly data"} onClick={() => setTab("orders")} />
               <StatCard icon="fa-stopwatch" tone="ok" label="OMS latency median" value={omsMed != null ? fmtUs(omsMed) : "—"} note={hourly.length ? `hourly p99 median ${fmtUs(hourlyP99Median)} (ex-spike)` : "order-weighted"} onClick={() => setTab("latency")} />
               <StatCard icon="fa-link" tone="info" label="Exch confirm median" value={exchMed != null ? fmtUs(exchMed) : "—"} note={hourly.length ? `hourly p99 median ${fmtUs(hourlyExchP99Median)} (ex-spike)` : "order-weighted"} onClick={() => setTab("exchange")} />
