@@ -4,15 +4,15 @@
 // No synthetic probe backend is connected yet: the checks are a labelled
 // sample and the summary figures are computed from them.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, Table, TextButton, cx, toneText, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { TimeChart } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FlaskConicalIcon, MapPinnedIcon, PlusIcon } from "lucide-react";
+import { FlaskConicalIcon, MapPinnedIcon, PlusIcon } from "lucide-react";
 interface Check {
   id: string;
   name: string;
@@ -58,7 +58,11 @@ const WATERFALL = [
   { phase: "Content download", ms: 25, color: "#16a34a" },
 ];
 
-const uptimeClass = (u: number) => (u >= 99.9 ? "ld-text-ok" : u >= 99 ? "ld-text-warn" : "ld-text-crit");
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
+// Plain icon list; an icon without its own text colour is 16px wide and accent-coloured.
+const iconList = "list-none flex flex-col gap-2 m-0 p-0 text-sm text-fg [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:min-w-0 [&>li>.ld-icon:not([class*='text-'])]:w-4 [&>li>.ld-icon:not([class*='text-'])]:text-center [&>li>.ld-icon:not([class*='text-'])]:text-accent";
 
 export default function SyntheticsScreen() {
   const { setRoute } = useNav();
@@ -88,44 +92,37 @@ export default function SyntheticsScreen() {
   ];
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Synthetic Monitoring</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Synthetic Monitoring" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Synthetic Monitoring</h1>
-          <p>Uptime &amp; API checks from {LOCATIONS.length} probe locations</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={MapPinnedIcon} /> Locations</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Check</button>
-        </div>
-      </div>
+      <PageHead
+        title="Synthetic Monitoring"
+        subtitle={<>Uptime &amp; API checks from {LOCATIONS.length} probe locations</>}
+        actions={<>
+          <Button><Icon icon={MapPinnedIcon} /> Locations</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> New Check</Button>
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">Synthetic probes are not connected yet. The checks, latencies and waterfall below are illustrative; summary figures are computed from them.</p>
+          <p className="text-fg-muted text-xs">Synthetic probes are not connected yet. The checks, latencies and waterfall below are illustrative; summary figures are computed from them.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-heart-pulse" tone="ok" label="Fleet availability" value={`${fleetUptime}%`} note="average check uptime" />
         <StatCard icon="fa-circle-check" tone={upCount === CHECKS.length ? "ok" : "warn"} label="Checks up" value={`${upCount}/${CHECKS.length}`} note={downCount ? `${downCount} down` : "across all probes"} />
         <StatCard icon="fa-circle-xmark" tone="crit" label="Failing now" value={fmt(CHECKS.filter((c) => c.status !== "up").length)} note="degraded or down" />
         <StatCard icon="fa-globe" tone="info" label="Probe locations" value={fmt(LOCATIONS.length)} note={LOCATIONS.map((l) => l.code).join(" · ")} />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title={`Checks (${CHECKS.length})`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">Check</th>
@@ -141,23 +138,22 @@ export default function SyntheticsScreen() {
                   {CHECKS.map((c) => {
                     const st = STATUS[c.status];
                     return (
-                      <tr key={c.id} className={sel.id === c.id ? "ld-row-selected" : undefined}>
+                      <tr key={c.id} className={sel.id === c.id ? ui.rowSelected : undefined}>
                         <td>
-                          <button type="button" className="ld-link ld-strong" aria-pressed={sel.id === c.id} onClick={() => setSel(c)}>{c.name}</button>
-                          <span className="ld-sub ld-mono ld-ellipsis">{c.target}</span>
+                          <TextButton aria-pressed={sel.id === c.id} onClick={() => setSel(c)}>{c.name}</TextButton>
+                          <span className={cx(ui.sub, "font-mono font-semibold max-w-[220px] overflow-hidden text-ellipsis")}>{c.target}</span>
                         </td>
                         <td><Pill tone="muted">{c.type}</Pill></td>
-                        <td className={uptimeClass(c.uptime)}>{c.uptime.toFixed(2)}%</td>
+                        <td className={c.uptime >= 99.9 ? cellTone.ok : c.uptime >= 99 ? cellTone.warn : cellTone.crit}>{c.uptime.toFixed(2)}%</td>
                         <td>{c.p95}ms</td>
                         <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
-                        <td className="ld-muted">{c.interval}</td>
-                        <td className="ld-muted">{c.lastRun}</td>
+                        <td>{c.interval}</td>
+                        <td>{c.lastRun}</td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+            </Table>
           </Panel>
 
           <Panel title={`Latency by location · ${sel.name} · last 1h`}>
@@ -165,30 +161,30 @@ export default function SyntheticsScreen() {
           </Panel>
         </div>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Request waterfall">
-            <span className="ld-muted ld-small">{sel.name} · from {LOCATIONS[0].name}</span>
-            <ul className="ld-bars">
+            <span className="text-fg-muted text-xs">{sel.name} · from {LOCATIONS[0].name}</span>
+            <ul className={ui.bars}>
               {WATERFALL.map((w) => (
-                <li key={w.phase}>
-                  <span className="ld-bar-label">{w.phase}</span>
-                  <span className="ld-bar-track">
-                    <span className="ld-bar-fill" style={{ width: `${(w.ms / totalMs) * 100}%`, background: w.color }} />
+                <li key={w.phase} className={ui.barItemWide}>
+                  <span className={ui.barLabel}>{w.phase}</span>
+                  <span className={ui.barTrack}>
+                    <span className={ui.barFill} style={{ width: `${(w.ms / totalMs) * 100}%`, background: w.color }} />
                   </span>
-                  <span className="ld-bar-value ld-bar-value-wide">{w.ms}ms</span>
+                  <span className={cx(ui.barValue, "min-w-16")}>{w.ms}ms</span>
                 </li>
               ))}
             </ul>
-            <dl className="ld-dl">
-              <dt>Total response</dt><dd className="ld-strong">{totalMs}ms</dd>
+            <dl className={ui.dl}>
+              <dt>Total response</dt><dd className="font-medium">{totalMs}ms</dd>
             </dl>
           </Panel>
 
           <Panel title="Assertions">
-            <ul className="ld-obs-list">
+            <ul className={iconList}>
               {assertions.map(([label, pass]) => (
                 <li key={label}>
-                  <Icon className={`fa-solid ${pass ? "fa-circle-check ld-text-ok" : "fa-circle-xmark ld-text-crit"}`} />
+                  <Icon className={`fa-solid ${pass ? `fa-circle-check ${toneText.ok}` : `fa-circle-xmark ${toneText.crit}`}`} />
                   <span>{label}</span>
                   <span className="sr-only">{pass ? "passing" : "failing"}</span>
                 </li>
@@ -197,6 +193,6 @@ export default function SyntheticsScreen() {
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

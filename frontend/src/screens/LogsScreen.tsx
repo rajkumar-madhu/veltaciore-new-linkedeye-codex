@@ -3,13 +3,13 @@
 // (device logs live on each server page), so the stream, patterns and
 // histogram are a labelled sample; the summary cards are computed from them.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, SearchBox, Tab, Table, Tabs, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
-import { BellIcon, BookmarkIcon, ChevronRightIcon, FlaskConicalIcon, LineChartIcon, PauseIcon, SearchIcon } from "lucide-react";
+import { BellIcon, BookmarkIcon, FlaskConicalIcon, LineChartIcon, PauseIcon, SearchIcon } from "lucide-react";
 type Level = "ERROR" | "WARN" | "INFO" | "DEBUG";
 const LEVEL_TONE: Record<Level, Tone> = { ERROR: "crit", WARN: "warn", INFO: "info", DEBUG: "muted" };
 const LEVEL_COLOR = { DEBUG: "#98a2b3", INFO: "#2f6bff", WARN: "#f5a524", ERROR: "#e5383b" };
@@ -45,6 +45,17 @@ const FACETS: [string, string][] = [
   ["Host", "ip-10-0-3-12 · ip-10-0-3-18 · ip-10-0-2-44"],
 ];
 
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+const chips = "flex flex-wrap items-center gap-1.5 text-xs text-fg-muted";
+const chip = "border border-line rounded-full bg-bg-muted text-fg px-2.5 py-[3px] font-mono text-xs cursor-pointer hover:border-line-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2";
+const chartLegend = "flex gap-3.5 text-sm text-fg-muted -mt-1 [&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5";
+// Plain icon list; an icon without its own text colour is 16px wide and accent-coloured.
+const iconList = "list-none flex flex-col gap-2 m-0 p-0 text-sm text-fg [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:min-w-0 [&>li>.ld-icon:not([class*='text-'])]:w-4 [&>li>.ld-icon:not([class*='text-'])]:text-center [&>li>.ld-icon:not([class*='text-'])]:text-accent";
+
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
 const compact = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
 
 export default function LogsScreen() {
@@ -57,137 +68,125 @@ export default function LogsScreen() {
   const byLevel = (l: Level) => PATTERNS.filter((p) => p[1] === l).reduce((s, p) => s + p[3], 0);
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Logs</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Logs" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Log Stream</h1>
-          <p>Search, tail and cluster application logs across services</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={PauseIcon} /> Pause</button>
-          <button type="button" className="ld-btn"><Icon icon={BookmarkIcon} /> Save</button>
-          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Alert on this</button>
-        </div>
-      </div>
+      <PageHead
+        title="Log Stream"
+        subtitle="Search, tail and cluster application logs across services"
+        actions={<>
+          <Button><Icon icon={PauseIcon} /> Pause</Button>
+          <Button><Icon icon={BookmarkIcon} /> Save</Button>
+          <Button variant="primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Alert on this</Button>
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">No tenant-wide log source is connected yet. The stream, patterns and histogram below are illustrative; per-device logs are on each server page.</p>
+          <p className="text-fg-muted text-xs">No tenant-wide log source is connected yet. The stream, patterns and histogram below are illustrative; per-device logs are on each server page.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-file-lines" tone="info" label="Events in patterns" value={compact(total)} note={`${PATTERNS.length} patterns`} />
         <StatCard icon="fa-circle-xmark" tone="crit" label="Errors" value={compact(byLevel("ERROR"))} note={total ? `${((byLevel("ERROR") / total) * 100).toFixed(1)}% of events` : "—"} onClick={() => setQ("status:error")} />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warnings" value={compact(byLevel("WARN"))} note={total ? `${((byLevel("WARN") / total) * 100).toFixed(1)}% of events` : "—"} onClick={() => setQ("status:warn")} />
         <StatCard icon="fa-bookmark" tone="purple" label="Saved queries" value={fmt(SAVED.length)} note="for this tenant" />
       </div>
 
-      <form className="ld-card ld-panel" aria-labelledby={`${idp}-q-h`} onSubmit={(e) => e.preventDefault()}>
-        <div className="ld-panel-head"><h2 id={`${idp}-q-h`}>Query</h2></div>
-        <div className="ld-toolbar">
+      <form className={cx(ui.card, ui.panel)} aria-labelledby={`${idp}-q-h`} onSubmit={(e) => e.preventDefault()}>
+        <div className={ui.panelHead}><h2 id={`${idp}-q-h`} className={ui.panelTitle}>Query</h2></div>
+        <div className={ui.toolbar}>
           <label htmlFor={`${idp}-q`} className="sr-only">Log query</label>
-          <span className="ld-search">
-            <Icon icon={SearchIcon} />
-            <input id={`${idp}-q`} className="ld-obs-mono-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} />
-          </span>
-          <button type="submit" className="ld-btn ld-btn-primary">Run</button>
+          {/* The old mono-font class on this input lost to the search box's font: inherit. */}
+          <SearchBox className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id={`${idp}-q`} type="search" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Button type="submit" variant="primary">Run</Button>
         </div>
-        <div className="ld-obs-chips" role="group" aria-label="Quick filters">
+        <div className={chips} role="group" aria-label="Quick filters">
           <span>Quick filters:</span>
           {QUICK.map((s) => (
-            <button key={s} type="button" className="ld-obs-chip" onClick={() => setQ(s)}>{s}</button>
+            <button key={s} type="button" className={chip} onClick={() => setQ(s)}>{s}</button>
           ))}
         </div>
       </form>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Volume histogram · last 1h, stacked by level">
             <LogsHist />
-            <div className="ld-chart-legend">
+            <div className={chartLegend}>
               {(["ERROR", "WARN", "INFO", "DEBUG"] as Level[]).map((l) => (
-                <span key={l}><span className="ld-dot" style={{ background: LEVEL_COLOR[l] }} />{l.toLowerCase()}</span>
+                <span key={l}><span className={ui.dot} style={{ background: LEVEL_COLOR[l] }} />{l.toLowerCase()}</span>
               ))}
             </div>
           </Panel>
 
-          <section className="ld-card ld-panel" aria-label="Log results">
-            <div className="ld-tabs" role="tablist" aria-label="Log views">
+          <section className={cx(ui.card, ui.panel)} aria-label="Log results">
+            <Tabs aria-label="Log views">
               {[["stream", "Stream"], ["patterns", "Patterns"], ["analytics", "Analytics"]].map(([id, l]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ld-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>{l}</button>
+                <Tab key={id} active={tab === id} onClick={() => setTab(id)}>{l}</Tab>
               ))}
-            </div>
+            </Tabs>
             {tab === "stream" && (
-              <div className="ld-table-wrap">
-                <table className="ld-table ld-logs">
+              <Table className="[&_td]:align-top">
                   <thead><tr><th scope="col">Time</th><th scope="col">Level</th><th scope="col">Service</th><th scope="col">Message</th></tr></thead>
                   <tbody>
                     {STREAM.map((l) => (
                       <tr key={l[0] + l[2]}>
-                        <td className="ld-mono ld-muted">{l[0]}</td>
+                        <td className={cellMono}>{l[0]}</td>
                         <td><Pill tone={LEVEL_TONE[l[1]]}>{l[1]}</Pill></td>
-                        <td className="ld-mono">{l[2]}</td>
-                        <td className="ld-wrap ld-mono">{l[3]}</td>
+                        <td className={cellMono}>{l[2]}</td>
+                        <td className={cx(ui.cellWrap, cellMono)}>{l[3]}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </Table>
             )}
             {tab === "patterns" && (
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead><tr><th scope="col">Pattern</th><th scope="col">Level</th><th scope="col">Service</th><th scope="col">Count</th><th scope="col">Δ vs 1h</th></tr></thead>
                   <tbody>
                     {PATTERNS.map((r) => (
                       <tr key={r[0]}>
-                        <td className="ld-mono ld-wrap">{r[0]}</td>
+                        <td className={cx(ui.cellWrap, cellMono)}>{r[0]}</td>
                         <td><Pill tone={LEVEL_TONE[r[1]]}>{r[1]}</Pill></td>
-                        <td className="ld-mono">{r[2]}</td>
+                        <td className={cellMono}>{r[2]}</td>
                         <td>{fmt(r[3])}</td>
-                        <td className={r[4].startsWith("+") ? "ld-text-crit" : "ld-text-ok"}>{r[4]}</td>
+                        <td className={r[4].startsWith("+") ? cellTone.crit : cellTone.ok}>{r[4]}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </Table>
             )}
             {tab === "analytics" && (
-              <p className="ld-muted ld-small">Top errors and latency breakdowns over 1h window. Drill into any cell to filter the stream.</p>
+              <p className="text-fg-muted text-xs">Top errors and latency breakdowns over 1h window. Drill into any cell to filter the stream.</p>
             )}
           </section>
         </div>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Facets">
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               {FACETS.map(([k, v]) => (
-                <React.Fragment key={k}><dt>{k}</dt><dd className="ld-muted ld-small">{v}</dd></React.Fragment>
+                <React.Fragment key={k}><dt>{k}</dt><dd className="text-xs">{v}</dd></React.Fragment>
               ))}
             </dl>
           </Panel>
           <Panel title={`Saved queries (${SAVED.length})`}>
-            <ul className="ld-obs-list">
+            <ul className={iconList}>
               {SAVED.map((n) => (
                 <li key={n}>
                   <Icon icon={LineChartIcon} />
-                  <span className="ld-mono">{n}</span>
+                  <span className={ui.mono}>{n}</span>
                 </li>
               ))}
             </ul>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -208,8 +207,8 @@ function LogsHist() {
   const bw = (W - 2 * P) / N - 2;
   const y = (v: number) => H - P - (v / max) * (H - 2 * P);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="ld-obs-hist" role="img" aria-label="Sample log volume per minute over the last hour, stacked by level, with an error spike around minute 44">
-      {[0.25, 0.5, 0.75, 1].map((g) => <line key={g} x1={P} x2={W - P} y1={P + (1 - g) * (H - 2 * P)} y2={P + (1 - g) * (H - 2 * P)} className="ld-gridline" strokeDasharray="2 4" />)}
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-[160px] block" role="img" aria-label="Sample log volume per minute over the last hour, stacked by level, with an error spike around minute 44">
+      {[0.25, 0.5, 0.75, 1].map((g) => <line key={g} x1={P} x2={W - P} y1={P + (1 - g) * (H - 2 * P)} y2={P + (1 - g) * (H - 2 * P)} className="stroke-line-subtle stroke-1" strokeDasharray="2 4" />)}
       <line x1={x(44)} x2={x(44)} y1={P - 4} y2={H - P} stroke={LEVEL_COLOR.ERROR} strokeDasharray="3 3" strokeWidth="1" />
       {stacked.map((c, i) => (
         <g key={i}>

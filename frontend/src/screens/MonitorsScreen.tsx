@@ -5,15 +5,15 @@
 // bands before saving. No monitor API is connected yet, so the monitors and
 // the preview series are a labelled sample.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Input, Page, PageHead, Select, Table, TextButton, cx, toneText, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, DownloadIcon, FlaskConicalIcon, PlusIcon, SaveIcon, VolumeXIcon } from "lucide-react";
+import { DownloadIcon, FlaskConicalIcon, PlusIcon, SaveIcon, VolumeXIcon } from "lucide-react";
 type MonType = "Metric" | "Anomaly" | "Composite" | "Log" | "Synthetic";
 type MonState = "ok" | "warn" | "alert" | "nodata";
 
@@ -59,6 +59,10 @@ const NOTIFY: [string, string, string][] = [
   ["fa-solid fa-phone", "PagerDuty · Trading", "on Alert"],
 ];
 
+// Plain icon list; an icon without its own text colour is 16px wide and accent-coloured.
+const iconList = "list-none flex flex-col gap-2 m-0 p-0 text-sm text-fg [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:min-w-0 [&>li>.ld-icon:not([class*='text-'])]:w-4 [&>li>.ld-icon:not([class*='text-'])]:text-center [&>li>.ld-icon:not([class*='text-'])]:text-accent";
+const chartLegend = "flex gap-3.5 text-sm text-fg-muted -mt-1 [&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5";
+
 export default function MonitorsScreen() {
   const { setRoute } = useNav();
   const canWrite = useCanWrite();
@@ -78,46 +82,37 @@ export default function MonitorsScreen() {
   const warning = MONITORS.filter((m) => m.state === "warn").length;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("alerts")}>Alerts</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Monitors</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Alerts", onClick: () => setRoute("alerts") }, { label: "Monitors" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Monitors</h1>
-          <p>Metric · anomaly · composite · log · synthetic alert rules</p>
-        </div>
-        <div className="ld-head-actions">
+      <PageHead
+        title="Monitors"
+        subtitle="Metric · anomaly · composite · log · synthetic alert rules"
+        actions={<>
           <ReadOnlyBadge />
-          <button type="button" className="ld-btn"><Icon icon={DownloadIcon} /> Export</button>
-          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Monitor</button>}
-        </div>
-      </div>
+          <Button><Icon icon={DownloadIcon} /> Export</Button>
+          {canWrite && <Button variant="primary"><Icon icon={PlusIcon} /> New Monitor</Button>}
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">The monitor API is not connected yet. These monitors and the evaluation preview are illustrative.</p>
+          <p className="text-fg-muted text-xs">The monitor API is not connected yet. These monitors and the evaluation preview are illustrative.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-sliders" tone="info" label="Monitors" value={fmt(MONITORS.length)} note="configured" />
         <StatCard icon="fa-fire" tone="crit" label="Alerting" value={fmt(alerting)} note="critical threshold" />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(warning)} note="warn threshold" />
         <StatCard icon="fa-circle-check" tone="ok" label="OK" value={fmt(MONITORS.length - alerting - warning)} note="within thresholds" />
       </div>
 
-      <div className="ld-split ld-split-wide">
+      <div className={ui.splitWide}>
         <Panel title={`Monitors (${MONITORS.length})`}>
-          <div className="ld-table-wrap">
-            <table className="ld-table">
+          <Table>
               <thead>
                 <tr>
                   <th scope="col">Monitor</th>
@@ -131,86 +126,85 @@ export default function MonitorsScreen() {
                 {MONITORS.map((m) => {
                   const st = STATE[m.state];
                   return (
-                    <tr key={m.id} className={sel.id === m.id ? "ld-row-selected" : undefined}>
+                    <tr key={m.id} className={sel.id === m.id ? ui.rowSelected : undefined}>
                       <td>
-                        <button type="button" className="ld-link ld-strong" aria-pressed={sel.id === m.id} onClick={() => setSel(m)}>{m.name}</button>
-                        <span className="ld-sub ld-mono ld-ellipsis" title={m.query}>{m.query}</span>
+                        <TextButton aria-pressed={sel.id === m.id} onClick={() => setSel(m)}>{m.name}</TextButton>
+                        <span className={cx(ui.sub, "font-mono font-semibold max-w-[220px] overflow-hidden text-ellipsis")} title={m.query}>{m.query}</span>
                       </td>
                       <td><Pill tone="muted">{m.type}</Pill></td>
                       <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
-                      <td className="ld-muted">{m.window}</td>
-                      <td className="ld-muted">{m.since}</td>
+                      <td>{m.window}</td>
+                      <td>{m.since}</td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+          </Table>
         </Panel>
 
-        <div className="ld-rail">
-          <section className="ld-card ld-panel" aria-labelledby={`${idp}-b-h`}>
-            <div className="ld-panel-head">
-              <h2 id={`${idp}-b-h`}>{canWrite ? "Edit monitor" : "Monitor"}</h2>
-              <span className="ld-muted ld-small">{sel.type} · {sel.scope}</span>
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby={`${idp}-b-h`}>
+            <div className={ui.panelHead}>
+              <h2 id={`${idp}-b-h`} className={ui.panelTitle}>{canWrite ? "Edit monitor" : "Monitor"}</h2>
+              <span className="text-fg-muted text-xs">{sel.type} · {sel.scope}</span>
             </div>
-            <form className="ld-form" onSubmit={(e) => e.preventDefault()}>
-              <div className="ld-form-field">
+            <form className={ui.form} onSubmit={(e) => e.preventDefault()}>
+              <div className={ui.field}>
                 <span>Query</span>
-                <div className="ld-obs-query">{sel.query}</div>
+                <div className="font-mono text-xs px-2.5 py-2 rounded bg-bg-muted text-fg [overflow-wrap:anywhere]">{sel.query}</div>
               </div>
-              <div className="ld-obs-fields">
-                <div className="ld-form-field">
+              <div className="flex flex-wrap gap-2.5 [&>div]:flex-[1_1_120px]">
+                <div className={ui.field}>
                   <label htmlFor={`${idp}-warn`}>Warning ≥</label>
-                  <input id={`${idp}-warn`} type="number" className="ld-input" value={warn} disabled={!canWrite} onChange={(e) => setWarn(+e.target.value)} />
+                  <Input id={`${idp}-warn`} type="number" value={warn} disabled={!canWrite} onChange={(e) => setWarn(+e.target.value)} />
                 </div>
-                <div className="ld-form-field">
+                <div className={ui.field}>
                   <label htmlFor={`${idp}-crit`}>Critical ≥</label>
-                  <input id={`${idp}-crit`} type="number" className="ld-input" value={crit} disabled={!canWrite} onChange={(e) => setCrit(+e.target.value)} />
+                  <Input id={`${idp}-crit`} type="number" value={crit} disabled={!canWrite} onChange={(e) => setCrit(+e.target.value)} />
                 </div>
-                <div className="ld-form-field">
+                <div className={ui.field}>
                   <label htmlFor={`${idp}-win`}>Window</label>
-                  <select id={`${idp}-win`} className="ld-select" value={win} disabled={!canWrite} onChange={(e) => setWin(e.target.value)}>
+                  <Select id={`${idp}-win`} value={win} disabled={!canWrite} onChange={(e) => setWin(e.target.value)}>
                     {["1m", "2m", "5m", "10m", "1h"].map((w) => <option key={w}>{w}</option>)}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
-              <div className="ld-form-field">
+              <div className={ui.field}>
                 <span>Evaluation preview · last {win}</span>
                 <PreviewChart series={series} warn={warn} crit={crit} breaching={breaches > 0} />
-                <div className="ld-chart-legend">
-                  <span><span className="ld-dot" style={{ background: CRIT_COLOR }} />critical {crit}</span>
-                  <span><span className="ld-dot" style={{ background: WARN_COLOR }} />warning {warn}</span>
-                  <span className={breaches ? "ld-text-crit" : "ld-text-ok"}>
+                <div className={chartLegend}>
+                  <span><span className={ui.dot} style={{ background: CRIT_COLOR }} />critical {crit}</span>
+                  <span><span className={ui.dot} style={{ background: WARN_COLOR }} />warning {warn}</span>
+                  <span className={breaches ? toneText.crit : toneText.ok}>
                     {breaches ? `${breaches}/${series.length} points breach critical` : "no breach in window"}
                   </span>
                 </div>
               </div>
 
               {canWrite && (
-                <div className="ld-head-actions">
-                  <button type="submit" className="ld-btn ld-btn-primary"><Icon icon={SaveIcon} /> Save monitor</button>
-                  <button type="button" className="ld-btn"><Icon icon={VolumeXIcon} /> Mute</button>
+                <div className={ui.headActions}>
+                  <Button type="submit" variant="primary"><Icon icon={SaveIcon} /> Save monitor</Button>
+                  <Button><Icon icon={VolumeXIcon} /> Mute</Button>
                 </div>
               )}
             </form>
           </section>
 
           <Panel title="Notifications">
-            <ul className="ld-obs-list">
+            <ul className={iconList}>
               {NOTIFY.map(([ic, who, when]) => (
                 <li key={who}>
                   <Icon className={ic} />
-                  <span className="ld-strong">{who}</span>
-                  <span className="ld-obs-end">{when}</span>
+                  <span className="font-medium">{who}</span>
+                  <span className="ml-auto text-fg-muted text-xs">{when}</span>
                 </li>
               ))}
             </ul>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -223,11 +217,11 @@ function PreviewChart({ series, warn, crit, breaching }: { series: number[]; war
   const line = series.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const color = breaching ? CRIT_COLOR : LINE_COLOR;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="ld-trend" role="img" aria-label={`Sample series peaking at ${Math.max(...series)} against warning ${warn} and critical ${crit}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label={`Sample series peaking at ${Math.max(...series)} against warning ${warn} and critical ${crit}`}>
       {[0, 0.5, 1].map((f) => (
         <g key={f}>
-          <line x1={L} x2={W - R} y1={y(peak * f)} y2={y(peak * f)} className="ld-gridline" />
-          <text x={L - 6} y={y(peak * f) + 4} textAnchor="end" className="ld-axis">{Math.round(peak * f)}</text>
+          <line x1={L} x2={W - R} y1={y(peak * f)} y2={y(peak * f)} className="stroke-line-subtle stroke-1" />
+          <text x={L - 6} y={y(peak * f) + 4} textAnchor="end" className="text-xs fill-fg-muted font-sans">{Math.round(peak * f)}</text>
         </g>
       ))}
       <line x1={L} x2={W - R} y1={y(warn)} y2={y(warn)} stroke={WARN_COLOR} strokeDasharray="4 3" strokeWidth={1.5} />

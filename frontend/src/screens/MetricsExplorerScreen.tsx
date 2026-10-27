@@ -5,14 +5,14 @@
 // There is no ad-hoc query API yet (device pages read Prometheus per device),
 // so the series are a labelled, deterministic sample.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { Panel, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, Select, cx, ui } from "@/components/ui";
 import { COLORS, Sparkline, TimeChart, fmtValue } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FilterIcon, FlaskConicalIcon, PlusIcon, Share2Icon } from "lucide-react";
+import { FilterIcon, FlaskConicalIcon, PlusIcon, Share2Icon } from "lucide-react";
 // A small catalog of on-prem infrastructure metrics, grouped by namespace.
 const METRICS: { ns: string; items: { m: string; unit: string; desc: string }[] }[] = [
   { ns: "system", items: [
@@ -41,6 +41,12 @@ const wave = (seed: number, base: number, amp: number) =>
   Array.from({ length: N_POINTS }, (_, i) => Math.round((base + amp * Math.sin(i * 0.9 + seed) + amp * 0.4 * Math.cos(i * 1.7 + seed)) * 10) / 10);
 
 const HOSTS = ["kvm1", "kvm2", "kvm3", "edge-01"];
+const seg = "inline-flex flex-wrap gap-1";
+const tiles = "grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]";
+const tile = "flex flex-col gap-1.5 min-w-0 px-3.5 py-3 border border-line-subtle rounded bg-bg-raised";
+// Metric catalog rail: bleeds to the panel edges; namespace headings in small caps.
+const catalog = "flex flex-col max-h-[520px] overflow-y-auto -mx-4.5 [&_h3]:px-4.5 [&_h3]:pt-2.5 [&_h3]:pb-1 [&_h3]:text-2xs [&_h3]:font-bold [&_h3]:tracking-[0.05em] [&_h3]:uppercase [&_h3]:text-fg-muted";
+const option = "block w-full text-left text-sm text-fg border-b border-line-subtle px-4.5 py-2 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2";
 const RANGES: Record<string, number> = { "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 };
 const AGGS = ["avg", "max", "sum", "p95"] as const;
 
@@ -79,81 +85,75 @@ export default function MetricsExplorerScreen() {
   const query = `${agg}:${metric}{tenant:fyers} by {${groupBy}}`;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Metrics Explorer</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Metrics Explorer" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Metrics Explorer</h1>
-          <p>Ad-hoc query across tenant infrastructure · {METRICS.reduce((s, g) => s + g.items.length, 0)} metrics in the catalog</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={Share2Icon} /> Share</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add to dashboard</button>
-        </div>
-      </div>
+      <PageHead
+        title="Metrics Explorer"
+        subtitle={<>Ad-hoc query across tenant infrastructure · {METRICS.reduce((s, g) => s + g.items.length, 0)} metrics in the catalog</>}
+        actions={<>
+          <Button><Icon icon={Share2Icon} /> Share</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> Add to dashboard</Button>
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">Ad-hoc metric queries are not connected yet; the series below are illustrative. Live Prometheus graphs are on each server and VM page.</p>
+          <p className="text-fg-muted text-xs">Ad-hoc metric queries are not connected yet; the series below are illustrative. Live Prometheus graphs are on each server and VM page.</p>
         </div>
-      </div>
+      </Card>
 
       {/* Query bar */}
-      <div className="ld-card ld-filters">
-        <div className="ld-field">
+      <div className={cx(ui.card, ui.filters)}>
+        <div className={ui.filterField}>
           <label htmlFor={`${idp}-metric`}>Metric</label>
-          <select id={`${idp}-metric`} value={metric} onChange={(e) => setMetric(e.target.value)} className="ld-select">
+          <Select id={`${idp}-metric`} value={metric} onChange={(e) => setMetric(e.target.value)}>
             {METRICS.map((g) => (
               <optgroup key={g.ns} label={g.ns}>
                 {g.items.map((i) => <option key={i.m} value={i.m}>{i.m}</option>)}
               </optgroup>
             ))}
-          </select>
+          </Select>
         </div>
-        <div className="ld-field">
+        <div className={ui.filterField}>
           <span>From</span>
-          <span className="ld-tag"><Icon icon={FilterIcon} /> tenant:fyers</span>
+          <span className={ui.tag}><Icon icon={FilterIcon} /> tenant:fyers</span>
         </div>
-        <div className="ld-field">
+        <div className={ui.filterField}>
           <span id={`${idp}-agg`}>Aggregate</span>
-          <span className="ld-obs-seg" role="group" aria-labelledby={`${idp}-agg`}>
+          <span className={seg} role="group" aria-labelledby={`${idp}-agg`}>
             {AGGS.map((a) => (
-              <button key={a} type="button" className={`ld-btn ld-btn-sm${agg === a ? " ld-btn-primary" : ""}`} aria-pressed={agg === a} onClick={() => setAgg(a)}>{a}</button>
+              <Button key={a} size="sm" variant={agg === a ? "primary" : "default"} aria-pressed={agg === a} onClick={() => setAgg(a)}>{a}</Button>
             ))}
           </span>
         </div>
-        <div className="ld-field">
+        <div className={ui.filterField}>
           <label htmlFor={`${idp}-group`}>Group by</label>
-          <select id={`${idp}-group`} value={groupBy} onChange={(e) => setGroupBy(e.target.value)} className="ld-select">
+          <Select id={`${idp}-group`} value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
             <option value="host">host</option>
             <option value="datacenter">datacenter</option>
             <option value="service">service</option>
-          </select>
+          </Select>
         </div>
-        <div className="ld-field">
+        <div className={ui.filterField}>
           <span id={`${idp}-range`}>Time range</span>
-          <span className="ld-obs-seg" role="group" aria-labelledby={`${idp}-range`}>
+          <span className={seg} role="group" aria-labelledby={`${idp}-range`}>
             {Object.keys(RANGES).map((r) => (
-              <button key={r} type="button" className={`ld-btn ld-btn-sm${range === r ? " ld-btn-primary" : ""}`} aria-pressed={range === r} onClick={() => setRange(r)}>{r}</button>
+              <Button key={r} size="sm" variant={range === r ? "primary" : "default"} aria-pressed={range === r} onClick={() => setRange(r)}>{r}</Button>
             ))}
           </span>
         </div>
-        <div className="ld-field ld-field-grow">
+        <div className={cx(ui.filterField, ui.fieldGrow)}>
           <span>Query</span>
-          <code className="ld-obs-query">{query}</code>
+          <code className="font-mono text-xs px-2.5 py-2 rounded bg-bg-muted text-fg [overflow-wrap:anywhere]">{query}</code>
         </div>
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
-          <div className="ld-grid ld-grid-stats">
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <div className={cx(ui.grid, ui.cols.stats)}>
             <StatCard icon="fa-chart-line" tone="info" label={`Current (${agg})`} value={fmtValue(latest, unit)} note={metric} />
             <StatCard icon="fa-arrow-up" tone="warn" label="Peak in range" value={fmtValue(peak, unit)} note={`over ${range}`} />
             <StatCard icon="fa-layer-group" tone="purple" label="Series" value={fmt(HOSTS.length)} note={`by ${groupBy}`} />
@@ -165,14 +165,14 @@ export default function MetricsExplorerScreen() {
           </Panel>
 
           <Panel title={`Breakdown by ${groupBy} · ${HOSTS.length} series`}>
-            <div className="ld-obs-tiles">
+            <div className={tiles}>
               {HOSTS.map((h, i) => {
                 const s = series[i];
                 const cur = s.points[s.points.length - 1][1];
                 return (
-                  <div key={h} className="ld-obs-tile">
-                    <span className="ld-obs-tile-head">
-                      <span className="ld-mono">{h}</span>
+                  <div key={h} className={tile}>
+                    <span className="flex justify-between items-baseline gap-2">
+                      <span className={ui.mono}>{h}</span>
                       <b style={{ color: COLORS[i % COLORS.length] }}>{fmtValue(cur, unit)}</b>
                     </span>
                     <Sparkline points={s.points} color={COLORS[i % COLORS.length]} label={`${h} ${metric} (sample)`} />
@@ -184,14 +184,14 @@ export default function MetricsExplorerScreen() {
         </div>
 
         <Panel title="Metric catalog">
-          <div className="ld-obs-catalog">
+          <div className={catalog}>
             {METRICS.map((g) => (
               <div key={g.ns} role="group" aria-label={g.ns}>
                 <h3>{g.ns}</h3>
                 {g.items.map((i) => (
-                  <button key={i.m} type="button" className={`ld-list-option${metric === i.m ? " active" : ""}`} aria-pressed={metric === i.m} onClick={() => setMetric(i.m)}>
-                    <span className="ld-mono">{i.m}</span>
-                    <span className="ld-sub">{i.desc}{i.unit && ` · ${i.unit}`}</span>
+                  <button key={i.m} type="button" className={cx(option, metric === i.m ? "bg-info-bg font-bold" : "bg-bg-raised hover:bg-bg-hover")} aria-pressed={metric === i.m} onClick={() => setMetric(i.m)}>
+                    <span className={ui.mono}>{i.m}</span>
+                    <span className={cx(ui.sub, "font-normal")}>{i.desc}{i.unit && ` · ${i.unit}`}</span>
                   </button>
                 ))}
               </div>
@@ -199,6 +199,6 @@ export default function MetricsExplorerScreen() {
           </div>
         </Panel>
       </div>
-    </div>
+    </Page>
   );
 }

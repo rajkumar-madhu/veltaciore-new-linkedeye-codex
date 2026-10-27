@@ -3,10 +3,10 @@
 // backed by /api/catalog/applications/. Until that API exists the catalog is
 // the labelled sample below (also read by AppDetailScreen).
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { getStatusLabel } from "@/lib/statusColors";
-import { Empty, Pill, StatCard, fmt } from "@/components/ld";
+import { Empty, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Card, buttonClass, Crumbs, Page, PageHead, SearchBox, Select, Table, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
@@ -66,6 +66,29 @@ export const errTone = (v: number): Tone => (v > 2 ? "crit" : v > 0.5 ? "warn" :
 export const loadTone = (v: number): Tone => (v >= 85 ? "crit" : v >= 70 ? "warn" : "ok");
 export const outcomeTone = (o: string): Tone => (o === "regression" ? "crit" : o === "improved" ? "ok" : "muted");
 export const fmtRt = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`);
+// Observe-area pieces (Tailwind versions of the old observe.css rules).
+const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2";
+/** Text link in mono (the old link + mono pair: mono's 12px / 600 won). */
+const linkMono = cx("border-0 bg-transparent p-0 text-accent cursor-pointer hover:underline font-mono text-xs font-semibold", focusRing);
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+/** Segmented button group. */
+const seg = "inline-flex flex-wrap gap-1";
+/** Sortable column header button. */
+const sortBtn = cx("inline-flex items-center gap-1 border-0 bg-transparent p-0 [font:inherit] text-inherit cursor-pointer whitespace-nowrap [&_.ld-icon]:text-[9px]", focusRing);
+const nameCell = "flex items-center gap-2.5 min-w-0";
+const badge = "flex-none inline-grid place-items-center w-[30px] h-[30px] rounded bg-bg-muted text-fg-muted font-mono text-[10px] font-bold";
+const meter = "inline-flex items-center gap-2";
+const meterTrack = "w-20 h-2 rounded-[5px] bg-bg-muted overflow-hidden";
+const meterFill = "block h-2 rounded-[5px]";
+const menu = "m-0 absolute right-0 top-[calc(100%+4px)] z-20 flex flex-col gap-0.5 min-w-[220px] max-h-[320px] overflow-y-auto p-2 bg-bg-raised border border-line rounded shadow-lg [&_label]:flex [&_label]:items-center [&_label]:gap-2 [&_label]:px-1.5 [&_label]:py-1 [&_label]:text-sm [&_label]:text-fg [&_label]:cursor-pointer";
+const backdrop = "fixed inset-0 z-40 bg-[rgba(10,20,51,0.32)] border-0 p-0 cursor-default";
+const drawerCls = "fixed top-0 right-0 bottom-0 z-[41] w-[min(380px,100vw)] flex flex-col gap-3.5 px-4.5 py-4 overflow-y-auto bg-bg-raised border-l border-line shadow-lg";
+/** Six-up stat row: 180px columns (the old dense-card overrides never reached StatCard). */
+const sixUp = "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]";
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
 const scoreColor = (s: number) => (s >= 90 ? "#16a34a" : s >= 75 ? "#f5a524" : "#e5383b");
 
 export default function APMCatalogScreen() {
@@ -132,51 +155,51 @@ export default function APMCatalogScreen() {
   const shownCols = CATALOG_COLUMNS.filter(c => visCols[c]);
 
   const Row = ({ e }: { e: CatalogEntity }) => (
-    <tr className={e.health === "crit" ? "ld-obs-row-crit" : undefined}>
+    <tr className={e.health === "crit" ? "[&>td]:bg-warning-bg" : undefined}>
       <td>
-        <span className="ld-obs-name">
-          <span className="ld-obs-badge" aria-hidden="true">{e.lang.slice(0, 2).toUpperCase()}</span>
+        <span className={nameCell}>
+          <span className={badge} aria-hidden="true">{e.lang.slice(0, 2).toUpperCase()}</span>
           <span>
-            <button type="button" className="ld-link ld-mono" onClick={() => openEntity(e.id)}>{e.id}</button>
-            <span className="ld-sub">{e.bizSvc} · {e.client}</span>
+            <button type="button" className={linkMono} onClick={() => openEntity(e.id)}>{e.id}</button>
+            <span className={ui.sub}>{e.bizSvc} · {e.client}</span>
           </span>
         </span>
       </td>
       {visCols.type && <td><Pill tone="muted">{e.type}</Pill></td>}
-      {visCols.env && <td className="ld-mono">{e.env}</td>}
+      {visCols.env && <td className={cellMono}>{e.env}</td>}
       {visCols.lang && <td>{e.lang}</td>}
       {visCols.team && <td>{e.team}</td>}
       {visCols.bizSvc && <td>{e.bizSvc}</td>}
-      {visCols.health && <td><Pill tone={healthTone(e.health)}><span className="ld-pill-dot" />{getStatusLabel(e.health)}</Pill></td>}
+      {visCols.health && <td><Pill tone={healthTone(e.health)}><PillDot />{getStatusLabel(e.health)}</Pill></td>}
       {visCols.score && <td>
-        <span className="ld-obs-meter" title={`${e.score}% of scorecard rules met`}>
-          <span className="ld-strong">{e.score}%</span>
-          <span className="ld-bar-track" aria-hidden="true"><span className="ld-bar-fill" style={{ width: `${e.score}%`, background: scoreColor(e.score) }} /></span>
+        <span className={meter} title={`${e.score}% of scorecard rules met`}>
+          <span className="font-medium">{e.score}%</span>
+          <span className={meterTrack} aria-hidden="true"><span className={meterFill} style={{ width: `${e.score}%`, background: scoreColor(e.score) }} /></span>
         </span>
       </td>}
-      {visCols.infra && <td title={e.infra > 0 ? `${e.infra} resources · ${e.cluster !== "—" ? e.cluster : "no cluster"}` : undefined}>{e.infra > 0 ? e.infra : <span className="ld-muted">—</span>}</td>}
-      {visCols.ns && <td className="ld-mono">{e.ns}</td>}
-      {visCols.cluster && <td className="ld-mono">{e.cluster}</td>}
-      {visCols.alerts && <td>{e.alerts > 0 ? <Pill tone={e.alerts > 2 ? "crit" : "warn"}><Icon icon={BellIcon} /> {e.alerts}</Pill> : <span className="ld-muted">0</span>}</td>}
+      {visCols.infra && <td title={e.infra > 0 ? `${e.infra} resources · ${e.cluster !== "—" ? e.cluster : "no cluster"}` : undefined}>{e.infra > 0 ? e.infra : <span className="text-fg-muted">—</span>}</td>}
+      {visCols.ns && <td className={cellMono}>{e.ns}</td>}
+      {visCols.cluster && <td className={cellMono}>{e.cluster}</td>}
+      {visCols.alerts && <td>{e.alerts > 0 ? <Pill tone={e.alerts > 2 ? "crit" : "warn"}><Icon icon={BellIcon} /> {e.alerts}</Pill> : <span className="text-fg-muted">0</span>}</td>}
       {visCols.lastDeploy && <td>
         {e.lastDeploy}
-        <span className="ld-sub"><Pill tone={outcomeTone(e.deployOutcome)}>{e.deployOutcome}</Pill></span>
+        <span className={ui.sub}><Pill tone={outcomeTone(e.deployOutcome)}>{e.deployOutcome}</Pill></span>
       </td>}
-      {visCols.lastReport && <td className="ld-muted">{e.lastReport}</td>}
+      {visCols.lastReport && <td>{e.lastReport}</td>}
       {visCols.repos && <td title={`git.internal/finspot/${e.id}`}>{e.repos}</td>}
-      {visCols.ai && <td>{e.ai ? <Pill tone="purple"><Icon icon={WandSparklesIcon} /> {e.ai}</Pill> : <span className="ld-muted">—</span>}</td>}
+      {visCols.ai && <td>{e.ai ? <Pill tone="purple"><Icon icon={WandSparklesIcon} /> {e.ai}</Pill> : <span className="text-fg-muted">—</span>}</td>}
       {visCols.rt && <td>{fmtRt(e.rt)}</td>}
       {visCols.tput && <td>{(e.tput/1000).toFixed(1)}k rpm</td>}
       {visCols.err && <td><Pill tone={errTone(e.err)}>{e.err.toFixed(2)}%</Pill></td>}
-      {visCols.cpu && <td>{e.cpu > 0 ? <Pill tone={loadTone(e.cpu)}>{e.cpu}%</Pill> : <span className="ld-muted">—</span>}</td>}
-      {visCols.mem && <td>{e.mem > 0 ? <Pill tone={loadTone(e.mem)}>{e.mem}%</Pill> : <span className="ld-muted">—</span>}</td>}
-      {visCols.uptime && <td className="ld-mono">{e.uptime}</td>}
-      {visCols.sla && <td className={e.sla < 99.5 ? "ld-text-crit" : e.sla < 99.9 ? "ld-text-warn" : "ld-text-ok"}>{e.sla}%</td>}
-      {visCols.runbook && <td className="ld-mono">{e.runbook}</td>}
+      {visCols.cpu && <td>{e.cpu > 0 ? <Pill tone={loadTone(e.cpu)}>{e.cpu}%</Pill> : <span className="text-fg-muted">—</span>}</td>}
+      {visCols.mem && <td>{e.mem > 0 ? <Pill tone={loadTone(e.mem)}>{e.mem}%</Pill> : <span className="text-fg-muted">—</span>}</td>}
+      {visCols.uptime && <td className={cellMono}>{e.uptime}</td>}
+      {visCols.sla && <td className={e.sla < 99.5 ? cellTone.crit : e.sla < 99.9 ? cellTone.warn : cellTone.ok}>{e.sla}%</td>}
+      {visCols.runbook && <td className={cellMono}>{e.runbook}</td>}
       <td>
-        <span className="ld-obs-seg">
-          <button type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(e.id)} aria-label={`Quick view ${e.id}`} title="Quick view"><Icon icon={EyeIcon} /></button>
-          <button type="button" className="ld-btn ld-btn-sm" onClick={() => openEntity(e.id)} aria-label={`Open ${e.id}`} title="Open detail"><Icon icon={ExternalLinkIcon} /></button>
+        <span className={seg}>
+          <Button size="sm" onClick={() => setDrawer(e.id)} aria-label={`Quick view ${e.id}`} title="Quick view"><Icon icon={EyeIcon} /></Button>
+          <Button size="sm" onClick={() => openEntity(e.id)} aria-label={`Open ${e.id}`} title="Open detail"><Icon icon={ExternalLinkIcon} /></Button>
         </span>
       </td>
     </tr>
@@ -192,33 +215,27 @@ export default function APMCatalogScreen() {
   ];
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Application Catalog</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Application Catalog" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Application Catalog</h1>
-          <p>Every application, service, and mobile/browser entity — health, ownership, deployments, and golden metrics in one table</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn" onClick={exportCSV}><Icon icon={FileSpreadsheetIcon} /> Export CSV</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add application</button>
-        </div>
-      </div>
+      <PageHead
+        title="Application Catalog"
+        subtitle="Every application, service, and mobile/browser entity — health, ownership, deployments, and golden metrics in one table"
+        actions={<>
+          <Button onClick={exportCSV}><Icon icon={FileSpreadsheetIcon} /> Export CSV</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> Add application</Button>
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">The application catalog API is not connected yet. These {CATALOG_ENTITIES.length} entities and their metrics are illustrative.</p>
+          <p className="text-fg-muted text-xs">The application catalog API is not connected yet. These {CATALOG_ENTITIES.length} entities and their metrics are illustrative.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats ld-grid-6">
+      <div className={cx(ui.grid, sixUp)}>
         <StatCard icon="fa-cubes" tone="info" label="Applications" value={fmt(CATALOG_ENTITIES.length)} note="all types" onClick={() => setStatusFilter("all")} />
         <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(CATALOG_ENTITIES.filter(e => e.health === "ok").length)} note="green" onClick={() => setStatusFilter("ok")} />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(CATALOG_ENTITIES.filter(e => e.health === "warn").length)} note="yellow" onClick={() => setStatusFilter("warn")} />
@@ -227,51 +244,48 @@ export default function APMCatalogScreen() {
         <StatCard icon="fa-code-branch" tone="crit" label="Regressions" value={fmt(CATALOG_ENTITIES.filter(e => e.deployOutcome === "regression").length)} note="last deploy" />
       </div>
 
-      <section className="ld-card ld-panel" aria-labelledby={`${idp}-h`}>
-        <div className="ld-panel-head">
-          <h2 id={`${idp}-h`}>Applications ({fmt(rows.length)})</h2>
-          <span className="ld-muted ld-small">{fmt(CATALOG_ENTITIES.reduce((s, e) => s + e.alerts, 0))} active alerts</span>
+      <section className={cx(ui.card, ui.panel)} aria-labelledby={`${idp}-h`}>
+        <div className={ui.panelHead}>
+          <h2 id={`${idp}-h`} className={ui.panelTitle}>Applications ({fmt(rows.length)})</h2>
+          <span className="text-fg-muted text-xs">{fmt(CATALOG_ENTITIES.reduce((s, e) => s + e.alerts, 0))} active alerts</span>
         </div>
 
-        <div className="ld-filters">
-          <div className="ld-field ld-field-grow">
+        <div className={ui.filters}>
+          <div className={cx(ui.filterField, ui.fieldGrow)}>
             <label htmlFor={`${idp}-q`}>Search</label>
-            <span className="ld-search">
-              <Icon icon={SearchIcon} />
-              <input id={`${idp}-q`} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search application name…" />
-            </span>
+            <SearchBox icon={<Icon icon={SearchIcon} />} id={`${idp}-q`} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search application name…" />
           </div>
           {filters.map(([key, label, val, setter, opts]) => (
-            <div key={key} className="ld-field">
+            <div key={key} className={ui.filterField}>
               <label htmlFor={`${idp}-${key}`}>{label}</label>
-              <select id={`${idp}-${key}`} className="ld-select" value={val} onChange={e => setter(e.target.value)}>
+              <Select id={`${idp}-${key}`} value={val} onChange={e => setter(e.target.value)}>
                 {opts.map(o => <option key={o} value={o}>{o === "all" ? `All` : o}</option>)}
-              </select>
+              </Select>
             </div>
           ))}
-          <div className="ld-field">
+          <div className={ui.filterField}>
             <label htmlFor={`${idp}-group`}>Group by</label>
-            <select id={`${idp}-group`} className="ld-select" value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+            <Select id={`${idp}-group`} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
               {GROUP_OPTIONS.map(g => <option key={g}>{g}</option>)}
-            </select>
+            </Select>
           </div>
         </div>
 
-        <div className="ld-toolbar">
-          <span className="ld-obs-seg" role="group" aria-label="Filter by health status">
+        <div className={ui.toolbar}>
+          <span className={seg} role="group" aria-label="Filter by health status">
             {["all", "ok", "warn", "crit", "unknown"].map(s => (
-              <button key={s} type="button" className={`ld-btn ld-btn-sm${statusFilter === s ? " ld-btn-primary" : ""}`} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
+              <Button key={s} size="sm" variant={statusFilter === s ? "primary" : "default"} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
                 {s === "all" ? "All status" : getStatusLabel(s)}
-              </button>
+              </Button>
             ))}
           </span>
-          <span className="ld-field-grow" />
-          <div className="ld-obs-menu-wrap">
-            <button type="button" className="ld-btn ld-btn-sm" aria-expanded={colMenuOpen} aria-controls={`${idp}-cols`} onClick={() => setColMenuOpen(o => !o)}>
+          <span className={ui.fieldGrow} />
+          <div className="relative">
+            <Button size="sm" aria-expanded={colMenuOpen} aria-controls={`${idp}-cols`} onClick={() => setColMenuOpen(o => !o)}>
               <Icon icon={Columns3Icon} /> Columns
-            </button>
+            </Button>
             {colMenuOpen && (
-              <fieldset id={`${idp}-cols`} className="ld-obs-menu">
+              <fieldset id={`${idp}-cols`} className={menu}>
                 <legend className="sr-only">Visible columns</legend>
                 {CATALOG_COLUMNS.map(c => (
                   <label key={c}>
@@ -285,13 +299,12 @@ export default function APMCatalogScreen() {
         </div>
 
         {rows.length ? (
-          <div className="ld-table-wrap">
-            <table className="ld-table">
+          <Table>
               <thead>
                 <tr>
-                  <th scope="col" aria-sort={ariaSort("id")}><button type="button" className="ld-obs-sort" onClick={() => toggleSort("id")}>Application<SortIcon k="id" /></button></th>
+                  <th scope="col" aria-sort={ariaSort("id")}><button type="button" className={sortBtn} onClick={() => toggleSort("id")}>Application<SortIcon k="id" /></button></th>
                   {shownCols.map(c => (
-                    <th key={c} scope="col" aria-sort={ariaSort(c)}><button type="button" className="ld-obs-sort" onClick={() => toggleSort(c)}>{COLUMN_LABELS[c]}<SortIcon k={c} /></button></th>
+                    <th key={c} scope="col" aria-sort={ariaSort(c)}><button type="button" className={sortBtn} onClick={() => toggleSort(c)}>{COLUMN_LABELS[c]}<SortIcon k={c} /></button></th>
                   ))}
                   <th scope="col"><span className="sr-only">Actions</span></th>
                 </tr>
@@ -300,27 +313,26 @@ export default function APMCatalogScreen() {
                 {groups.map(([label, items]) => (
                   <React.Fragment key={label || "all"}>
                     {groupBy !== "None" && (
-                      <tr className="ld-obs-group-row"><th scope="rowgroup" colSpan={shownCols.length + 2}>{label} · {items.length}</th></tr>
+                      <tr><th scope="rowgroup" colSpan={shownCols.length + 2}>{label} · {items.length}</th></tr>
                     )}
                     {items.map(e => <Row key={e.id} e={e} />)}
                   </React.Fragment>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </Table>
         ) : (
           <Empty>No applications match the current filters.</Empty>
         )}
 
         {!groupKeyFn && (
-          <nav className="ld-pager" aria-label="Pagination">
-            <span className="ld-muted ld-small">Showing {rows.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, rows.length)} of {rows.length}</span>
-            <div className="ld-pager-btns">
+          <nav className={ui.pager} aria-label="Pagination">
+            <span className="text-fg-muted text-xs">Showing {rows.length === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, rows.length)} of {rows.length}</span>
+            <div className={ui.pagerBtns}>
               <label htmlFor={`${idp}-size`} className="sr-only">Rows per page</label>
-              <select id={`${idp}-size`} className="ld-select" value={pageSize} onChange={e => setPageSize(+e.target.value)}>{[10, 25, 50].map(n => <option key={n} value={n}>{n} / page</option>)}</select>
-              <button type="button" className="ld-btn ld-btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} aria-label="Previous page"><Icon icon={ChevronLeftIcon} /></button>
-              <span className="ld-muted ld-small">Page {page} / {totalPages}</span>
-              <button type="button" className="ld-btn ld-btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)} aria-label="Next page"><Icon icon={ChevronRightIcon} /></button>
+              <Select id={`${idp}-size`} value={pageSize} onChange={e => setPageSize(+e.target.value)}>{[10, 25, 50].map(n => <option key={n} value={n}>{n} / page</option>)}</Select>
+              <Button size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} aria-label="Previous page"><Icon icon={ChevronLeftIcon} /></Button>
+              <span className="text-fg-muted text-xs">Page {page} / {totalPages}</span>
+              <Button size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)} aria-label="Next page"><Icon icon={ChevronRightIcon} /></Button>
             </div>
           </nav>
         )}
@@ -329,34 +341,34 @@ export default function APMCatalogScreen() {
       {/* Quick-view drawer */}
       {drawerEntity && (
         <>
-          <button type="button" className="ld-obs-backdrop" aria-label="Close quick view" tabIndex={-1} onClick={() => setDrawer(null)} />
-          <aside className="ld-obs-drawer" role="dialog" aria-modal="true" aria-labelledby={`${idp}-drawer-h`}>
-            <div className="ld-obs-drawer-head">
+          <button type="button" className={backdrop} aria-label="Close quick view" tabIndex={-1} onClick={() => setDrawer(null)} />
+          <aside className={drawerCls} role="dialog" aria-modal="true" aria-labelledby={`${idp}-drawer-h`}>
+            <div className="flex justify-between items-start gap-2.5">
               <div>
-                <h2 id={`${idp}-drawer-h`}>{drawerEntity.id}</h2>
-                <span className="ld-sub">{drawerEntity.bizSvc} · {drawerEntity.client}</span>
+                <h2 id={`${idp}-drawer-h`} className="font-mono text-md font-bold text-fg">{drawerEntity.id}</h2>
+                <span className={ui.sub}>{drawerEntity.bizSvc} · {drawerEntity.client}</span>
               </div>
-              <button ref={closeRef} type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(null)} aria-label="Close"><Icon icon={XIcon} /></button>
+              <button ref={closeRef} type="button" className={buttonClass("default", "sm")} onClick={() => setDrawer(null)} aria-label="Close"><Icon icon={XIcon} /></button>
             </div>
             <Pill tone="muted">Sample data</Pill>
-            <dl className="ld-dl">
-              <dt>Health</dt><dd><Pill tone={healthTone(drawerEntity.health)}><span className="ld-pill-dot" />{getStatusLabel(drawerEntity.health)}</Pill></dd>
+            <dl className={ui.dl}>
+              <dt>Health</dt><dd><Pill tone={healthTone(drawerEntity.health)}><PillDot />{getStatusLabel(drawerEntity.health)}</Pill></dd>
               <dt>Score</dt><dd>{drawerEntity.score}%</dd>
               <dt>Team owner</dt><dd>{drawerEntity.team}</dd>
               <dt>Environment</dt><dd>{drawerEntity.env}</dd>
-              <dt>Cluster / ns</dt><dd className="ld-mono">{drawerEntity.cluster} / {drawerEntity.ns}</dd>
+              <dt>Cluster / ns</dt><dd className={ui.mono}>{drawerEntity.cluster} / {drawerEntity.ns}</dd>
               <dt>Response time</dt><dd>{fmtRt(drawerEntity.rt)}</dd>
               <dt>Error rate</dt><dd><Pill tone={errTone(drawerEntity.err)}>{drawerEntity.err.toFixed(2)}%</Pill></dd>
               <dt>CPU / Memory</dt><dd>{drawerEntity.cpu > 0 ? `${drawerEntity.cpu}% / ${drawerEntity.mem}%` : "—"}</dd>
               <dt>SLA (30d)</dt><dd>{drawerEntity.sla}%</dd>
               <dt>Active alerts</dt><dd>{drawerEntity.alerts}</dd>
               <dt>Last deployment</dt><dd>{drawerEntity.lastDeploy} · {drawerEntity.deployOutcome}</dd>
-              <dt>Runbook</dt><dd className="ld-mono">{drawerEntity.runbook}</dd>
+              <dt>Runbook</dt><dd className={ui.mono}>{drawerEntity.runbook}</dd>
             </dl>
-            <button type="button" className="ld-btn ld-btn-primary" onClick={() => openEntity(drawerEntity.id)}><Icon icon={ExternalLinkIcon} /> Open full detail</button>
+            <Button variant="primary" onClick={() => openEntity(drawerEntity.id)}><Icon icon={ExternalLinkIcon} /> Open full detail</Button>
           </aside>
         </>
       )}
-    </div>
+    </Page>
   );
 }

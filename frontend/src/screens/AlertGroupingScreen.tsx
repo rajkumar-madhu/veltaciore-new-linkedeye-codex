@@ -3,14 +3,14 @@
 // There is no grouping API yet, so the page shows a labelled sample; every
 // summary figure is derived from the sample rows below.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { Empty, PALETTE, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, Table, TextButton, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { Sparkline } from "@/components/MetricCharts";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FlaskConicalIcon, HistoryIcon, PlusIcon } from "lucide-react";
+import { FlaskConicalIcon, HistoryIcon, PlusIcon } from "lucide-react";
 type Strategy = "Intelligent" | "Content" | "Time";
 
 const GROUPS: { title: string; count: number; svc: string; strat: Strategy; status: "open" | "ack" | "suppressed"; age: string; spark: number[] }[] = [
@@ -47,6 +47,11 @@ const NOISY = [
   { src: "custom-webhooks", n: 320 },
 ];
 
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+/** Two side-by-side figure boxes. */
+const pair = "grid grid-cols-2 gap-2.5 [&>div]:px-2 [&>div]:py-2.5 [&>div]:rounded [&>div]:bg-bg-muted [&>div]:text-center [&>div]:text-xs [&>div]:text-fg-muted [&_b]:block [&_b]:text-[20px] [&_b]:font-extrabold [&_b]:text-fg";
+
 export default function AlertGroupingScreen() {
   const { setRoute } = useNav();
 
@@ -58,47 +63,38 @@ export default function AlertGroupingScreen() {
   const noisyMax = NOISY[0]?.n ?? 1;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("alerts")}>Alerts</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Alert grouping</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Alerts", onClick: () => setRoute("alerts") }, { label: "Alert grouping" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Alert Grouping &amp; Noise Reduction</h1>
-          <p>Raw alerts collapsed into actionable incidents by correlation and grouping rules</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={FlaskConicalIcon} /> Simulate</button>
-          <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> History</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New rule</button>
-        </div>
-      </div>
+      <PageHead
+        title="Alert Grouping & Noise Reduction"
+        subtitle="Raw alerts collapsed into actionable incidents by correlation and grouping rules"
+        actions={<>
+          <Button><Icon icon={FlaskConicalIcon} /> Simulate</Button>
+          <Button><Icon icon={HistoryIcon} /> History</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> New rule</Button>
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">Alert grouping is not connected to an event source yet. The groups, rules and sources below are illustrative; summary figures are computed from them.</p>
+          <p className="text-fg-muted text-xs">Alert grouping is not connected to an event source yet. The groups, rules and sources below are illustrative; summary figures are computed from them.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-bell" tone="info" label="Raw alerts" value={fmt(raw)} note="before grouping" />
         <StatCard icon="fa-layer-group" tone="ok" label="After grouping" value={fmt(GROUPS.length)} note={`${reduction}% noise reduced`} />
         <StatCard icon="fa-bell-slash" tone="warn" label="Suppressed" value={fmt(suppressed.length)} note={`${fmt(suppressed.reduce((s, g) => s + g.count, 0))} raw alerts muted`} />
         <StatCard icon="fa-fire" tone="crit" label="Open after dedup" value={fmt(open)} note="need triage" />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title={`Grouped alerts · ${GROUPS.length} groups from ${raw} raw`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">Group</th>
@@ -114,26 +110,24 @@ export default function AlertGroupingScreen() {
                     const sm = STRAT[g.strat], st = STATUS[g.status];
                     return (
                       <tr key={g.title}>
-                        <td className="ld-wrap">
-                          <button type="button" className="ld-link ld-strong" onClick={() => setRoute("incident-detail")}>{g.title}</button>
-                          <span className="ld-sub">{g.count} alerts collapsed → 1 incident</span>
+                        <td className={ui.cellWrap}>
+                          <TextButton onClick={() => setRoute("incident-detail")}>{g.title}</TextButton>
+                          <span className={ui.sub}>{g.count} alerts collapsed → 1 incident</span>
                         </td>
-                        <td className="ld-mono">{g.svc}</td>
+                        <td className={cellMono}>{g.svc}</td>
                         <td><Pill tone={sm.tone}><Icon className={`fa-solid ${sm.icon}`} /> {g.strat}</Pill></td>
                         <td><Sparkline points={g.spark.map((v, i) => [i, v])} color={sm.color} label={`${g.title} alert count`} /></td>
                         <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
-                        <td className="ld-muted">{g.age}</td>
+                        <td>{g.age}</td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
 
           <Panel title={`Grouping rules · ${activeRules} of ${RULES.length} active`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr><th scope="col">Rule</th><th scope="col">Strategy</th><th scope="col">Window</th><th scope="col">Enabled</th></tr>
                 </thead>
@@ -142,27 +136,26 @@ export default function AlertGroupingScreen() {
                     const sm = STRAT[r.strat];
                     return (
                       <tr key={r.name}>
-                        <td className="ld-strong ld-wrap">{r.name}</td>
+                        <td className={cx("font-medium", ui.cellWrap)}>{r.name}</td>
                         <td><Pill tone={sm.tone}><Icon className={`fa-solid ${sm.icon}`} /> {r.strat}</Pill></td>
-                        <td className="ld-muted">{r.window}</td>
+                        <td>{r.window}</td>
                         <td><Pill tone={r.on ? "ok" : "muted"}>{r.on ? "On" : "Off"}</Pill></td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
         </div>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Noise reduction">
-            <div className="ld-obs-big">{reduction}%</div>
-            <p className="ld-muted ld-small ld-obs-center">of raw alerts folded into a group</p>
-            <span className="ld-bar-track" role="img" aria-label={`${reduction}% noise reduced`}>
-              <span className="ld-bar-fill" style={{ width: `${reduction}%`, background: "#16a34a" }} />
+            <div className="text-[36px] font-extrabold tracking-[-0.02em] text-fg text-center">{reduction}%</div>
+            <p className="text-fg-muted text-xs text-center">of raw alerts folded into a group</p>
+            <span className={ui.barTrack} role="img" aria-label={`${reduction}% noise reduced`}>
+              <span className={ui.barFill} style={{ width: `${reduction}%`, background: "#16a34a" }} />
             </span>
-            <div className="ld-obs-pair">
+            <div className={pair}>
               <div><b>{fmt(raw)}</b>raw</div>
               <div><b>{fmt(GROUPS.length)}</b>shown</div>
             </div>
@@ -170,14 +163,14 @@ export default function AlertGroupingScreen() {
 
           <Panel title="Top noisy sources">
             {NOISY.length ? (
-              <ul className="ld-bars">
+              <ul className={ui.bars}>
                 {NOISY.map((n, i) => (
-                  <li key={n.src}>
-                    <span className="ld-bar-label ld-mono" title={n.src}>{n.src}</span>
-                    <span className="ld-bar-track">
-                      <span className="ld-bar-fill" style={{ width: `${(n.n / noisyMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                  <li key={n.src} className={ui.barItemWide}>
+                    <span className={cx(ui.barLabel, ui.mono)} title={n.src}>{n.src}</span>
+                    <span className={ui.barTrack}>
+                      <span className={ui.barFill} style={{ width: `${(n.n / noisyMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
                     </span>
-                    <span className="ld-bar-value ld-bar-value-wide">{fmt(n.n)}</span>
+                    <span className={cx(ui.barValue, "min-w-16")}>{fmt(n.n)}</span>
                   </li>
                 ))}
               </ul>
@@ -187,14 +180,14 @@ export default function AlertGroupingScreen() {
           </Panel>
 
           <Panel title="Intelligent grouping">
-            <dl className="ld-dl">
-              <dt>Model</dt><dd className="ld-mono">correlation-v3</dd>
+            <dl className={ui.dl}>
+              <dt>Model</dt><dd className={ui.mono}>correlation-v3</dd>
               <dt>Trained on</dt><dd>180 days of incident history</dd>
               <dt>Rules using it</dt><dd>{RULES.filter((r) => r.strat === "Intelligent" && r.on).length}</dd>
             </dl>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

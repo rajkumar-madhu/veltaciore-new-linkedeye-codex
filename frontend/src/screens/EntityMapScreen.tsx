@@ -3,14 +3,14 @@
 // No service-mapping / discovery backend is connected yet, so the entities
 // are a labelled sample; counts and averages are computed from them.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
-import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, Table, cx, toneText, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FileOutputIcon, FlaskConicalIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { FileOutputIcon, FlaskConicalIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 interface MapEntity {
   id: string;
   type: string;
@@ -55,7 +55,15 @@ const HEALTH: Record<string, { tone: Tone; label: string }> = {
   warning: { tone: "warn", label: "Warning" },
   ok: { tone: "ok", label: "Healthy" },
 };
-const apdexClass = (a: number) => (a < 0.8 ? "ld-text-crit" : a < 0.9 ? "ld-text-warn" : "ld-text-ok");
+const apdexClass = (a: number) => (a < 0.8 ? cellTone.crit : a < 0.9 ? cellTone.warn : cellTone.ok);
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
+const seg = "inline-flex flex-wrap gap-1";
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+/** Text link in mono (the old link + mono pair: mono's 12px / 600 won). */
+const linkMono = "border-0 bg-transparent p-0 text-accent cursor-pointer hover:underline font-mono text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2";
 const worst = (items: MapEntity[]) => (items.some((e) => e.health === "critical") ? "critical" : items.some((e) => e.health === "warning") ? "warning" : "ok");
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
@@ -74,34 +82,28 @@ export default function EntityMapScreen() {
   });
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Business Service Map</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Business Service Map" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Business Service Map</h1>
-          <p>{services.length} business services · {entities.length} configuration items and the dependencies between them</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Re-discover</button>
-          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export Map</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add Service</button>
-        </div>
-      </div>
+      <PageHead
+        title="Business Service Map"
+        subtitle={<>{services.length} business services · {entities.length} configuration items and the dependencies between them</>}
+        actions={<>
+          <Button><Icon icon={RefreshCwIcon} /> Re-discover</Button>
+          <Button><Icon icon={FileOutputIcon} /> Export Map</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> Add Service</Button>
+        </>}
+      />
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">Service discovery is not connected yet. The services, CIs and dependencies below are illustrative; counts and averages are computed from them.</p>
+          <p className="text-fg-muted text-xs">Service discovery is not connected yet. The services, CIs and dependencies below are illustrative; counts and averages are computed from them.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <StatCard icon="fa-briefcase" tone="info" label="Business services" value={fmt(services.length)} note="all domains" onClick={() => setFilter("all")} />
         <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(count("ok"))} note="meeting SLO" onClick={() => setFilter("ok")} />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(count("warning"))} note="at risk" onClick={() => setFilter("warning")} />
@@ -109,69 +111,65 @@ export default function EntityMapScreen() {
         <StatCard icon="fa-face-smile" tone="warn" label="Avg Apdex" value={avg(entities.map((e) => e.apdex)).toFixed(2)} note="across all CIs" />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Service dependency map">
-            <div className="ld-toolbar">
-              <span className="ld-obs-seg" role="group" aria-label="Filter by health">
+            <div className={ui.toolbar}>
+              <span className={seg} role="group" aria-label="Filter by health">
                 {[["all", "All"], ["critical", "Critical"], ["warning", "Warning"], ["ok", "Healthy"]].map(([id, l]) => (
-                  <button key={id} type="button" className={`ld-btn ld-btn-sm${filter === id ? " ld-btn-primary" : ""}`} aria-pressed={filter === id} onClick={() => setFilter(id)}>{l}</button>
+                  <Button key={id} size="sm" variant={filter === id ? "primary" : "default"} aria-pressed={filter === id} onClick={() => setFilter(id)}>{l}</Button>
                 ))}
               </span>
-              <span className="ld-field-grow" />
-              <span className="ld-muted ld-small">edge colour = health of the call path</span>
+              <span className={ui.fieldGrow} />
+              <span className="text-fg-muted text-xs">edge colour = health of the call path</span>
             </div>
-            {filtered.length ? <div className="ld-obs-map-wrap"><BSMGraph entities={filtered} /></div> : <Empty>No CIs match this filter.</Empty>}
+            {filtered.length ? <div className="overflow-x-auto rounded bg-bg-muted"><BSMGraph entities={filtered} /></div> : <Empty>No CIs match this filter.</Empty>}
           </Panel>
 
           <Panel title={`Business services (${services.length})`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead><tr><th scope="col">Service</th><th scope="col">CIs</th><th scope="col">Owner</th><th scope="col">Status</th><th scope="col">Apdex</th><th scope="col">SLA</th></tr></thead>
                 <tbody>
                   {services.map((s) => (
                     <tr key={s.key}>
-                      <td><span className="ld-strong">{s.name}</span><span className="ld-sub ld-mono">{s.key}</span></td>
+                      <td><span className="font-medium">{s.name}</span><span className={cx(ui.sub, "font-mono font-semibold")}>{s.key}</span></td>
                       <td>{s.items.length}</td>
                       <td>{userName(s.owner)}</td>
-                      <td><Pill tone={HEALTH[s.health].tone}><span className="ld-pill-dot" />{HEALTH[s.health].label}</Pill></td>
+                      <td><Pill tone={HEALTH[s.health].tone}><PillDot />{HEALTH[s.health].label}</Pill></td>
                       <td className={apdexClass(s.apdex)}>{s.apdex.toFixed(2)}</td>
                       <td><Pill tone={s.sla === "breaching" ? "crit" : s.sla === "at-risk" ? "warn" : "ok"}>{s.sla}</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
 
           <Panel title={`Configuration items (${filtered.length})`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Tier</th><th scope="col">Service</th><th scope="col">Tech</th><th scope="col">Apdex</th><th scope="col">Status</th></tr></thead>
                 <tbody>
                   {filtered.map(e => (
                     <tr key={e.id}>
-                      <td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("apm")}>{e.id}</button></td>
+                      <td><button type="button" className={linkMono} onClick={() => setRoute("apm")}>{e.id}</button></td>
                       <td><Pill tone="muted">{e.type}</Pill></td>
-                      <td className="ld-mono">{e.tier}</td>
-                      <td className="ld-mono">{e.group}</td>
-                      <td className="ld-mono">{e.lang}</td>
+                      <td className={cellMono}>{e.tier}</td>
+                      <td className={cellMono}>{e.group}</td>
+                      <td className={cellMono}>{e.lang}</td>
                       <td className={apdexClass(e.apdex)}>{e.apdex.toFixed(2)}</td>
-                      <td><Pill tone={HEALTH[e.health].tone}><span className="ld-pill-dot" />{HEALTH[e.health].label}</Pill></td>
+                      <td><Pill tone={HEALTH[e.health].tone}><PillDot />{HEALTH[e.health].label}</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
         </div>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Service domains">
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {services.map((s) => (
-                <li key={s.key}>
-                  <span className="ld-activity-text">{s.key} <span className="ld-muted">· {s.items.length} CIs</span></span>
+                <li key={s.key} className={ui.activityItem}>
+                  <span className={ui.activityText}>{s.key} <span className="text-fg-muted">· {s.items.length} CIs</span></span>
                   <Pill tone={HEALTH[s.health].tone}>{s.health === "critical" ? "degraded" : s.health === "warning" ? "warning" : "healthy"}</Pill>
                 </li>
               ))}
@@ -179,28 +177,28 @@ export default function EntityMapScreen() {
           </Panel>
 
           <Panel title="Impact analysis">
-            <dl className="ld-dl">
-              <dt>Business impact</dt><dd><span className="ld-text-crit">Checkout</span> · revenue blocking</dd>
+            <dl className={ui.dl}>
+              <dt>Business impact</dt><dd><span className={toneText.crit}>Checkout</span> · revenue blocking</dd>
               <dt>Affected CIs</dt><dd>{count("critical")} critical · {count("warning")} warning</dd>
               <dt>Healthy CIs</dt><dd>{count("ok")}</dd>
-              <dt>Root cause</dt><dd className="ld-mono">payments-svc · pool exhaustion</dd>
+              <dt>Root cause</dt><dd className={ui.mono}>payments-svc · pool exhaustion</dd>
               <dt>Recommended</dt><dd>Rollback v2.41 → v2.40</dd>
             </dl>
           </Panel>
 
           <Panel title="Related records (3)">
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {[["Stripe timeouts", "Incident · active", "INC-48291"], ["Pool sizing regression", "Problem · RCA", "PRB-3912"], ["Pool config rollback", "Change · implementing", "CHG-2219"]].map(([t, meta, id]) => (
-                <li key={id}>
-                  <span className="ld-activity-text">{t}<span className="ld-sub">{meta}</span></span>
-                  <span className="ld-mono">{id}</span>
+                <li key={id} className={ui.activityItem}>
+                  <span className={ui.activityText}>{t}<span className={ui.sub}>{meta}</span></span>
+                  <span className={ui.mono}>{id}</span>
                 </li>
               ))}
             </ul>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -225,7 +223,7 @@ function BSMGraph({ entities }: { entities: MapEntity[] }) {
   const ents: Record<string, MapEntity> = {}; entities.forEach(e => { ents[e.id] = e; });
   const shown = edges.filter(e => positions[e[0]] && positions[e[1]] && ents[e[0]] && ents[e[1]]);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="ld-obs-map" role="img" aria-label={`Dependency map of ${entities.length} CIs with ${shown.length} call paths`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="block w-full min-w-[760px] h-auto" role="img" aria-label={`Dependency map of ${entities.length} CIs with ${shown.length} call paths`}>
       <defs>
         {["critical","warning","ok"].map(s => (
           <marker key={s} id={`bsm-${s}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -245,10 +243,10 @@ function BSMGraph({ entities }: { entities: MapEntity[] }) {
         return (
           <g key={id} transform={`translate(${x},${y})`}>
             <title>{`${e.id} · ${e.type} · ${HEALTH[e.health].label} · Apdex ${e.apdex.toFixed(2)}`}</title>
-            <rect x="-50" y="-22" width="100" height="44" rx="6" className="ld-obs-node-box" stroke={c} strokeWidth="2" />
+            <rect x="-50" y="-22" width="100" height="44" rx="6" className="fill-bg-raised" stroke={c} strokeWidth="2" />
             <rect x="-50" y="-22" width="6" height="44" fill={c} />
-            <text x="-38" y="-2" className="ld-obs-node-name">{e.id.length > 13 ? e.id.slice(0,12)+"…" : e.id}</text>
-            <text x="-38" y="12" className="ld-obs-node-meta">{e.type} · {e.lang}</text>
+            <text x="-38" y="-2" className="fill-fg font-mono text-2xs font-bold">{e.id.length > 13 ? e.id.slice(0,12)+"…" : e.id}</text>
+            <text x="-38" y="12" className="fill-fg-muted font-mono text-[9px]">{e.type} · {e.lang}</text>
             <circle cx="40" cy="-12" r="7" fill={c} />
             <text x="40" y="-9" fontSize="8" fontWeight="700" fill="#fff" textAnchor="middle">{e.apdex.toFixed(1)}</text>
           </g>

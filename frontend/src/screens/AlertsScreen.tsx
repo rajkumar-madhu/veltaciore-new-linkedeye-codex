@@ -4,17 +4,17 @@
 // breakdowns. Live data only (/infra/alerts/, /infra/devices/); the API has no
 // acknowledge / resolve endpoint yet, so the console is read-only.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { deviceRoute } from "@/lib/deviceRoute";
 import { useDevices, useInfraAlerts } from "@/api/hooks";
 import type { InfraAlert } from "@/lib/types";
 import { Empty, PALETTE, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, SearchBox, Select, Table, TextButton, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FilterIcon, LayersIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
+import { FilterIcon, LayersIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
 type Sev = "critical" | "warning" | "info";
 const sevOf = (s: string): Sev => (s === "critical" ? "critical" : s === "warning" || s === "warn" ? "warning" : "info");
 const SEV: Record<Sev, { label: string; tone: Tone; icon: string; rank: number }> = {
@@ -24,6 +24,8 @@ const SEV: Record<Sev, { label: string; tone: Tone; icon: string; rank: number }
 };
 
 const ANY = "";
+const filterIcon = "w-[38px] h-[38px] rounded bg-bg-muted grid place-items-center text-fg-muted";
+const linkMono = "font-mono !text-xs font-semibold";
 
 export default function AlertsScreen() {
   const { setRoute } = useNav();
@@ -63,31 +65,23 @@ export default function AlertsScreen() {
   const affected = new Set(alerts.map((a) => a.device)).size;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Alerts</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Alerts" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Alert Console</h1>
-          <p>Active alerts raised by device monitoring across every site · refreshes every 30s</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn" onClick={() => setRoute("alert-grouping")}>
+      <PageHead
+        title="Alert Console"
+        subtitle="Active alerts raised by device monitoring across every site · refreshes every 30s"
+        actions={<>
+          <Button onClick={() => setRoute("alert-grouping")}>
             <Icon icon={LayersIcon} /> Alert grouping
-          </button>
-          <button type="button" className="ld-btn" onClick={() => setRoute("monitors")}>
+          </Button>
+          <Button onClick={() => setRoute("monitors")}>
             <Icon icon={SlidersHorizontalIcon} /> Monitors
-          </button>
-        </div>
-      </div>
+          </Button>
+        </>}
+      />
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-bell" tone="info" label="Active alerts" value={fmt(alerts.length)} note={`${fmt(affected)} devices affected`} onClick={reset} />
         <StatCard icon={SEV.critical.icon} tone="crit" label="Critical" value={fmt(bySev("critical"))} note="needs response now" onClick={() => setSev("critical")} />
         <StatCard icon={SEV.warning.icon} tone="warn" label="Warning" value={fmt(bySev("warning"))} note="at risk" onClick={() => setSev("warning")} />
@@ -95,46 +89,42 @@ export default function AlertsScreen() {
       </div>
 
       <form
-        className="ld-card ld-filters"
+        className={cx(ui.card, ui.filters)}
         onSubmit={(e) => e.preventDefault()}
         onReset={(e) => { e.preventDefault(); reset(); }}
       >
-        <span className="ld-filter-icon" aria-hidden="true"><Icon icon={FilterIcon} /></span>
-        <div className="ld-field">
+        <span className={filterIcon} aria-hidden="true"><Icon icon={FilterIcon} /></span>
+        <div className={ui.filterField}>
           <label htmlFor={`${idp}-sev`}>Severity</label>
-          <select id={`${idp}-sev`} className="ld-select" value={sev} onChange={(e) => setSev(e.target.value)}>
+          <Select id={`${idp}-sev`} value={sev} onChange={(e) => setSev(e.target.value)}>
             <option value={ANY}>All severities</option>
             {(Object.keys(SEV) as Sev[]).map((s) => <option key={s} value={s}>{SEV[s].label}</option>)}
-          </select>
+          </Select>
         </div>
-        <div className="ld-field">
+        <div className={ui.filterField}>
           <label htmlFor={`${idp}-site`}>Site</label>
-          <select id={`${idp}-site`} className="ld-select" value={site} onChange={(e) => setSite(e.target.value)}>
+          <Select id={`${idp}-site`} value={site} onChange={(e) => setSite(e.target.value)}>
             <option value={ANY}>All sites</option>
             {sites.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          </Select>
         </div>
-        <div className="ld-field ld-field-grow">
+        <div className={cx(ui.filterField, ui.fieldGrow)}>
           <label htmlFor={`${idp}-q`} className="sr-only">Search alerts</label>
-          <span className="ld-search">
-            <Icon icon={SearchIcon} />
-            <input id={`${idp}-q`} type="search" placeholder="Search by alert, device, rule or ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
-          </span>
+          <SearchBox icon={<Icon icon={SearchIcon} />} id={`${idp}-q`} type="search" placeholder="Search by alert, device, rule or ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
-        <button type="reset" className="ld-btn">Reset</button>
+        <Button type="reset">Reset</Button>
       </form>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby={`${idp}-list-h`}>
-          <div className="ld-panel-head">
-            <h2 id={`${idp}-list-h`}>Alerts ({fmt(visible.length)})</h2>
-            <span className="ld-muted ld-small">Read-only · acknowledge and resolve from the source monitor</span>
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby={`${idp}-list-h`}>
+          <div className={ui.panelHead}>
+            <h2 id={`${idp}-list-h`} className={ui.panelTitle}>Alerts ({fmt(visible.length)})</h2>
+            <span className="text-fg-muted text-xs">Read-only · acknowledge and resolve from the source monitor</span>
           </div>
           {alertsQ.isLoading ? (
             <Empty>Loading alerts…</Empty>
           ) : visible.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">Severity</th>
@@ -151,40 +141,39 @@ export default function AlertsScreen() {
                     return (
                       <tr key={a.id}>
                         <td><Pill tone={s.tone}><Icon className={`fa-solid ${s.icon}`} /> {s.label}</Pill></td>
-                        <td className="ld-wrap">
-                          <span className="ld-strong">{a.title}</span>
-                          {a.detail && <span className="ld-sub">{a.detail}</span>}
+                        <td className={ui.cellWrap}>
+                          <span className="font-medium">{a.title}</span>
+                          {a.detail && <span className={ui.sub}>{a.detail}</span>}
                         </td>
                         <td>
-                          <button type="button" className="ld-link ld-mono" onClick={() => openDevice(a)} title={`Open ${a.device}`}>
+                          <TextButton className={linkMono} onClick={() => openDevice(a)} title={`Open ${a.device}`}>
                             {a.device}
-                          </button>
+                          </TextButton>
                         </td>
-                        <td className="ld-muted">{a.site || "—"}</td>
-                        <td><span className="ld-mono-name">{a.rule || "—"}</span></td>
-                        <td className="ld-muted ld-nowrap">{a.since}</td>
+                        <td>{a.site || "—"}</td>
+                        <td><span className="font-mono text-[12.5px] text-accent">{a.rule || "—"}</span></td>
+                        <td className="whitespace-nowrap">{a.since}</td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+            </Table>
           ) : (
             <Empty>{alerts.length ? "No alerts match these filters." : alertsQ.isError ? "The alerts API is not reachable from this browser." : "No active alerts. All clear."}</Empty>
           )}
         </section>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Alerts by rule">
             {byRule.length ? (
-              <ul className="ld-bars">
+              <ul className={ui.bars}>
                 {byRule.map(([label, value], i) => (
-                  <li key={label}>
-                    <span className="ld-bar-label ld-mono" title={label}>{label}</span>
-                    <span className="ld-bar-track">
-                      <span className="ld-bar-fill" style={{ width: `${(value / ruleMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                  <li key={label} className={ui.barItem}>
+                    <span className={cx(ui.barLabel, ui.mono)} title={label}>{label}</span>
+                    <span className={ui.barTrack}>
+                      <span className={ui.barFill} style={{ width: `${(value / ruleMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
                     </span>
-                    <span className="ld-bar-value">{value}</span>
+                    <span className={ui.barValue}>{value}</span>
                   </li>
                 ))}
               </ul>
@@ -194,16 +183,16 @@ export default function AlertsScreen() {
           </Panel>
           <Panel title="Alerts by site">
             {bySite.length ? (
-              <ul className="ld-bars">
+              <ul className={ui.bars}>
                 {bySite.map(([label, value], i) => (
-                  <li key={label}>
-                    <span className="ld-bar-label">
-                      <button type="button" className="ld-link" onClick={() => setSite(label)}>{label}</button>
+                  <li key={label} className={ui.barItem}>
+                    <span className={ui.barLabel}>
+                      <TextButton onClick={() => setSite(label)}>{label}</TextButton>
                     </span>
-                    <span className="ld-bar-track">
-                      <span className="ld-bar-fill" style={{ width: `${(value / siteMax) * 100}%`, background: PALETTE[(i + 2) % PALETTE.length] }} />
+                    <span className={ui.barTrack}>
+                      <span className={ui.barFill} style={{ width: `${(value / siteMax) * 100}%`, background: PALETTE[(i + 2) % PALETTE.length] }} />
                     </span>
-                    <span className="ld-bar-value">{value}</span>
+                    <span className={ui.barValue}>{value}</span>
                   </li>
                 ))}
               </ul>
@@ -213,6 +202,6 @@ export default function AlertsScreen() {
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

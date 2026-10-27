@@ -3,19 +3,44 @@
 // Those APIs are not connected yet: the entity comes from the sample catalog
 // and the detail below is derived from it, so the page is labelled sample data.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { USERS } from "@/data/core";
-import { Empty, Panel, Pill, StatCard } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, StatCard } from "@/components/ld";
+import { Button, Card, Crumbs, Page, Tab, Table, Tabs, TextButton, cx, toneBg, toneText, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { Sparkline } from "@/components/MetricCharts";
 import { getStatusLabel } from "@/lib/statusColors";
 import { CATALOG_ENTITIES, errTone, fmtRt, healthTone, loadTone, outcomeTone } from "@/screens/APMCatalogScreen";
 
 import { Icon } from "@/components/Icon";
-import { ArrowRightIcon, BellIcon, BoxIcon, Building2Icon, ChevronRightIcon, CircleCheckIcon, CodeIcon, FlaskConicalIcon, GanttChartIcon, GaugeIcon, GitBranchIcon, LineChartIcon, ListIcon, LockIcon } from "lucide-react";
+import { ArrowRightIcon, BellIcon, BoxIcon, Building2Icon, CircleCheckIcon, CodeIcon, FlaskConicalIcon, GanttChartIcon, GaugeIcon, GitBranchIcon, LineChartIcon, ListIcon, LockIcon } from "lucide-react";
 const SLA_TARGET = 99.9;
+
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
+// Entity page head (tile, title with pills, "|"-separated meta line).
+const entityHead = "flex flex-wrap items-start justify-between gap-3";
+const entity = "flex items-center gap-3.5 min-w-0";
+const entityTile = "flex-none grid place-items-center w-14 h-14 rounded-[12px] text-5xl";
+const entityTitle = cx(ui.h1, "flex items-center gap-2.5 flex-wrap");
+const entityMeta = cx(ui.headSub, "flex flex-wrap gap-x-3.5 gap-y-1 [&>span+span]:before:content-['|'] [&>span+span]:before:mr-3.5 [&>span+span]:before:text-line-strong");
+/** Six-up stat row: 180px columns (the old dense-card overrides never reached StatCard). */
+const sixUp = "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]";
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+/** Row highlight for a failing pod. */
+const rowCrit = "[&>td]:bg-warning-bg";
+// Small labelled cards
+const tiles = "grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]";
+const tile = "flex flex-col gap-1.5 min-w-0 px-3.5 py-3 border border-line-subtle rounded bg-bg-raised [&>.ld-icon]:text-lg [&>.ld-icon]:text-accent";
+const tileLabel = "text-2xs font-bold tracking-[0.05em] uppercase text-fg-muted";
+// Plain icon list; an icon without its own text colour is 16px wide and accent-coloured.
+const iconList = "list-none flex flex-col gap-2 m-0 p-0 text-sm text-fg [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:min-w-0 [&>li>.ld-icon:not([class*='text-'])]:w-4 [&>li>.ld-icon:not([class*='text-'])]:text-center [&>li>.ld-icon:not([class*='text-'])]:text-accent";
+// Request path chain
+const flow = "list-none flex flex-wrap items-center gap-2 m-0 p-0 [&>li]:inline-flex [&>li]:items-center [&>li]:gap-2 [&>li>.ld-icon]:text-2xs [&>li>.ld-icon]:text-fg-faint";
+const stepBox = "px-3 py-2 border rounded bg-bg-raised text-sm font-semibold text-fg";
 
 export default function AppDetailScreen() {
   const { setRoute } = useNav();
@@ -91,56 +116,50 @@ export default function AppDetailScreen() {
   ];
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("apm-catalog")}>Application Catalog</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>{e.id}</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Application Catalog", onClick: () => setRoute("apm-catalog") }, { label: e.id }]} />
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className={`ld-tile ld-${healthTone(e.health)}`} aria-hidden="true"><Icon icon={BoxIcon} /></span>
+      <div className={entityHead}>
+        <div className={entity}>
+          <span className={cx(entityTile, toneBg[healthTone(e.health)])} aria-hidden="true"><Icon icon={BoxIcon} /></span>
           <div>
-            <h1 className="ld-entity-title">
+            <h1 className={entityTitle}>
               {e.id}
-              <Pill tone={healthTone(e.health)}><span className="ld-pill-dot" />{getStatusLabel(e.health)}</Pill>
+              <Pill tone={healthTone(e.health)}><PillDot />{getStatusLabel(e.health)}</Pill>
               <Pill tone="muted">Sample data</Pill>
             </h1>
-            <p className="ld-entity-meta">
+            <p className={entityMeta}>
               <span>{e.bizSvc}</span>
               <span>{e.team} team</span>
               <span>{e.env}</span>
-              <span className="ld-mono">{e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "no cluster"}</span>
+              <span className={ui.mono}>{e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "no cluster"}</span>
               <span>Last reporting: {e.lastReport}</span>
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn" onClick={() => setRoute("apm")}><Icon icon={LineChartIcon} /> View traces</button>
-            <button type="button" className="ld-btn" onClick={() => setRoute("logs")}><Icon icon={ListIcon} /> View logs</button>
-            <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Add alert</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button onClick={() => setRoute("apm")}><Icon icon={LineChartIcon} /> View traces</Button>
+            <Button onClick={() => setRoute("logs")}><Icon icon={ListIcon} /> View logs</Button>
+            <Button variant="primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Add alert</Button>
           </div>
-          <ul className="ld-tags" aria-label="Tags">
-            <li className="ld-tag"><Icon icon={BoxIcon} /> {e.type}</li>
-            <li className="ld-tag"><Icon icon={Building2Icon} /> {e.client}</li>
-            <li className="ld-tag"><Icon icon={CodeIcon} /> {e.lang}</li>
+          <ul className={ui.tags} aria-label="Tags">
+            <li className={ui.tag}><Icon icon={BoxIcon} /> {e.type}</li>
+            <li className={ui.tag}><Icon icon={Building2Icon} /> {e.client}</li>
+            <li className={ui.tag}><Icon icon={CodeIcon} /> {e.lang}</li>
           </ul>
         </div>
       </div>
 
-      <div className="ld-card ld-metrics-off" role="note">
+      <Card className={ui.notice} role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">The application catalog, metrics and Kubernetes APIs are not connected yet. This page is generated from the sample catalog entry for {e.id}.</p>
+          <p className="text-fg-muted text-xs">The application catalog, metrics and Kubernetes APIs are not connected yet. This page is generated from the sample catalog entry for {e.id}.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats ld-grid-6">
+      <div className={cx(ui.grid, sixUp)}>
         <StatCard icon="fa-list-check" tone={e.score >= 90 ? "ok" : e.score >= 75 ? "warn" : "crit"} label="Score" value={`${e.score}%`} note="scorecard rules" />
         <StatCard icon="fa-stopwatch" tone={e.rt > 500 ? "warn" : "ok"} label="Response time" value={fmtRt(e.rt)} note="p50" />
         <StatCard icon="fa-arrow-right-arrow-left" tone="info" label="Throughput" value={`${(e.tput / 1000).toFixed(1)}k rpm`} note="requests/min" />
@@ -149,57 +168,57 @@ export default function AppDetailScreen() {
         <StatCard icon="fa-bell" tone={e.alerts > 2 ? "crit" : e.alerts > 0 ? "warn" : "ok"} label="Active alerts" value={String(e.alerts)} note={e.alerts > 0 ? "needs attention" : "all clear"} onClick={() => setTab("alerts")} />
       </div>
 
-      <div className="ld-tabs" role="tablist" aria-label={`${e.id} sections`}>
+      <Tabs aria-label={`${e.id} sections`}>
         {TABS.map(([id, label, icon]) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ld-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>
+          <Tab key={id} active={tab === id} onClick={() => setTab(id)}>
             <Icon className={`fa-solid ${icon}`} /> {label}
             {id === "alerts" && e.alerts > 0 && <> <Pill tone="crit">{e.alerts}</Pill></>}
-          </button>
+          </Tab>
         ))}
-      </div>
+      </Tabs>
 
       {/* ---------------- OVERVIEW ---------------- */}
       {tab === "overview" && (
-        <div className="ld-split">
-          <div className="ld-rail">
+        <div className={ui.split}>
+          <div className={ui.rail}>
             <Panel title="Golden metrics · last 4h">
-              <div className="ld-obs-tiles">
+              <div className={tiles}>
                 {golden.map((g) => (
-                  <div key={g.label} className="ld-obs-tile">
-                    <span className="ld-obs-label">{g.label}</span>
-                    <span className="ld-obs-tile-head"><b className="ld-stat-value">{g.value}</b><span className="ld-muted ld-small">{g.sub}</span></span>
+                  <div key={g.label} className={tile}>
+                    <span className={tileLabel}>{g.label}</span>
+                    <span className="flex justify-between items-baseline gap-2"><b className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{g.value}</b><span className="text-fg-muted text-xs">{g.sub}</span></span>
                     <Sparkline points={g.points} color={g.color} label={`${g.label} (sample)`} />
                   </div>
                 ))}
               </div>
             </Panel>
             <Panel title="Application summary">
-              <dl className="ld-dl">
-                <dt>Application name</dt><dd className="ld-mono">{e.id}</dd>
+              <dl className={ui.dl}>
+                <dt>Application name</dt><dd className={ui.mono}>{e.id}</dd>
                 <dt>Client / tenant</dt><dd>{e.client}</dd>
                 <dt>Business service</dt><dd>{e.bizSvc}</dd>
                 <dt>Team owner</dt><dd>{e.team}</dd>
                 <dt>Entity type</dt><dd>{e.type}</dd>
                 <dt>Language</dt><dd>{e.lang}</dd>
                 <dt>Environment</dt><dd>{e.env}</dd>
-                <dt>Cluster / namespace</dt><dd className="ld-mono">{e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "not containerized"}</dd>
-                <dt>Health status</dt><dd><Pill tone={healthTone(e.health)}><span className="ld-pill-dot" />{getStatusLabel(e.health)}</Pill></dd>
+                <dt>Cluster / namespace</dt><dd className={ui.mono}>{e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "not containerized"}</dd>
+                <dt>Health status</dt><dd><Pill tone={healthTone(e.health)}><PillDot />{getStatusLabel(e.health)}</Pill></dd>
                 <dt>Last reporting</dt><dd>{e.lastReport}</dd>
               </dl>
             </Panel>
           </div>
-          <div className="ld-rail">
+          <div className={ui.rail}>
             <Panel title="Quick links">
-              <ul className="ld-obs-list">
-                <li><Icon icon={ListIcon} /><button type="button" className="ld-link" onClick={() => setRoute("logs")}>Logs</button></li>
-                <li><Icon icon={GanttChartIcon} /><button type="button" className="ld-link" onClick={() => setRoute("apm")}>Traces</button></li>
-                <li><Icon icon={GaugeIcon} /><button type="button" className="ld-link" onClick={() => setRoute("metrics")}>Metrics</button></li>
-                <li><Icon icon={GitBranchIcon} /><span className="ld-mono">git.internal/finspot/{e.id}</span></li>
+              <ul className={iconList}>
+                <li><Icon icon={ListIcon} /><TextButton onClick={() => setRoute("logs")}>Logs</TextButton></li>
+                <li><Icon icon={GanttChartIcon} /><TextButton onClick={() => setRoute("apm")}>Traces</TextButton></li>
+                <li><Icon icon={GaugeIcon} /><TextButton onClick={() => setRoute("metrics")}>Metrics</TextButton></li>
+                <li><Icon icon={GitBranchIcon} /><span className={ui.mono}>git.internal/finspot/{e.id}</span></li>
               </ul>
             </Panel>
             <Panel title="SLA / SLO">
-              <dl className="ld-dl">
-                <dt>30-day SLA</dt><dd><span className={`ld-text-${slaTone}`}>{e.sla}%</span></dd>
+              <dl className={ui.dl}>
+                <dt>30-day SLA</dt><dd><span className={toneText[slaTone]}>{e.sla}%</span></dd>
                 <dt>Target</dt><dd>{SLA_TARGET}%</dd>
                 <dt>Error budget left</dt><dd>{budgetLeft ? `${budgetLeft}%` : "exhausted"}</dd>
               </dl>
@@ -211,65 +230,59 @@ export default function AppDetailScreen() {
       {/* ---------------- KUBERNETES ---------------- */}
       {tab === "kubernetes" && (
         e.cluster === "—" ? (
-          <div className="ld-card"><Empty>This entity is not deployed on Kubernetes ({e.type}).</Empty></div>
+          <Card><Empty>This entity is not deployed on Kubernetes ({e.type}).</Empty></Card>
         ) : (
           <>
             <Panel title={`Pods · ${pods.length} in ns/${e.ns}`}>
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead><tr><th scope="col">Pod</th><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Restarts</th><th scope="col">CPU</th><th scope="col">Memory</th><th scope="col">Age</th></tr></thead>
                   <tbody>
                     {pods.map((p) => (
-                      <tr key={p.name} className={p.status !== "Running" ? "ld-obs-row-crit" : undefined}>
-                        <td className="ld-mono">{p.name}</td>
-                        <td className="ld-mono">{p.node}</td>
-                        <td><Pill tone={p.status === "Running" ? "ok" : p.status === "Pending" ? "warn" : "crit"}><span className="ld-pill-dot" />{p.status}</Pill></td>
-                        <td className={p.restarts > 0 ? "ld-text-crit" : undefined}>{p.restarts}</td>
+                      <tr key={p.name} className={p.status !== "Running" ? rowCrit : undefined}>
+                        <td className={cellMono}>{p.name}</td>
+                        <td className={cellMono}>{p.node}</td>
+                        <td><Pill tone={p.status === "Running" ? "ok" : p.status === "Pending" ? "warn" : "crit"}><PillDot />{p.status}</Pill></td>
+                        <td className={p.restarts > 0 ? cellTone.crit : undefined}>{p.restarts}</td>
                         <td><Pill tone={loadTone(p.cpu)}>{p.cpu}%</Pill></td>
                         <td><Pill tone={loadTone(p.mem)}>{p.mem}%</Pill></td>
-                        <td className="ld-muted">{p.age}</td>
+                        <td>{p.age}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
             </Panel>
-            <div className="ld-grid ld-grid-2">
+            <div className={cx(ui.grid, ui.cols[2])}>
               <Panel title="Services & ingress">
-                <div className="ld-table-wrap">
-                  <table className="ld-table">
+                <Table>
                     <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Detail</th></tr></thead>
                     <tbody>
-                      {services.map((s) => <tr key={s.name}><td className="ld-mono">{s.name}</td><td><Pill tone="muted">{s.type}</Pill></td><td className="ld-mono">{s.clusterIP} · {s.ports}</td></tr>)}
-                      {ingress.map((g) => <tr key={g.name}><td className="ld-mono">{g.name}</td><td><Pill tone="muted">Ingress</Pill></td><td className="ld-mono">{g.host} · {g.path} · {g.tls}</td></tr>)}
+                      {services.map((s) => <tr key={s.name}><td className={cellMono}>{s.name}</td><td><Pill tone="muted">{s.type}</Pill></td><td className={cellMono}>{s.clusterIP} · {s.ports}</td></tr>)}
+                      {ingress.map((g) => <tr key={g.name}><td className={cellMono}>{g.name}</td><td><Pill tone="muted">Ingress</Pill></td><td className={cellMono}>{g.host} · {g.path} · {g.tls}</td></tr>)}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
               </Panel>
               <Panel title="PVC & config">
-                <dl className="ld-dl">
+                <dl className={ui.dl}>
                   <dt>Volume claims</dt>
-                  <dd>{pvcs.length ? pvcs.map((p) => <span key={p.name} className="ld-sub"><span className="ld-mono">{p.name}</span> · {p.size} · {p.class} · <Pill tone="ok">{p.status}</Pill></span>) : "No PVCs — stateless workload"}</dd>
+                  <dd>{pvcs.length ? pvcs.map((p) => <span key={p.name} className={ui.sub}><span className={ui.mono}>{p.name}</span> · {p.size} · {p.class} · <Pill tone="ok">{p.status}</Pill></span>) : "No PVCs — stateless workload"}</dd>
                   <dt>ConfigMaps</dt>
-                  <dd>{configMaps.map((c) => <span key={c.name} className="ld-sub ld-mono">{c.name}</span>)}</dd>
+                  <dd>{configMaps.map((c) => <span key={c.name} className={cx(ui.sub, "font-mono font-semibold")}>{c.name}</span>)}</dd>
                 </dl>
               </Panel>
             </div>
             <Panel title="Secrets · reference only, values never displayed">
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead><tr><th scope="col">Secret</th><th scope="col">Keys</th><th scope="col">Value</th></tr></thead>
                   <tbody>
                     {secrets.map((s) => (
                       <tr key={s.name}>
-                        <td className="ld-mono">{s.name}</td>
-                        <td><ul className="ld-tags ld-obs-tags-left">{s.keys.map(k => <li key={k} className="ld-tag ld-mono">{k}</li>)}</ul></td>
-                        <td className="ld-muted"><span className="sr-only">Hidden</span><span aria-hidden="true">••••••••</span> <Icon icon={LockIcon} /></td>
+                        <td className={cellMono}>{s.name}</td>
+                        <td><ul className="list-none flex flex-wrap justify-start gap-1.5 m-0 p-0">{s.keys.map(k => <li key={k} className={cx(ui.tag, "font-mono")}>{k}</li>)}</ul></td>
+                        <td><span className="sr-only">Hidden</span><span aria-hidden="true">••••••••</span> <Icon icon={LockIcon} /></td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
             </Panel>
           </>
         )
@@ -279,26 +292,24 @@ export default function AppDetailScreen() {
       {tab === "dependencies" && (
         <>
           <Panel title="Infrastructure relationship flow">
-            <ol className="ld-obs-flow" aria-label="Request path">
+            <ol className={flow} aria-label="Request path">
               {path.map((step, i) => (
                 <li key={step + i}>
-                  <span className={`ld-obs-step${i === 5 ? " ld-obs-self" : ""}`}>{step}</span>
+                  <span className={cx(stepBox, i === 5 ? "border-accent shadow-[0_0_0_3px_var(--info-bg)]" : "border-line-strong")}>{step}</span>
                   {i < path.length - 1 && <Icon icon={ArrowRightIcon} />}
                 </li>
               ))}
             </ol>
           </Panel>
           <Panel title={`Dependencies · ${dependencies.length} downstream`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead><tr><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Role</th><th scope="col">Host</th></tr></thead>
                 <tbody>
                   {dependencies.map((d) => (
-                    <tr key={d.name}><td className="ld-strong">{d.name}</td><td><Pill tone="muted">{d.kind}</Pill></td><td>{d.role}</td><td className="ld-mono">{d.host}</td></tr>
+                    <tr key={d.name}><td className="font-medium">{d.name}</td><td><Pill tone="muted">{d.kind}</Pill></td><td>{d.role}</td><td className={cellMono}>{d.host}</td></tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
         </>
       )}
@@ -307,31 +318,29 @@ export default function AppDetailScreen() {
       {tab === "deployments" && (
         <>
           <Panel title="CI/CD pipeline">
-            <div className="ld-obs-tiles">
+            <div className={tiles}>
               {cicd.map((c) => (
-                <div key={c.stage} className="ld-obs-tile">
+                <div key={c.stage} className={tile}>
                   <Icon className={`fa-solid ${c.icon}`} />
-                  <span className="ld-obs-label">{c.stage}</span>
-                  <span className="ld-mono">{c.detail}</span>
-                  <span className="ld-muted ld-small">{c.sub}</span>
+                  <span className={tileLabel}>{c.stage}</span>
+                  <span className={ui.mono}>{c.detail}</span>
+                  <span className="text-fg-muted text-xs">{c.sub}</span>
                 </div>
               ))}
             </div>
           </Panel>
           <Panel title={`Deployment history · ${deployHistory.length} in last 7d`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead><tr><th scope="col">Version</th><th scope="col">Author</th><th scope="col">When</th><th scope="col">Commits</th><th scope="col">Outcome</th></tr></thead>
                 <tbody>
                   {deployHistory.map((d) => (
                     <tr key={d.v}>
-                      <td className="ld-mono">{d.v}</td><td className="ld-mono">{d.who}</td><td className="ld-muted">{d.when}</td><td>{d.commits}</td>
+                      <td className={cellMono}>{d.v}</td><td className={cellMono}>{d.who}</td><td>{d.when}</td><td>{d.commits}</td>
                       <td><Pill tone={outcomeTone(d.outcome)}>{d.outcome}</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
         </>
       )}
@@ -341,65 +350,61 @@ export default function AppDetailScreen() {
         <>
           <Panel title={`Active alerts (${activeAlerts.length})`} action={{ label: "Alert console", onClick: () => setRoute("alerts") }}>
             {activeAlerts.length ? (
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead><tr><th scope="col">Severity</th><th scope="col">Alert</th><th scope="col">Source</th><th scope="col">Since</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
                   <tbody>
                     {activeAlerts.map((a, i) => (
                       <tr key={i}>
-                        <td><Pill tone={a.sev === "critical" ? "crit" : "warn"}><span className="ld-pill-dot" />{a.sev}</Pill></td>
-                        <td className="ld-strong ld-wrap">{a.title}</td>
-                        <td className="ld-mono">{a.source}</td>
-                        <td className="ld-muted">{a.since}</td>
-                        <td><button type="button" className="ld-btn ld-btn-sm">Acknowledge</button></td>
+                        <td><Pill tone={a.sev === "critical" ? "crit" : "warn"}><PillDot />{a.sev}</Pill></td>
+                        <td className={cx("font-medium", ui.cellWrap)}>{a.title}</td>
+                        <td className={cellMono}>{a.source}</td>
+                        <td>{a.since}</td>
+                        <td><Button size="sm">Acknowledge</Button></td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
             ) : (
-              <Empty><Icon icon={CircleCheckIcon} className="ld-text-ok" /> No active alerts</Empty>
+              <Empty><Icon icon={CircleCheckIcon} className={toneText.ok} /> No active alerts</Empty>
             )}
           </Panel>
           <Panel title={`Incident history · ${incidentHistory.length} records`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead><tr><th scope="col">Incident</th><th scope="col">Title</th><th scope="col">When</th><th scope="col">Status</th></tr></thead>
                 <tbody>
                   {incidentHistory.map((n) => (
                     <tr key={n.id}>
-                      <td className="ld-mono">{n.id}</td><td className="ld-wrap">{n.title}</td><td className="ld-muted">{n.when}</td>
+                      <td className={cellMono}>{n.id}</td><td className={ui.cellWrap}>{n.title}</td><td>{n.when}</td>
                       <td><Pill tone={n.status === "active" ? "crit" : "ok"}>{n.status}</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           </Panel>
         </>
       )}
 
       {/* ---------------- RUNBOOK & OWNERSHIP ---------------- */}
       {tab === "runbook" && (
-        <div className="ld-grid ld-grid-2">
+        <div className={cx(ui.grid, ui.cols[2])}>
           <Panel title="Runbook & documentation">
-            <dl className="ld-dl">
-              <dt>Runbook</dt><dd className="ld-mono">{e.runbook}</dd>
+            <dl className={ui.dl}>
+              <dt>Runbook</dt><dd className={ui.mono}>{e.runbook}</dd>
               <dt>Architecture doc</dt><dd>Confluence · {e.id} design doc</dd>
               <dt>On-call rotation</dt><dd>{e.team} · PagerDuty schedule</dd>
               <dt>Escalation policy</dt><dd>P1 → team lead → SRE Platform</dd>
             </dl>
           </Panel>
           <Panel title="Owner contacts">
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               <dt>Team</dt><dd>{e.team}</dd>
-              <dt>On-call</dt><dd>{owner ? <>{owner.name}<span className="ld-sub">{owner.team}</span></> : "Unassigned"}</dd>
-              <dt>Slack</dt><dd className="ld-mono">#{e.team.toLowerCase()}</dd>
+              <dt>On-call</dt><dd>{owner ? <>{owner.name}<span className={ui.sub}>{owner.team}</span></> : "Unassigned"}</dd>
+              <dt>Slack</dt><dd className={ui.mono}>#{e.team.toLowerCase()}</dd>
               <dt>Business owner</dt><dd>{e.client} · Platform</dd>
             </dl>
           </Panel>
         </div>
       )}
-    </div>
+    </Page>
   );
 }
