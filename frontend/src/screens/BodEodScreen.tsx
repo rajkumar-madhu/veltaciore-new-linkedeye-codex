@@ -12,6 +12,8 @@ import { Panel, Pill, StatCard } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import "@/styles/trading.css";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, CircleCheckIcon, CircleHelpIcon, HistoryIcon, PlayIcon, RefreshCwIcon, TriangleAlertIcon } from "lucide-react";
 type StageState = "done" | "failed" | "active" | "pending" | "closed" | "nodata";
 
 interface Step { label: string; ok: boolean | null; }  // null = not reported
@@ -138,9 +140,9 @@ export default function BodEodScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD / EOD</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD/EOD Status</span>
       </nav>
 
@@ -151,13 +153,13 @@ export default function BodEodScreen() {
         </div>
         <div className="ld-head-actions">
           {bod.length === 0
-            ? <Pill tone="muted"><i className="fa-solid fa-circle-question" aria-hidden="true" /> BOD no results</Pill>
+            ? <Pill tone="muted"><Icon icon={CircleHelpIcon} /> BOD no results</Pill>
             : bodDown > 0
-              ? <Pill tone="crit"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> BOD {bodDown} open</Pill>
-              : <Pill tone="ok"><i className="fa-solid fa-circle-check" aria-hidden="true" /> BOD cleared</Pill>}
-          {current && <Pill tone="info"><i className="fa-solid fa-play" aria-hidden="true" /> {short(current)}</Pill>}
-          <button type="button" className="ld-btn" disabled title="Stage history is not connected yet"><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> History</button>
-          <button type="button" className="ld-btn" disabled title="Stage status feed is not connected yet"><i className="fa-solid fa-rotate" aria-hidden="true" /> Refresh</button>
+              ? <Pill tone="crit"><Icon icon={TriangleAlertIcon} /> BOD {bodDown} open</Pill>
+              : <Pill tone="ok"><Icon icon={CircleCheckIcon} /> BOD cleared</Pill>}
+          {current && <Pill tone="info"><Icon icon={PlayIcon} /> {short(current)}</Pill>}
+          <button type="button" className="ld-btn" disabled title="Stage history is not connected yet"><Icon icon={HistoryIcon} /> History</button>
+          <button type="button" className="ld-btn" disabled title="Stage status feed is not connected yet"><Icon icon={RefreshCwIcon} /> Refresh</button>
         </div>
       </div>
 
@@ -179,7 +181,7 @@ export default function BodEodScreen() {
             const m = stateMeta[s.state];
             return (
               <li key={s.id} className="ld-trading-stage">
-                <span className={`ld-trading-marker ld-${m.tone}`} aria-hidden="true"><i className={`fa-solid ${m.icon}`} /></span>
+                <span className={`ld-trading-marker ld-${m.tone}`} aria-hidden="true"><Icon className={`fa-solid ${m.icon}`} /></span>
                 <div className="ld-trading-stage-body">
                   <div className="ld-trading-stage-head">
                     <h3>{s.title}</h3>
@@ -191,7 +193,7 @@ export default function BodEodScreen() {
                   <ul className="ld-trading-steps">
                     {s.steps.map((st) => (
                       <li key={st.label} className={st.ok === null ? "pending" : undefined}>
-                        <i className={`fa-solid ${st.ok === null ? "fa-circle-dot none" : st.ok ? "fa-circle-check ok" : "fa-circle-xmark fail"}`} aria-hidden="true" />
+                        <Icon className={`fa-solid ${st.ok === null ? "fa-circle-dot none" : st.ok ? "fa-circle-check ok" : "fa-circle-xmark fail"}`} />
                         <span>{st.label}</span>
                         <span className="sr-only">{st.ok === null ? "(not reported)" : st.ok ? "(ok)" : "(failed)"}</span>
                       </li>

@@ -11,6 +11,8 @@ import type { Tone } from "@/components/ld";
 import { TimeChart } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FlaskConicalIcon, MapPinnedIcon, PlusIcon } from "lucide-react";
 interface Check {
   id: string;
   name: string;
@@ -89,7 +91,7 @@ export default function SyntheticsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Synthetic Monitoring</span>
       </nav>
 
@@ -99,13 +101,13 @@ export default function SyntheticsScreen() {
           <p>Uptime &amp; API checks from {LOCATIONS.length} probe locations</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-map-location-dot" aria-hidden="true" /> Locations</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Check</button>
+          <button type="button" className="ld-btn"><Icon icon={MapPinnedIcon} /> Locations</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Check</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">Synthetic probes are not connected yet. The checks, latencies and waterfall below are illustrative; summary figures are computed from them.</p>
@@ -147,7 +149,7 @@ export default function SyntheticsScreen() {
                         <td><Pill tone="muted">{c.type}</Pill></td>
                         <td className={uptimeClass(c.uptime)}>{c.uptime.toFixed(2)}%</td>
                         <td>{c.p95}ms</td>
-                        <td><Pill tone={st.tone}><i className={`fa-solid ${st.icon}`} aria-hidden="true" /> {st.label}</Pill></td>
+                        <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
                         <td className="ld-muted">{c.interval}</td>
                         <td className="ld-muted">{c.lastRun}</td>
                       </tr>
@@ -186,7 +188,7 @@ export default function SyntheticsScreen() {
             <ul className="ld-obs-list">
               {assertions.map(([label, pass]) => (
                 <li key={label}>
-                  <i className={`fa-solid ${pass ? "fa-circle-check ld-text-ok" : "fa-circle-xmark ld-text-crit"}`} aria-hidden="true" />
+                  <Icon className={`fa-solid ${pass ? "fa-circle-check ld-text-ok" : "fa-circle-xmark ld-text-crit"}`} />
                   <span>{label}</span>
                   <span className="sr-only">{pass ? "passing" : "failing"}</span>
                 </li>

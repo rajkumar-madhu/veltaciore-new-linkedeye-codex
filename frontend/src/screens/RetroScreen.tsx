@@ -7,6 +7,8 @@ import { USERS } from "@/data/core";
 import { Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { CheckIcon, ChevronRightIcon, CircleCheckIcon, CircleIcon, ClipboardCheckIcon, FileTextIcon, PencilIcon, Share2Icon, UserIcon, XIcon } from "lucide-react";
 const TIMELINE: { t: string; label: string; who: string; text: string; tone: Tone }[] = [
   { t: "14:02", label: "Detected", who: "prometheus-alertmanager", text: "Error rate on payments-api crossed 5% threshold. Alert fired.", tone: "crit" },
   { t: "14:04", label: "Acknowledged", who: "Priya Raghunathan", text: "On-call ack'd within 2 minutes. Sev-1 declared, war room opened.", tone: "warn" },
@@ -62,24 +64,24 @@ export default function RetroScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("incidents")}>Incidents</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("incident-detail")}>INC-48279</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Retrospective</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-purple" aria-hidden="true"><i className="fa-solid fa-clipboard-check" /></span>
+          <span className="ld-tile ld-purple" aria-hidden="true"><Icon icon={ClipboardCheckIcon} /></span>
           <div>
             <span className="ld-sd-number">PIR-48279</span>
             <h1 className="ld-entity-title">
               Post-Incident Review — Payments connection pool exhaustion
               <Pill tone="crit">Sev-1</Pill>
               <Pill tone="ok"><span className="ld-pill-dot" />Resolved</Pill>
-              <Pill tone="info"><i className="fa-solid fa-pen" aria-hidden="true" /> Review: Draft</Pill>
+              <Pill tone="info"><Icon icon={PencilIcon} /> Review: Draft</Pill>
             </h1>
             <p className="ld-entity-meta">
               <span>INC-48279</span>
@@ -91,9 +93,9 @@ export default function RetroScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-file-pdf" aria-hidden="true" /> Export PDF</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-share-nodes" aria-hidden="true" /> Share</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-circle-check" aria-hidden="true" /> Publish review</button>
+            <button type="button" className="ld-btn"><Icon icon={FileTextIcon} /> Export PDF</button>
+            <button type="button" className="ld-btn"><Icon icon={Share2Icon} /> Share</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={CircleCheckIcon} /> Publish review</button>
           </div>
         </div>
       </div>
@@ -101,7 +103,7 @@ export default function RetroScreen() {
       <div className="ld-grid ld-grid-5">
         {timings.map((k) => (
           <div key={k.label} className="ld-card ld-stat ld-sd-stat">
-            <span className={`ld-tile ld-${k.tone}`} aria-hidden="true"><i className={`fa-solid ${k.icon}`} /></span>
+            <span className={`ld-tile ld-${k.tone}`} aria-hidden="true"><Icon className={`fa-solid ${k.icon}`} /></span>
             <span className="ld-stat-body">
               <span className="ld-stat-label">{k.label}</span>
               <span className="ld-stat-value">{k.value}</span>
@@ -133,9 +135,9 @@ export default function RetroScreen() {
               {TIMELINE.map((e, i) => (
                 <li key={i}>
                   <span className="ld-sd-time">{e.t}</span>
-                  <span className={`ld-tile ld-tile-sm ld-${e.tone}`} aria-hidden="true"><i className="fa-solid fa-circle" /></span>
+                  <span className={`ld-tile ld-tile-sm ld-${e.tone}`} aria-hidden="true"><Icon icon={CircleIcon} /></span>
                   <div className="ld-sd-entry">
-                    <div className="ld-sd-entry-meta"><b>{e.label}</b><span><i className="fa-regular fa-user" aria-hidden="true" /> {e.who}</span></div>
+                    <div className="ld-sd-entry-meta"><b>{e.label}</b><span><Icon icon={UserIcon} /> {e.who}</span></div>
                     <div className="ld-sd-entry-text">{e.text}</div>
                   </div>
                 </li>
@@ -160,12 +162,12 @@ export default function RetroScreen() {
           <div className="ld-grid ld-grid-2">
             <Panel title="What went well">
               <ul className="ld-sd-list ld-sd-list-plain">
-                {WELL.map((x, i) => <li key={i}><i className="fa-solid fa-check ld-text-ok" aria-hidden="true" /> <span>{x}</span></li>)}
+                {WELL.map((x, i) => <li key={i}><Icon icon={CheckIcon} className="ld-text-ok" /> <span>{x}</span></li>)}
               </ul>
             </Panel>
             <Panel title="What to improve">
               <ul className="ld-sd-list ld-sd-list-plain">
-                {WRONG.map((x, i) => <li key={i}><i className="fa-solid fa-xmark ld-text-crit" aria-hidden="true" /> <span>{x}</span></li>)}
+                {WRONG.map((x, i) => <li key={i}><Icon icon={XIcon} className="ld-text-crit" /> <span>{x}</span></li>)}
               </ul>
             </Panel>
           </div>
@@ -201,7 +203,7 @@ export default function RetroScreen() {
               {STAGES.map(([s, st]) => (
                 <li key={s} aria-current={st === "active" ? "step" : undefined}>
                   <Pill tone={st === "done" ? "ok" : st === "active" ? "info" : "muted"}>
-                    <i className={`fa-solid ${st === "done" ? "fa-check" : st === "active" ? "fa-pen" : "fa-circle"}`} aria-hidden="true" /> {s}
+                    <Icon className={`fa-solid ${st === "done" ? "fa-check" : st === "active" ? "fa-pen" : "fa-circle"}`} /> {s}
                   </Pill>
                 </li>
               ))}

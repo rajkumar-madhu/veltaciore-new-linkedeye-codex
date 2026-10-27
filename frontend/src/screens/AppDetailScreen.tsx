@@ -13,6 +13,8 @@ import { Sparkline } from "@/components/MetricCharts";
 import { getStatusLabel } from "@/lib/statusColors";
 import { CATALOG_ENTITIES, errTone, fmtRt, healthTone, loadTone, outcomeTone } from "@/screens/APMCatalogScreen";
 
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, BellIcon, BoxIcon, Building2Icon, ChevronRightIcon, CircleCheckIcon, CodeIcon, FlaskConicalIcon, GanttChartIcon, GaugeIcon, GitBranchIcon, LineChartIcon, ListIcon, LockIcon } from "lucide-react";
 const SLA_TARGET = 99.9;
 
 export default function AppDetailScreen() {
@@ -92,15 +94,15 @@ export default function AppDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("apm-catalog")}>Application Catalog</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{e.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className={`ld-tile ld-${healthTone(e.health)}`} aria-hidden="true"><i className="fa-solid fa-cube" /></span>
+          <span className={`ld-tile ld-${healthTone(e.health)}`} aria-hidden="true"><Icon icon={BoxIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {e.id}
@@ -118,20 +120,20 @@ export default function AppDetailScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn" onClick={() => setRoute("apm")}><i className="fa-solid fa-chart-line" aria-hidden="true" /> View traces</button>
-            <button type="button" className="ld-btn" onClick={() => setRoute("logs")}><i className="fa-solid fa-list-ul" aria-hidden="true" /> View logs</button>
-            <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("monitors")}><i className="fa-solid fa-bell" aria-hidden="true" /> Add alert</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("apm")}><Icon icon={LineChartIcon} /> View traces</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("logs")}><Icon icon={ListIcon} /> View logs</button>
+            <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Add alert</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
-            <li className="ld-tag"><i className="fa-solid fa-cube" aria-hidden="true" /> {e.type}</li>
-            <li className="ld-tag"><i className="fa-solid fa-building" aria-hidden="true" /> {e.client}</li>
-            <li className="ld-tag"><i className="fa-solid fa-code" aria-hidden="true" /> {e.lang}</li>
+            <li className="ld-tag"><Icon icon={BoxIcon} /> {e.type}</li>
+            <li className="ld-tag"><Icon icon={Building2Icon} /> {e.client}</li>
+            <li className="ld-tag"><Icon icon={CodeIcon} /> {e.lang}</li>
           </ul>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">The application catalog, metrics and Kubernetes APIs are not connected yet. This page is generated from the sample catalog entry for {e.id}.</p>
@@ -150,7 +152,7 @@ export default function AppDetailScreen() {
       <div className="ld-tabs" role="tablist" aria-label={`${e.id} sections`}>
         {TABS.map(([id, label, icon]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ld-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>
-            <i className={`fa-solid ${icon}`} aria-hidden="true" /> {label}
+            <Icon className={`fa-solid ${icon}`} /> {label}
             {id === "alerts" && e.alerts > 0 && <> <Pill tone="crit">{e.alerts}</Pill></>}
           </button>
         ))}
@@ -189,10 +191,10 @@ export default function AppDetailScreen() {
           <div className="ld-rail">
             <Panel title="Quick links">
               <ul className="ld-obs-list">
-                <li><i className="fa-solid fa-list-ul" aria-hidden="true" /><button type="button" className="ld-link" onClick={() => setRoute("logs")}>Logs</button></li>
-                <li><i className="fa-solid fa-timeline" aria-hidden="true" /><button type="button" className="ld-link" onClick={() => setRoute("apm")}>Traces</button></li>
-                <li><i className="fa-solid fa-gauge-high" aria-hidden="true" /><button type="button" className="ld-link" onClick={() => setRoute("metrics")}>Metrics</button></li>
-                <li><i className="fa-solid fa-code-branch" aria-hidden="true" /><span className="ld-mono">git.internal/finspot/{e.id}</span></li>
+                <li><Icon icon={ListIcon} /><button type="button" className="ld-link" onClick={() => setRoute("logs")}>Logs</button></li>
+                <li><Icon icon={GanttChartIcon} /><button type="button" className="ld-link" onClick={() => setRoute("apm")}>Traces</button></li>
+                <li><Icon icon={GaugeIcon} /><button type="button" className="ld-link" onClick={() => setRoute("metrics")}>Metrics</button></li>
+                <li><Icon icon={GitBranchIcon} /><span className="ld-mono">git.internal/finspot/{e.id}</span></li>
               </ul>
             </Panel>
             <Panel title="SLA / SLO">
@@ -262,7 +264,7 @@ export default function AppDetailScreen() {
                       <tr key={s.name}>
                         <td className="ld-mono">{s.name}</td>
                         <td><ul className="ld-tags ld-obs-tags-left">{s.keys.map(k => <li key={k} className="ld-tag ld-mono">{k}</li>)}</ul></td>
-                        <td className="ld-muted"><span className="sr-only">Hidden</span><span aria-hidden="true">••••••••</span> <i className="fa-solid fa-lock" aria-hidden="true" /></td>
+                        <td className="ld-muted"><span className="sr-only">Hidden</span><span aria-hidden="true">••••••••</span> <Icon icon={LockIcon} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -281,7 +283,7 @@ export default function AppDetailScreen() {
               {path.map((step, i) => (
                 <li key={step + i}>
                   <span className={`ld-obs-step${i === 5 ? " ld-obs-self" : ""}`}>{step}</span>
-                  {i < path.length - 1 && <i className="fa-solid fa-arrow-right" aria-hidden="true" />}
+                  {i < path.length - 1 && <Icon icon={ArrowRightIcon} />}
                 </li>
               ))}
             </ol>
@@ -308,7 +310,7 @@ export default function AppDetailScreen() {
             <div className="ld-obs-tiles">
               {cicd.map((c) => (
                 <div key={c.stage} className="ld-obs-tile">
-                  <i className={`fa-solid ${c.icon}`} aria-hidden="true" />
+                  <Icon className={`fa-solid ${c.icon}`} />
                   <span className="ld-obs-label">{c.stage}</span>
                   <span className="ld-mono">{c.detail}</span>
                   <span className="ld-muted ld-small">{c.sub}</span>
@@ -356,7 +358,7 @@ export default function AppDetailScreen() {
                 </table>
               </div>
             ) : (
-              <Empty><i className="fa-solid fa-circle-check ld-text-ok" aria-hidden="true" /> No active alerts</Empty>
+              <Empty><Icon icon={CircleCheckIcon} className="ld-text-ok" /> No active alerts</Empty>
             )}
           </Panel>
           <Panel title={`Incident history · ${incidentHistory.length} records`}>

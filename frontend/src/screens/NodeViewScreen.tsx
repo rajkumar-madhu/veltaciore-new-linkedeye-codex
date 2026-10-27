@@ -14,6 +14,8 @@ import { TimeChart } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 import { wave as sharedWave } from "@/lib/series";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, ClockIcon, CpuIcon, FlaskConicalIcon, RefreshCwIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react";
 const wave = (seed: number, base: number, amp: number, n?: number) => sharedWave(seed, base, amp, { n, f1: 0.7, f2: 1.6, floor: true });
 
 const NODE = {
@@ -87,15 +89,15 @@ export default function NodeViewScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Node · {NODE.host}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-os-logo ld-os-linux" aria-hidden="true"><i className="fa-brands fa-linux" /></span>
+          <span className="ld-os-logo ld-os-linux" aria-hidden="true"><Icon icon={TerminalIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {NODE.host}
@@ -110,18 +112,18 @@ export default function NodeViewScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-terminal" aria-hidden="true" /> SSH</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> 1s refresh</button>
+            <button type="button" className="ld-btn"><Icon icon={SquareTerminalIcon} /> SSH</button>
+            <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> 1s refresh</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
-            <li className="ld-tag"><i className="fa-solid fa-microchip" aria-hidden="true" /> {NODE.cores} cores</li>
-            <li className="ld-tag"><i className="fa-solid fa-clock" aria-hidden="true" /> up {NODE.uptime}</li>
+            <li className="ld-tag"><Icon icon={CpuIcon} /> {NODE.cores} cores</li>
+            <li className="ld-tag"><Icon icon={ClockIcon} /> up {NODE.uptime}</li>
           </ul>
         </div>
       </div>
 
       <div className="ld-card ld-infra-sample" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">This node view is a layout preview with generated values. Open a server from the asset inventory for live Prometheus charts.</p>

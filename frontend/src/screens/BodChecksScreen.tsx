@@ -11,6 +11,8 @@ import { Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import "@/styles/trading.css";
 
+import { Icon } from "@/components/Icon";
+import { ChevronDownIcon, ChevronRightIcon, CircleCheckIcon, CircleXIcon, MailIcon, RefreshCwIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
 // status model (from the checkers): 0 unreachable / SSL-critical (red),
 // 1 HTTP-4xx / SSL-warn (amber), 2 OK (green), 3 timeout (grey-red).
 type St = 0 | 1 | 2 | 3;
@@ -21,7 +23,7 @@ const ST_PILL: Record<St, { tone: Tone; label: string; icon: string }> = {
   3: { tone: "muted", label: "Timeout", icon: "fa-clock" },
 };
 const pill = (s: St) => (
-  <Pill tone={ST_PILL[s].tone}><i className={`fa-solid ${ST_PILL[s].icon}`} aria-hidden="true" /> {ST_PILL[s].label}</Pill>
+  <Pill tone={ST_PILL[s].tone}><Icon className={`fa-solid ${ST_PILL[s].icon}`} /> {ST_PILL[s].label}</Pill>
 );
 const rowTone = (s: St) => (s === 0 || s === 3 ? "ld-trading-row-crit" : s === 1 ? "ld-trading-row-warn" : undefined);
 const daysTone = (days: number | null, warn: number, crit: number) =>
@@ -36,7 +38,7 @@ function Section({ id, title, badge, collapsed, onToggle, children }: {
       <div className="ld-panel-head">
         <h2 id={`bod-${id}-h`}>
           <button type="button" className="ld-trading-toggle" aria-expanded={!collapsed} aria-controls={`bod-${id}-body`} onClick={() => onToggle(id)}>
-            <i className="fa-solid fa-chevron-down" aria-hidden="true" /> {title}
+            <Icon icon={ChevronDownIcon} /> {title}
           </button>
         </h2>
         <Pill tone="muted">{badge}</Pill>
@@ -116,9 +118,9 @@ export default function BodChecksScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD / EOD</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD Checks</span>
       </nav>
 
@@ -129,17 +131,17 @@ export default function BodChecksScreen() {
         </div>
         <div className="ld-head-actions">
           {bodReady
-            ? <Pill tone="ok"><i className="fa-solid fa-circle-check" aria-hidden="true" /> BOD ready</Pill>
-            : <Pill tone="crit"><i className="fa-solid fa-circle-xmark" aria-hidden="true" /> BOD not ready · {red} down</Pill>}
-          {amber > 0 && <Pill tone="warn"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {amber} warning</Pill>}
-          <button type="button" className="ld-btn" disabled title="Not wired to the checker service yet"><i className="fa-solid fa-rotate" aria-hidden="true" /> Re-run BOD</button>
-          <button type="button" className="ld-btn" disabled title="Not wired to the notify service yet"><i className="fa-solid fa-envelope" aria-hidden="true" /> Send summary</button>
+            ? <Pill tone="ok"><Icon icon={CircleCheckIcon} /> BOD ready</Pill>
+            : <Pill tone="crit"><Icon icon={CircleXIcon} /> BOD not ready · {red} down</Pill>}
+          {amber > 0 && <Pill tone="warn"><Icon icon={TriangleAlertIcon} /> {amber} warning</Pill>}
+          <button type="button" className="ld-btn" disabled title="Not wired to the checker service yet"><Icon icon={RefreshCwIcon} /> Re-run BOD</button>
+          <button type="button" className="ld-btn" disabled title="Not wired to the notify service yet"><Icon icon={MailIcon} /> Send summary</button>
         </div>
       </div>
 
       {!live && (
         <div className="ld-card ld-trading-note warn" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <p><b>No results from /infra/bod-checks/.</b> Showing the reference target list from url.yaml / telnet.yaml with its last recorded results, not a live run.</p>
         </div>
       )}
@@ -156,7 +158,7 @@ export default function BodChecksScreen() {
           {flow.map(([ic, k, v]) => (
             <li key={k}>
               <div className="ld-trading-flow-node">
-                <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><i className={`fa-solid ${ic}`} /></span>
+                <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><Icon className={`fa-solid ${ic}`} /></span>
                 <div><b>{k}</b><span>{v}</span></div>
               </div>
             </li>

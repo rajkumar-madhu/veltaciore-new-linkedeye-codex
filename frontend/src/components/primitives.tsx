@@ -3,6 +3,7 @@
 import React from "react";
 import { USERS } from "@/data/core";
 
+import { Icon } from "@/components/Icon";
 export const Avatar = ({ name, color = "slate", size }: { name: string; color?: string; size?: string }) => {
   const initials = name.split(" ").map((n) => n[0]).slice(0, 2).join("");
   return <div className={`avatar ${color}${size ? " " + size : ""}`}>{initials}</div>;
@@ -144,11 +145,11 @@ export const KPI = ({ label, value, unit, delta, deltaKind = "up", sparkData, sp
   showSpark?: boolean;
 }) => (
   <div className="kpi">
-    <div className="kpi-label">{icon && <i className={`fa-solid ${icon}`} style={{ fontSize: 11 }} />} {label}</div>
+    <div className="kpi-label">{icon && <Icon className={`fa-solid ${icon}`} style={{ fontSize: 11 }} />} {label}</div>
     <div className="kpi-value">{value}{unit && <span className="unit">{unit}</span>}</div>
     {delta != null && (
       <div className={`kpi-delta ${deltaKind}`}>
-        <i className={`fa-solid ${deltaKind === "up" ? "fa-arrow-trend-up" : deltaKind === "down" ? "fa-arrow-trend-down" : "fa-minus"}`} />
+        <Icon className={`fa-solid ${deltaKind === "up" ? "fa-arrow-trend-up" : deltaKind === "down" ? "fa-arrow-trend-down" : "fa-minus"}`} />
         {delta}
       </div>
     )}
@@ -169,7 +170,7 @@ export function FormSection({ id, title, badge, collapsed, onToggle, children }:
   return (
     <div className="sn-form-section">
       <div className="sn-section-header" onClick={() => onToggle && onToggle(id)}>
-        <i className={`fa-solid fa-chevron-${collapsed ? "right" : "down"}`} />
+        <Icon className={`fa-solid fa-chevron-${collapsed ? "right" : "down"}`} />
         <span className="sn-section-title">{title}</span>
         {badge && <span className="sn-section-badge">{badge}</span>}
       </div>

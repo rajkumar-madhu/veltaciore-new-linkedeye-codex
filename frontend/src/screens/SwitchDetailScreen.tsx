@@ -20,6 +20,8 @@ import { LiveButton, MetricsBody, RangeSelect, TimeChart, fmtValue, SampleNotice
 import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
 import { DeviceFamily } from "@/components/DeviceFamily";
 
+import { Icon } from "@/components/Icon";
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, ExternalLinkIcon, NetworkIcon, UnplugIcon } from "lucide-react";
 const STATUS: Record<string, { label: string; tone: Tone }> = {
   ok: { label: "Online", tone: "ok" },
   warn: { label: "Warning", tone: "warn" },
@@ -281,17 +283,17 @@ export default function SwitchDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra-assets")}>Nodes</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{d.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-devices-tile" aria-hidden="true"><i className="fa-solid fa-network-wired" /></span>
+          <span className="ld-devices-tile" aria-hidden="true"><Icon icon={NetworkIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {d.hostname || d.id}
@@ -313,11 +315,11 @@ export default function SwitchDetailScreen() {
           <div className="ld-head-actions">
             <RangeSelect />
             <LiveButton />
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> View in map</button>
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-device", { deviceId: d.id })}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Device monitoring</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-device", { deviceId: d.id })}><Icon icon={ExternalLinkIcon} /> Device monitoring</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
-            {tags.map((t) => <li key={t.label} className="ld-tag"><i className={t.icon} aria-hidden="true" /> {t.label}</li>)}
+            {tags.map((t) => <li key={t.label} className="ld-tag"><Icon className={t.icon} /> {t.label}</li>)}
           </ul>
         </div>
       </div>
@@ -325,7 +327,7 @@ export default function SwitchDetailScreen() {
       {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <div>
             <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
             <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards show the last values from the device record; charts fill in once the SNMP exporter is scraped.</p>
@@ -338,7 +340,7 @@ export default function SwitchDetailScreen() {
           sub={cpu ? undefined : fromRecord} points={cpu?.points} lowerIsBetter />
         <Kpi icon="fa-memory" tone="ok" label="Memory Usage" value={`${d.mem}%`} sub={fromRecord} />
         <Kpi icon="fa-network-wired" tone="purple" label="Traffic (Total)" value={net.length ? fmtValue(net[net.length - 1][1], "Mbps") : has(d.throughput) ? d.throughput : "n/a"}
-          sub={rx || tx ? <><span><i className="fa-solid fa-arrow-down" aria-hidden="true" /> {rx ? fmtValue(lastOf(rx)!, "Mbps") : "—"}</span> <span><i className="fa-solid fa-arrow-up" aria-hidden="true" /> {tx ? fmtValue(lastOf(tx)!, "Mbps") : "—"}</span></> : has(d.throughput) ? fromRecord : "needs SNMP metrics"}
+          sub={rx || tx ? <><span><Icon icon={ArrowDownIcon} /> {rx ? fmtValue(lastOf(rx)!, "Mbps") : "—"}</span> <span><Icon icon={ArrowUpIcon} /> {tx ? fmtValue(lastOf(tx)!, "Mbps") : "—"}</span></> : has(d.throughput) ? fromRecord : "needs SNMP metrics"}
           points={net.length ? net : undefined} color="#7c4dff" />
         <Kpi icon="fa-triangle-exclamation" tone="warn" label="Interface Errors" value={errs.length ? `${fmtValue(errs[errs.length - 1][1], "count")}/s` : "n/a"}
           sub={errs.length ? "in + out, all interfaces" : "needs SNMP metrics"} points={errs.length ? errs : undefined} color="#f97316" lowerIsBetter />

@@ -9,6 +9,8 @@ import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import { ConnectModal } from "@/screens/ConnectModal";
 import type { Integration } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { BookIcon, ChevronRightIcon, GripIcon, KeyRoundIcon, PlugIcon, PlusIcon } from "lucide-react";
 export default function IntegrationsScreen() {
   const { setRoute } = useNav();
   const [cat, setCat] = React.useState("all");
@@ -28,9 +30,9 @@ export default function IntegrationsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Build</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Integrations</span>
       </nav>
 
@@ -40,9 +42,9 @@ export default function IntegrationsScreen() {
           <p>{INTEGRATIONS.length} integrations · OAuth, API key and webhook support · bidirectional sync where applicable</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-book" aria-hidden="true" /> API Docs</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-key" aria-hidden="true" /> API Tokens</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Custom Webhook</button>
+          <button type="button" className="ld-btn"><Icon icon={BookIcon} /> API Docs</button>
+          <button type="button" className="ld-btn"><Icon icon={KeyRoundIcon} /> API Tokens</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Custom Webhook</button>
         </div>
       </div>
 
@@ -57,13 +59,13 @@ export default function IntegrationsScreen() {
         <div className="ld-panel-head"><h2 id="int-cat-h">Browse by Category</h2></div>
         <div className="ld-chips" role="group" aria-label="Filter by category">
           <button type="button" className={`ld-chip${cat === "all" ? " active" : ""}`} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
-            <i className="fa-solid fa-grip" aria-hidden="true" />
+            <Icon icon={GripIcon} />
             <span className="ld-chip-label">All</span>
             <span className="ld-chip-count">{INTEGRATIONS.length}</span>
           </button>
           {categories.map(c => (
             <button key={c} type="button" className={`ld-chip${cat === c ? " active" : ""}`} aria-pressed={cat === c} onClick={() => setCat(c)}>
-              <i className={`fa-solid ${catIcon(c)}`} aria-hidden="true" style={cat === c ? undefined : { color: catColor(c) }} />
+              <Icon className={`fa-solid ${catIcon(c)}`} style={cat === c ? undefined : { color: catColor(c) }} />
               <span className="ld-chip-label">{c}</span>
               <span className="ld-chip-count">{INTEGRATIONS.filter(i => i.category === c).length}</span>
             </button>
@@ -95,7 +97,7 @@ export default function IntegrationsScreen() {
                       <tr key={g.name}>
                         <td>
                           <div className="ld-admin-who">
-                            <span className="ld-tile ld-tile-sm" style={{ color: catColor(g.category), background: catColor(g.category) + "18" }} aria-hidden="true"><i className={g.icon} /></span>
+                            <span className="ld-tile ld-tile-sm" style={{ color: catColor(g.category), background: catColor(g.category) + "18" }} aria-hidden="true"><Icon className={g.icon} /></span>
                             <button type="button" className="ld-link ld-strong" onClick={() => setRoute("integration-detail", { integName: g.name })}>{g.name}</button>
                           </div>
                         </td>
@@ -105,7 +107,7 @@ export default function IntegrationsScreen() {
                         <td>
                           {isConnected(g)
                             ? <button type="button" className="ld-btn ld-btn-sm" onClick={() => setRoute("integration-detail", { integName: g.name })}>Manage</button>
-                            : <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={() => setConnectFor(g)}><i className="fa-solid fa-plug" aria-hidden="true" /> Connect</button>}
+                            : <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={() => setConnectFor(g)}><Icon icon={PlugIcon} /> Connect</button>}
                         </td>
                       </tr>
                     ))}

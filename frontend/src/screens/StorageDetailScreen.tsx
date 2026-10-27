@@ -21,6 +21,8 @@ import { LiveButton, MetricsBody, RangeSelect, fmtValue, SampleNotice } from "@/
 import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
 import { DeviceFamily } from "@/components/DeviceFamily";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, DatabaseIcon, ExternalLinkIcon, FlaskConicalIcon, NetworkIcon, UnplugIcon } from "lucide-react";
 const STORAGE_KINDS = ["storage", "nas"];
 
 const STATUS: Record<string, { label: string; tone: Tone }> = {
@@ -144,7 +146,7 @@ export default function StorageDetailScreen() {
 
   const sampleTable = (title: string, cols: string[], rows: string[][]) => (
     <Panel title={`${title} · Sample data — not connected`}>
-      <p className="ld-devices-sample"><i className="fa-solid fa-flask" aria-hidden="true" /> Illustrative values, not from {d.id}. This panel fills in once the array exporter ({d.agent || "vendor API"}) is connected.</p>
+      <p className="ld-devices-sample"><Icon icon={FlaskConicalIcon} /> Illustrative values, not from {d.id}. This panel fills in once the array exporter ({d.agent || "vendor API"}) is connected.</p>
       <div className="ld-table-wrap">
         <table className="ld-table">
           <thead><tr>{cols.map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
@@ -175,17 +177,17 @@ export default function StorageDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra-assets")}>Nodes</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{d.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-devices-tile" aria-hidden="true"><i className="fa-solid fa-database" /></span>
+          <span className="ld-devices-tile" aria-hidden="true"><Icon icon={DatabaseIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {d.hostname || d.id}
@@ -207,11 +209,11 @@ export default function StorageDetailScreen() {
           <div className="ld-head-actions">
             <RangeSelect />
             <LiveButton />
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> View in map</button>
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-device", { deviceId: d.id })}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Device monitoring</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-device", { deviceId: d.id })}><Icon icon={ExternalLinkIcon} /> Device monitoring</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
-            {tags.map((t) => <li key={t.label} className="ld-tag"><i className={t.icon} aria-hidden="true" /> {t.label}</li>)}
+            {tags.map((t) => <li key={t.label} className="ld-tag"><Icon className={t.icon} /> {t.label}</li>)}
           </ul>
         </div>
       </div>
@@ -219,7 +221,7 @@ export default function StorageDetailScreen() {
       {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <div>
             <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
             <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards show the last values from the device record; charts fill in once the array exporter is scraped.</p>

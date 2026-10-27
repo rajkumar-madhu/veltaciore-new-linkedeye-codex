@@ -11,6 +11,8 @@ import type { Tone } from "@/components/ld";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 
+import { Icon } from "@/components/Icon";
+import { BotIcon, CheckIcon, ChevronRightIcon, CircleCheckIcon, CopyIcon, FileInputIcon, HistoryIcon, LockIcon, PencilIcon, PlayIcon, PlusIcon, SquareIcon } from "lucide-react";
 interface Runbook {
   id: string;
   title: string;
@@ -99,9 +101,9 @@ export default function RunbooksScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Automation</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Runbooks</span>
       </nav>
 
@@ -112,9 +114,9 @@ export default function RunbooksScreen() {
         </div>
         <div className="ld-head-actions">
           <ReadOnlyBadge />
-          <button type="button" className="ld-btn"><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> Run History</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-import" aria-hidden="true" /> Import</button>
-          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Runbook</button>}
+          <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> Run History</button>
+          <button type="button" className="ld-btn"><Icon icon={FileInputIcon} /> Import</button>
+          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Runbook</button>}
         </div>
       </div>
 
@@ -134,7 +136,7 @@ export default function RunbooksScreen() {
             const meta = TAG_META[tag] ?? { label: tag, icon: "fa-tag", color: "#6b7785" };
             return (
               <span key={tag} className="ld-chip ld-choice-static">
-                <i className={`fa-solid ${meta.icon}`} style={{ color: meta.color }} aria-hidden="true" />
+                <Icon className={`fa-solid ${meta.icon}`} style={{ color: meta.color }} />
                 <span className="ld-chip-label">{meta.label}</span>
                 <span className="ld-chip-count">{n}</span>
               </span>
@@ -195,11 +197,11 @@ export default function RunbooksScreen() {
                         <td>
                           {canWrite ? (
                             <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={() => setRunning(r)} aria-label={`Run ${r.title}`}>
-                              <i className="fa-solid fa-play" aria-hidden="true" /> Run
+                              <Icon icon={PlayIcon} /> Run
                             </button>
                           ) : (
                             <button type="button" className="ld-btn ld-btn-sm" disabled title="Read-only">
-                              <i className="fa-solid fa-lock" aria-hidden="true" /> Run
+                              <Icon icon={LockIcon} /> Run
                             </button>
                           )}
                         </td>
@@ -232,11 +234,11 @@ export default function RunbooksScreen() {
             </pre>
             <div className="ld-admin-actions">
               {canWrite
-                ? <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRunning(RUNBOOKS[0])}><i className="fa-solid fa-play" aria-hidden="true" /> Dry Run</button>
-                : <button type="button" className="ld-btn" disabled title="Read-only"><i className="fa-solid fa-lock" aria-hidden="true" /> Dry Run</button>}
-              {canWrite && <button type="button" className="ld-btn"><i className="fa-solid fa-pen" aria-hidden="true" /> Edit</button>}
-              <button type="button" className="ld-btn"><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> History ({fmt(RUNBOOKS[0].runs)})</button>
-              <button type="button" className="ld-btn"><i className="fa-solid fa-copy" aria-hidden="true" /> Copy</button>
+                ? <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRunning(RUNBOOKS[0])}><Icon icon={PlayIcon} /> Dry Run</button>
+                : <button type="button" className="ld-btn" disabled title="Read-only"><Icon icon={LockIcon} /> Dry Run</button>}
+              {canWrite && <button type="button" className="ld-btn"><Icon icon={PencilIcon} /> Edit</button>}
+              <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> History ({fmt(RUNBOOKS[0].runs)})</button>
+              <button type="button" className="ld-btn"><Icon icon={CopyIcon} /> Copy</button>
             </div>
           </section>
         </div>
@@ -260,14 +262,14 @@ export default function RunbooksScreen() {
           <Panel title="Quick Actions">
             <div className="ld-admin-quick">
               {QUICK_ACTIONS.map(([ic, l]) => (
-                <button key={l} type="button" className="ld-btn ld-btn-sm"><i className={`fa-solid ${ic}`} aria-hidden="true" /> {l}</button>
+                <button key={l} type="button" className="ld-btn ld-btn-sm"><Icon className={`fa-solid ${ic}`} /> {l}</button>
               ))}
             </div>
           </Panel>
 
           <Panel title="AI Authoring">
             <p className="ld-small">Generate runbook drafts from resolved incidents.</p>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-robot" aria-hidden="true" /> Generate from INC-48291</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={BotIcon} /> Generate from INC-48291</button>
           </Panel>
         </div>
       </div>
@@ -307,7 +309,7 @@ function RunOverlay({ rb, onClose }: { rb: Runbook; onClose: () => void }) {
       <div className="le-modal ld-admin-modal" role="dialog" aria-modal="true" aria-labelledby="rb-run-h" onClick={(e) => e.stopPropagation()}>
         <div className="le-modal-head">
           <span className={`le-modal-icon ${finished ? "ld-ok" : "ld-info"}`} aria-hidden="true">
-            <i className={`fa-solid ${finished ? "fa-circle-check" : "fa-circle-notch fa-spin"}`} />
+            <Icon className={`fa-solid ${finished ? "fa-circle-check" : "fa-circle-notch fa-spin"}`} />
           </span>
           <div className="le-modal-titles">
             <h3 id="rb-run-h">Executing <span className="ld-mono">{rb.title}</span> · {rb.id}</h3>
@@ -340,11 +342,11 @@ function RunOverlay({ rb, onClose }: { rb: Runbook; onClose: () => void }) {
 
         <div className="le-modal-foot">
           {!finished ? (
-            <button type="button" className="ld-btn" onClick={onClose}><i className="fa-solid fa-stop" aria-hidden="true" /> Abort</button>
+            <button type="button" className="ld-btn" onClick={onClose}><Icon icon={SquareIcon} /> Abort</button>
           ) : (
             <>
-              <span className="ld-admin-status spacer"><i className="fa-solid fa-circle-check ld-text-ok" aria-hidden="true" /> Simulation finished — nothing was executed</span>
-              <button type="button" className="ld-btn ld-btn-primary" onClick={onClose}><i className="fa-solid fa-check" aria-hidden="true" /> Close</button>
+              <span className="ld-admin-status spacer"><Icon icon={CircleCheckIcon} className="ld-text-ok" /> Simulation finished — nothing was executed</span>
+              <button type="button" className="ld-btn ld-btn-primary" onClick={onClose}><Icon icon={CheckIcon} /> Close</button>
             </>
           )}
         </div>

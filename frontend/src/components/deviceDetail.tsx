@@ -2,6 +2,8 @@
 // (firewall / switch / server): light-theme charts, bars, pills, footer.
 import React from "react";
 
+import { Icon } from "@/components/Icon";
+import { CalendarIcon, ChevronDownIcon, RefreshCwIcon, StarIcon } from "lucide-react";
 export const TIME_LABELS = ["10:15", "10:18", "10:21", "10:24", "10:27", "10:30"];
 
 export function LineChart({ series, colors, h = 120, yTicks }: { series: number[][]; colors: string[]; h?: number; yTicks?: string[] }) {
@@ -94,7 +96,7 @@ export function KpiTile({ label, value, delta, up, good = true, sub = "vs last 1
       <div className="mono" style={{ fontSize: 22, fontWeight: 800, margin: "4px 0" }}>{value}</div>
       {delta && (
         <div style={{ fontSize: 10.5 }}>
-          <span style={{ color: good ? "#16a34a" : "#dc2626", fontWeight: 700 }}><i className={`fa-solid fa-arrow-${up ? "up" : "down"}`} style={{ fontSize: 9 }} /> {delta}</span>
+          <span style={{ color: good ? "#16a34a" : "#dc2626", fontWeight: 700 }}><Icon className={`fa-solid fa-arrow-${up ? "up" : "down"}`} style={{ fontSize: 9 }} /> {delta}</span>
           <span style={{ color: "#9aa3af" }}> {sub}</span>
         </div>
       )}
@@ -147,7 +149,7 @@ export function DetailHeader({ d, tabs, tab, setTab, site = "Bangalore DC-1", ca
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: healthy ? "#22c55e" : d.status === "warn" ? "#f59e0b" : "#ef4444", boxShadow: `0 0 6px ${healthy ? "#22c55e" : d.status === "warn" ? "#f59e0b" : "#ef4444"}` }} />
             <h1 style={{ margin: 0 }}>{d.id}</h1>
-            <i className="fa-regular fa-star" style={{ color: "#9aa3af", fontSize: 14 }} />
+            <Icon icon={StarIcon} style={{ color: "#9aa3af", fontSize: 14 }} />
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: healthy ? "#dcfce7" : "#fef3c7", color: healthy ? "#15803d" : "#b45309", borderRadius: 12, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: healthy ? "#16a34a" : "#f59e0b" }} />{healthy ? "Healthy" : d.status === "warn" ? "Warning" : "Degraded"}
             </span>
@@ -161,10 +163,10 @@ export function DetailHeader({ d, tabs, tab, setTab, site = "Bangalore DC-1", ca
           </div>
         </div>
         <div className="sn-form-actions">
-          <button className="sn-btn"><i className="fa-regular fa-calendar" /> Last 15 minutes <i className="fa-solid fa-chevron-down" style={{ fontSize: 9 }} /></button>
-          <button className="sn-btn"><i className="fa-solid fa-rotate" /></button>
-          <button className="sn-btn">10s <i className="fa-solid fa-chevron-down" style={{ fontSize: 9 }} /></button>
-          <button className="sn-btn primary">Actions <i className="fa-solid fa-chevron-down" style={{ fontSize: 9 }} /></button>
+          <button className="sn-btn"><Icon icon={CalendarIcon} /> Last 15 minutes <Icon icon={ChevronDownIcon} style={{ fontSize: 9 }} /></button>
+          <button className="sn-btn"><Icon icon={RefreshCwIcon} /></button>
+          <button className="sn-btn">10s <Icon icon={ChevronDownIcon} style={{ fontSize: 9 }} /></button>
+          <button className="sn-btn primary">Actions <Icon icon={ChevronDownIcon} style={{ fontSize: 9 }} /></button>
         </div>
       </div>
       <div style={{ display: "flex", gap: 2, marginTop: 12, borderBottom: "1px solid #e5e8eb", overflowX: "auto" }}>

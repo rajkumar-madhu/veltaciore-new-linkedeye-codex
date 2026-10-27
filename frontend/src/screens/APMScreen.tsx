@@ -9,6 +9,8 @@ import { USERS } from "@/data/core";
 import { Panel, Pill, StatCard } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, ChevronRightIcon, FlaskConicalIcon, GaugeIcon, RotateCcwIcon, Share2Icon } from "lucide-react";
 const TRANSACTIONS: [string, string, number, string, string, number][] = [
   ["POST /api/checkout", "web", 184, "418ms", "842ms", 2.14],
   ["POST /api/payments/charge", "web", 92, "684ms", "1.84s", 4.82],
@@ -52,15 +54,15 @@ export default function APMScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("apm-catalog")}>Application Catalog</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>checkout-api</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className="fa-solid fa-gauge-high" /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={GaugeIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               checkout-api
@@ -75,15 +77,15 @@ export default function APMScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-share-nodes" aria-hidden="true" /> Share</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-bell" aria-hidden="true" /> Add Alert</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-arrow-rotate-left" aria-hidden="true" /> Rollback v2.40</button>
+            <button type="button" className="ld-btn"><Icon icon={Share2Icon} /> Share</button>
+            <button type="button" className="ld-btn"><Icon icon={BellIcon} /> Add Alert</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={RotateCcwIcon} /> Rollback v2.40</button>
           </div>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">No APM or tracing agent is reporting for this service yet. The signals, transactions and deployments below are illustrative.</p>
@@ -195,7 +197,7 @@ export default function APMScreen() {
             <ul className="ld-activity">
               {ALERTS.map(([t, since]) => (
                 <li key={t}>
-                  <span className="ld-tile ld-tile-sm ld-crit" aria-hidden="true"><i className="fa-solid fa-bell" /></span>
+                  <span className="ld-tile ld-tile-sm ld-crit" aria-hidden="true"><Icon icon={BellIcon} /></span>
                   <span className="ld-activity-text">{t} · <span className="ld-muted">triggered {since} ago</span></span>
                   <Pill tone="crit">critical</Pill>
                 </li>

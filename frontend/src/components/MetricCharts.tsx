@@ -7,11 +7,13 @@ import { useDeviceMetrics, useVmMetrics, type MetricSeries, type MetricsResponse
 import { MAX_RANGE_DAYS, PRESETS, useTimeRange } from "@/store/timeRange";
 import { Empty, Panel, Pill } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { CalendarDaysIcon, CheckIcon, ChevronDownIcon, ClockIcon, FlaskConicalIcon, UnplugIcon } from "lucide-react";
 /** Banner for pages drawing generated sample values (dev with no Prometheus / Loki). */
 export function SampleNotice({ what = "graphs and cards", setting = "PROMETHEUS_URL" }: { what?: string; setting?: string }) {
   return (
     <div className="ld-card ld-metrics-off ld-sample-note" role="status">
-      <i className="fa-solid fa-flask" aria-hidden="true" />
+      <Icon icon={FlaskConicalIcon} />
       <div>
         <b>Sample data</b>
         <p className="ld-muted ld-small">These {what} show generated values, not measurements from this device. Set {setting} on the API to see live data.</p>
@@ -139,7 +141,7 @@ export function TimeRangePicker() {
           </button>
         ))}
         <button type="button" className={`ld-btn ld-btn-sm${preset === "custom" ? " ld-btn-primary" : ""}`} aria-expanded={open} aria-controls={`${id}-custom`} onClick={() => setOpen(!open)}>
-          <i className="fa-solid fa-calendar-days" aria-hidden="true" /> Custom
+          <Icon icon={CalendarDaysIcon} /> Custom
         </button>
       </div>
       <span className="ld-muted ld-small" aria-live="polite">
@@ -169,20 +171,20 @@ export function RangeSelect() {
   return (
     <div className="ld-rangesel" ref={ref}>
       <button type="button" className="ld-btn" aria-haspopup="true" aria-expanded={open} aria-controls={`${id}-menu`} onClick={() => setOpen(!open)}>
-        <i className="fa-regular fa-clock" aria-hidden="true" />
+        <Icon icon={ClockIcon} />
         <span className="ld-rangesel-label">{preset === "custom" ? "Custom range" : rangeLabel(preset, from, to)}</span>
-        <i className="fa-solid fa-chevron-down ld-small" aria-hidden="true" />
+        <Icon icon={ChevronDownIcon} className="ld-small" />
       </button>
       {open && (
         <div id={`${id}-menu`} className="ld-rangesel-menu">
           {PRESETS.map((p) => (
             <button key={p.id} type="button" aria-pressed={preset === p.id} className={preset === p.id ? "on" : ""}
               onClick={() => { setPreset(p.id); setOpen(false); setCustomOpen(false); }}>
-              {p.label}{preset === p.id && <i className="fa-solid fa-check" aria-hidden="true" />}
+              {p.label}{preset === p.id && <Icon icon={CheckIcon} />}
             </button>
           ))}
           <button type="button" aria-expanded={custom} className={preset === "custom" ? "on" : ""} onClick={() => setCustomOpen(!custom)}>
-            Custom range…{preset === "custom" && <i className="fa-solid fa-check" aria-hidden="true" />}
+            Custom range…{preset === "custom" && <Icon icon={CheckIcon} />}
           </button>
           {preset === "custom" && from != null && to != null && <span className="ld-muted ld-small ld-rangesel-now">{rangeLabel(preset, from, to)}</span>}
           {custom && <CustomRangeForm id={id} onDone={() => { setOpen(false); setCustomOpen(false); }} />}
@@ -385,7 +387,7 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
     if (quietWhenOff) return null;
     return (
       <div className="ld-card ld-metrics-off" role="status">
-        <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+        <Icon icon={UnplugIcon} />
         <div>
           <b>{data.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
           <p className="ld-muted ld-small">{data.message}</p>
@@ -422,7 +424,7 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
           <section key={g} className="ld-card ld-chart-card" aria-label={GROUP_TITLE[g] ?? g}>
             <header>
               <h3>{GROUP_TITLE[g] ?? g}{CHART_NOTE[g] && <span className="ld-muted"> {CHART_NOTE[g]}</span>}{data.sample && <> <Pill tone="muted">Sample</Pill></>}</h3>
-              <span className="ld-muted ld-small"><i className="fa-regular fa-clock" aria-hidden="true" /> {rangeLabel(rangePreset, rangeFrom, rangeTo)}</span>
+              <span className="ld-muted ld-small"><Icon icon={ClockIcon} /> {rangeLabel(rangePreset, rangeFrom, rangeTo)}</span>
             </header>
             {chart}
           </section>

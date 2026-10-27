@@ -8,6 +8,8 @@ import { useNav } from "@/hooks/useNav";
 import { Empty, Pill, StatCard, fmt as fmtNum } from "@/components/ld";
 import "@/styles/trading.css";
 
+import { Icon } from "@/components/Icon";
+import { BanIcon, ChevronDownIcon, ChevronRightIcon, DownloadIcon, FlaskConicalIcon } from "lucide-react";
 // Exchange segments present in the calendars.
 const SEGMENTS = ["NSE", "NFO", "CDS", "NSLB", "NCOM", "NMF", "BSE", "BFO", "BCD", "BSLB", "BCOM", "NCDEX", "MCX", "NIE", "BIX"];
 
@@ -166,9 +168,9 @@ export default function MarketCalendarScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD / EOD</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Market Calendar</span>
       </nav>
 
@@ -179,7 +181,7 @@ export default function MarketCalendarScreen() {
         </div>
         <div className="ld-head-actions">
           {cal ? <Pill tone="ok">Live calendar</Pill> : <Pill tone="muted">Seed · holiday_calendar_2026.csv</Pill>}
-          <button type="button" className="ld-btn" onClick={exportICS}><i className="fa-solid fa-download" aria-hidden="true" /> Export ICS</button>
+          <button type="button" className="ld-btn" onClick={exportICS}><Icon icon={DownloadIcon} /> Export ICS</button>
         </div>
       </div>
 
@@ -215,7 +217,7 @@ export default function MarketCalendarScreen() {
         <div className="ld-panel-head">
           <h2 id="cal-tbl-h">
             <button type="button" className="ld-trading-toggle" aria-expanded={!collapsed.tbl} aria-controls="cal-tbl" onClick={() => toggle("tbl")}>
-              <i className="fa-solid fa-chevron-down" aria-hidden="true" /> {seg} sessions &amp; holidays
+              <Icon icon={ChevronDownIcon} /> {seg} sessions &amp; holidays
             </button>
           </h2>
           <div className="ld-trading-panel-tools">
@@ -242,7 +244,7 @@ export default function MarketCalendarScreen() {
                       <tr key={`${r.kind}-${r.date}`} className={past ? "ld-trading-row-past" : isNext ? "ld-trading-row-next" : undefined}>
                         <td className="ld-mono">{longDate(r.date)}</td>
                         <td className="ld-muted">{fmt(r.date).wd}</td>
-                        <td>{r.kind === "holiday" ? <Pill tone="crit"><i className="fa-solid fa-ban" aria-hidden="true" /> Holiday</Pill> : <Pill tone="info"><i className="fa-solid fa-flask" aria-hidden="true" /> Mock</Pill>}</td>
+                        <td>{r.kind === "holiday" ? <Pill tone="crit"><Icon icon={BanIcon} /> Holiday</Pill> : <Pill tone="info"><Icon icon={FlaskConicalIcon} /> Mock</Pill>}</td>
                         <td className="ld-wrap">{r.name}</td>
                         <td>{past ? <Pill tone="muted">Passed</Pill> : isNext ? <Pill tone="warn">Next</Pill> : <Pill tone="ok">Upcoming</Pill>}</td>
                       </tr>

@@ -12,6 +12,8 @@ import { useIncidents, useUpdateCoreIncident } from "@/api/hooks";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 
+import { Icon } from "@/components/Icon";
+import { AtSignIcon, BookIcon, ChevronRightIcon, EyeIcon, FlameIcon, FlaskConicalIcon, GlobeIcon, HandIcon, LockIcon, PaperclipIcon, PlayIcon, SendIcon, SignalIcon, SlackIcon, ThumbsDownIcon, ThumbsUpIcon, UserIcon, VideoIcon } from "lucide-react";
 const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "ok" };
 const EVENT_TONE: Record<string, { tone: Tone; icon: string }> = {
   critical: { tone: "crit", icon: "fa-bell" },
@@ -57,15 +59,15 @@ export default function IncidentDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("incidents")}>Incidents</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{inc.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className={`ld-tile ld-${SEV_TONE[inc.sev] ?? "muted"}`} aria-hidden="true"><i className="fa-solid fa-fire" /></span>
+          <span className={`ld-tile ld-${SEV_TONE[inc.sev] ?? "muted"}`} aria-hidden="true"><Icon icon={FlameIcon} /></span>
           <div>
             <span className="ld-sd-number">{inc.id}</span>
             <h1 className="ld-entity-title">{inc.title} {sevPill} {statusPill}</h1>
@@ -84,17 +86,17 @@ export default function IncidentDetailScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-brands fa-slack" aria-hidden="true" /> #{inc.id.toLowerCase()}</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-video" aria-hidden="true" /> Join bridge</button>
+            <button type="button" className="ld-btn"><Icon icon={SlackIcon} /> #{inc.id.toLowerCase()}</button>
+            <button type="button" className="ld-btn"><Icon icon={VideoIcon} /> Join bridge</button>
             {!canWrite && <ReadOnlyBadge />}
             {canWrite && !resolved && status !== "mitigating" && (
               <button type="button" className="ld-btn" onClick={() => setStatus("mitigating")} disabled={update.isPending}>
-                <i className="fa-solid fa-hand" aria-hidden="true" /> Acknowledge
+                <Icon icon={HandIcon} /> Acknowledge
               </button>
             )}
             {canWrite && (
               <button type="button" className="ld-btn ld-btn-primary" onClick={() => !resolved && setStatus("resolved")} disabled={resolved || update.isPending}>
-                <i className={`fa-solid ${resolved ? "fa-circle-check" : "fa-check"}`} aria-hidden="true" /> {resolved ? "Resolved" : "Mark resolved"}
+                <Icon className={`fa-solid ${resolved ? "fa-circle-check" : "fa-check"}`} /> {resolved ? "Resolved" : "Mark resolved"}
               </button>
             )}
           </div>
@@ -102,7 +104,7 @@ export default function IncidentDetailScreen() {
       </div>
 
       <div className="ld-card ld-metrics-off" role="status">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample war-room content</b>
           <p className="ld-muted ld-small">Only the incident status is read from the incident API. The AI analysis, timeline and activity below are example content.</p>
@@ -122,9 +124,9 @@ export default function IncidentDetailScreen() {
               <li><b>Similar past incident:</b> INC-47120 · resolved via rollback</li>
             </ul>
             <div className="ld-sd-actions">
-              <button type="button" className="ld-btn ld-btn-primary ld-btn-sm"><i className="fa-solid fa-play" aria-hidden="true" /> Run suggested playbook</button>
-              <button type="button" className="ld-btn ld-btn-sm"><i className="fa-solid fa-thumbs-up" aria-hidden="true" /> Helpful</button>
-              <button type="button" className="ld-btn ld-btn-sm"><i className="fa-solid fa-thumbs-down" aria-hidden="true" /> Off-base</button>
+              <button type="button" className="ld-btn ld-btn-primary ld-btn-sm"><Icon icon={PlayIcon} /> Run suggested playbook</button>
+              <button type="button" className="ld-btn ld-btn-sm"><Icon icon={ThumbsUpIcon} /> Helpful</button>
+              <button type="button" className="ld-btn ld-btn-sm"><Icon icon={ThumbsDownIcon} /> Off-base</button>
             </div>
           </Panel>
 
@@ -135,7 +137,7 @@ export default function IncidentDetailScreen() {
                 return (
                   <li key={i}>
                     <span className="ld-sd-time">{ev.t}</span>
-                    <span className={`ld-tile ld-tile-sm ld-${t.tone}`} aria-hidden="true"><i className={`fa-solid ${t.icon}`} /></span>
+                    <span className={`ld-tile ld-tile-sm ld-${t.tone}`} aria-hidden="true"><Icon className={`fa-solid ${t.icon}`} /></span>
                     <div className="ld-sd-entry">
                       <div className="ld-sd-entry-text">{ev.body}</div>
                       {ev.meta && <div className="ld-sd-entry-meta">{ev.meta.map((m, j) => <span key={j}>{m}</span>)}</div>}
@@ -172,7 +174,7 @@ export default function IncidentDetailScreen() {
             <ul className="ld-activity">
               {responders.map((u) => (
                 <li key={u.id}>
-                  <span className={`ld-tile ld-tile-sm ld-${u.role === "Incident Commander" ? "crit" : "info"}`} aria-hidden="true"><i className="fa-solid fa-user" /></span>
+                  <span className={`ld-tile ld-tile-sm ld-${u.role === "Incident Commander" ? "crit" : "info"}`} aria-hidden="true"><Icon icon={UserIcon} /></span>
                   <span className="ld-activity-text">
                     {u.name} · <span className="ld-muted">{u.role === "Incident Commander" ? "IC" : u.role} · {u.team}</span>
                   </span>
@@ -255,13 +257,13 @@ export function WarRoomActivity() {
           return (
             <li key={c._i}>
               <span className={`ld-tile ld-tile-sm ld-${t.tone}`} aria-hidden="true">
-                <i className={`fa-solid ${c.ai ? "fa-wand-magic-sparkles" : "fa-user"}`} />
+                <Icon className={`fa-solid ${c.ai ? "fa-wand-magic-sparkles" : "fa-user"}`} />
               </span>
               <div className="ld-sd-entry">
                 <div className="ld-sd-entry-meta">
                   <b>{name}</b>
                   <span>{role}</span>
-                  <Pill tone={t.tone}><i className={`fa-solid ${t.icon}`} aria-hidden="true" /> {t.label}</Pill>
+                  <Pill tone={t.tone}><Icon className={`fa-solid ${t.icon}`} /> {t.label}</Pill>
                   <time>{c.time} · Today</time>
                 </div>
                 <div className="ld-sd-entry-text">{c.text}</div>
@@ -273,16 +275,16 @@ export function WarRoomActivity() {
 
       {!canWrite ? (
         <p className="ld-muted ld-small">
-          <i className="fa-solid fa-eye" aria-hidden="true" /> Read-only — you can follow the war room but not post work notes or comments.
+          <Icon icon={EyeIcon} /> Read-only — you can follow the war room but not post work notes or comments.
         </p>
       ) : (
         <div className="ld-form">
           <div className="ld-tabs" role="tablist" aria-label="Journal channel">
             <button type="button" role="tab" aria-selected={channel === "worknote"} className={`ld-tab${channel === "worknote" ? " active" : ""}`} onClick={() => setChannel("worknote")}>
-              <i className="fa-solid fa-lock" aria-hidden="true" /> Work notes
+              <Icon icon={LockIcon} /> Work notes
             </button>
             <button type="button" role="tab" aria-selected={channel === "comment"} className={`ld-tab${channel === "comment" ? " active" : ""}`} onClick={() => setChannel("comment")}>
-              <i className="fa-solid fa-globe" aria-hidden="true" /> Additional comments <span className="ld-muted ld-small">customer-visible</span>
+              <Icon icon={GlobeIcon} /> Additional comments <span className="ld-muted ld-small">customer-visible</span>
             </button>
           </div>
           <div className="ld-form-field">
@@ -299,13 +301,13 @@ export function WarRoomActivity() {
             />
           </div>
           <div className="ld-sd-actions">
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Mention" title="Mention"><i className="fa-solid fa-at" aria-hidden="true" /></button>
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Attach" title="Attach"><i className="fa-solid fa-paperclip" aria-hidden="true" /></button>
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Runbook" title="Runbook"><i className="fa-solid fa-book" aria-hidden="true" /></button>
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Status page" title="Status page"><i className="fa-solid fa-signal" aria-hidden="true" /></button>
+            <button type="button" className="ld-btn ld-btn-sm" aria-label="Mention" title="Mention"><Icon icon={AtSignIcon} /></button>
+            <button type="button" className="ld-btn ld-btn-sm" aria-label="Attach" title="Attach"><Icon icon={PaperclipIcon} /></button>
+            <button type="button" className="ld-btn ld-btn-sm" aria-label="Runbook" title="Runbook"><Icon icon={BookIcon} /></button>
+            <button type="button" className="ld-btn ld-btn-sm" aria-label="Status page" title="Status page"><Icon icon={SignalIcon} /></button>
             <span className="ld-field-grow" />
             <button type="button" className="ld-btn ld-btn-primary" disabled={!draft.trim()}>
-              <i className="fa-solid fa-paper-plane" aria-hidden="true" /> Post {channel === "worknote" ? "work note" : "comment"}
+              <Icon icon={SendIcon} /> Post {channel === "worknote" ? "work note" : "comment"}
             </button>
           </div>
         </div>

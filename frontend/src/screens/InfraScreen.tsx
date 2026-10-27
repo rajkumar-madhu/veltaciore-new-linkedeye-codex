@@ -13,6 +13,8 @@ import type { Device } from "@/lib/types";
 
 
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FileOutputIcon, PlusIcon, WorkflowIcon } from "lucide-react";
 const siteTone = (h: number): Tone => (h > 95 ? "ok" : h > 90 ? "warn" : "crit");
 const siteLabel = (h: number) => (h > 95 ? "Healthy" : h > 90 ? "Degraded" : "Critical");
 const sevTone = (s: string): Tone => (s === "critical" ? "crit" : s === "warn" || s === "warning" ? "warn" : "info");
@@ -59,7 +61,7 @@ export default function InfraScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Monitoring</span>
       </nav>
 
@@ -69,9 +71,9 @@ export default function InfraScreen() {
           <p>{fmt(total)} devices monitored over SNMP, NetFlow, WMI, vSphere and node-exporter</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-diagram-project" aria-hidden="true" /> Topology</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export CMDB</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Add Device</button>
+          <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={WorkflowIcon} /> Topology</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export CMDB</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add Device</button>
         </div>
       </div>
 
@@ -125,7 +127,7 @@ export default function InfraScreen() {
             <div className="ld-chips" role="group" aria-label="Device categories">
               {DEVICE_KINDS.map(k => (
                 <button key={k.id} type="button" className="ld-chip" onClick={() => setRoute("infra-assets")}>
-                  <i className={`${k.iconBrand ? "fa-brands" : "fa-solid"} ${k.icon}`} aria-hidden="true" />
+                  <Icon className={`${k.iconBrand ? "fa-brands" : "fa-solid"} ${k.icon}`} />
                   <span className="ld-chip-count">{devices.filter(d => d.kind === k.id).length}</span>
                   <span className="ld-chip-label">{k.label}</span>
                 </button>
@@ -172,7 +174,7 @@ export default function InfraScreen() {
             <div className="ld-infra-actions">
               {QUICK_ACTIONS.map(([ic, lbl, route]) => (
                 <button key={lbl} type="button" className="ld-btn ld-btn-sm" onClick={() => { if (route) setRoute(route); }}>
-                  <i className={`fa-solid ${ic}`} aria-hidden="true" /> {lbl}
+                  <Icon className={`fa-solid ${ic}`} /> {lbl}
                 </button>
               ))}
             </div>

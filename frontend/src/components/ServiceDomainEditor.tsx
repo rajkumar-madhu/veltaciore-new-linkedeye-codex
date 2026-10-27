@@ -11,6 +11,8 @@ import { NO_TENANT, useUiStore } from "@/store/ui";
 import type { Device, Service } from "@/lib/types";
 import { Empty } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { SearchIcon, Trash2Icon } from "lucide-react";
 const ICONS: [string, string][] = [
   ["fa-layer-group", "Layers"], ["fa-chart-line", "Trading / chart"], ["fa-cubes", "Applications"],
   ["fa-network-wired", "Network"], ["fa-server", "Servers"], ["fa-database", "Databases"],
@@ -104,7 +106,7 @@ export function DomainEditor({ domain, services, devices, kindLabel, onDone }: {
             <legend>Individual devices ({f.devices.filter((id) => !byKind.has(devices.find((d) => d.id === id)?.kind ?? "")).length} selected)</legend>
             <label className="sr-only" htmlFor={`${uid}-dev-q`}>Search devices</label>
             <span className="ld-search">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id={`${uid}-dev-q`} value={devSearch} onChange={(e) => setDevSearch(e.target.value)} placeholder="Device id or role…" />
             </span>
             {shown.length ? (
@@ -128,7 +130,7 @@ export function DomainEditor({ domain, services, devices, kindLabel, onDone }: {
           {domain && !readOnly && (
             <button type="button" className="ld-btn ld-heat-delete" disabled={del.isPending}
               onClick={() => { if (window.confirm(`Delete the ${domain.name} domain? Its services and devices are not affected.`)) del.mutate(domain.id, { onSuccess: () => onDone() }); }}>
-              <i className="fa-solid fa-trash" aria-hidden="true" /> Delete
+              <Icon icon={Trash2Icon} /> Delete
             </button>
           )}
         </div>

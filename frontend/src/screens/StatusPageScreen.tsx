@@ -8,6 +8,8 @@ import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { CalendarIcon, ChevronRightIcon, ClockIcon, ExternalLinkIcon, FlaskConicalIcon, GlobeIcon, MegaphoneIcon, SendIcon, UsersIcon } from "lucide-react";
 const COMPONENTS = [
   { name: "API Gateway",        group: "Core", status: "degraded",  uptime: "99.94%" },
   { name: "Web Dashboard",      group: "Core", status: "operational", uptime: "99.99%" },
@@ -53,7 +55,7 @@ const CHANNEL_ICON: Record<string, string> = Object.fromEntries(CHANNELS.map(([k
 function Summary({ icon, tone, label, value, note }: { icon: string; tone: Tone; label: string; value: React.ReactNode; note: string }) {
   return (
     <div className="ld-card ld-stat ld-sd-stat">
-      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><i className={`fa-solid ${icon}`} /></span>
+      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
       <span className="ld-stat-body">
         <span className="ld-stat-label">{label}</span>
         <span className="ld-stat-value">{value}</span>
@@ -80,9 +82,9 @@ export default function StatusPageScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Operate</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Status page</span>
       </nav>
 
@@ -92,14 +94,14 @@ export default function StatusPageScreen() {
           <p>status.linkedeye.in · publishes to email, SMS, Slack &amp; webhooks</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Preview public page</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-users" aria-hidden="true" /> Subscribers</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-bullhorn" aria-hidden="true" /> Post update</button>
+          <button type="button" className="ld-btn"><Icon icon={ExternalLinkIcon} /> Preview public page</button>
+          <button type="button" className="ld-btn"><Icon icon={UsersIcon} /> Subscribers</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={MegaphoneIcon} /> Post update</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="status">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">No status-page provider is connected. Components, uptime, updates and subscriber counts below are example values.</p>
@@ -146,11 +148,11 @@ export default function StatusPageScreen() {
                 <div className="ld-sd-actions" role="group" aria-labelledby={`${idp}-ch`}>
                   {CHANNELS.map(([k, ic, lbl]) => (
                     <button key={k} type="button" className="ld-sd-toggle" aria-pressed={!!channels[k]} onClick={() => tgl(k)}>
-                      <i className={ic} aria-hidden="true" /> {lbl}
+                      <Icon className={ic} /> {lbl}
                     </button>
                   ))}
                   <span className="ld-field-grow" />
-                  <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-paper-plane" aria-hidden="true" /> Publish update</button>
+                  <button type="button" className="ld-btn ld-btn-primary"><Icon icon={SendIcon} /> Publish update</button>
                 </div>
               </div>
             </div>
@@ -169,7 +171,7 @@ export default function StatusPageScreen() {
                       <tr key={c.name}>
                         <td className="ld-strong">{c.name}</td>
                         <td className="ld-muted">{c.group}</td>
-                        <td><Pill tone={m.tone}><i className={`fa-solid ${m.ic}`} aria-hidden="true" /> {m.label}</Pill></td>
+                        <td><Pill tone={m.tone}><Icon className={`fa-solid ${m.ic}`} /> {m.label}</Pill></td>
                         <td className="ld-mono ld-muted">{c.uptime}</td>
                         <td><button type="button" className="ld-btn ld-btn-sm" aria-label={`Set status for ${c.name}`}>Set status</button></td>
                       </tr>
@@ -195,7 +197,7 @@ export default function StatusPageScreen() {
                       <div className="ld-sd-entry-text"><b>{u.title}</b></div>
                       <div className="ld-sd-entry-text">{u.body}</div>
                       <div className="ld-sd-entry-meta">
-                        {u.ch.map(ch => <span key={ch}><i className={CHANNEL_ICON[ch]} aria-hidden="true" /> {ch} sent</span>)}
+                        {u.ch.map(ch => <span key={ch}><Icon className={CHANNEL_ICON[ch]} /> {ch} sent</span>)}
                       </div>
                     </div>
                   </li>
@@ -209,7 +211,7 @@ export default function StatusPageScreen() {
           <Panel title="Public page">
             <dl className="ld-dl">
               <dt>URL</dt><dd className="ld-mono">status.linkedeye.in</dd>
-              <dt>Visibility</dt><dd><Pill tone="ok"><i className="fa-solid fa-globe" aria-hidden="true" /> Public</Pill></dd>
+              <dt>Visibility</dt><dd><Pill tone="ok"><Icon icon={GlobeIcon} /> Public</Pill></dd>
               <dt>Theme</dt><dd>Argus-LinkedEye · dark header</dd>
               <dt>Custom domain</dt><dd className="ld-text-ok">verified · SSL</dd>
             </dl>
@@ -229,12 +231,12 @@ export default function StatusPageScreen() {
             <ul className="ld-activity ld-sd-feed">
               {MAINTENANCE.map((mt) => (
                 <li key={mt.title}>
-                  <span className="ld-tile ld-tile-sm ld-purple" aria-hidden="true"><i className="fa-regular fa-calendar" /></span>
+                  <span className="ld-tile ld-tile-sm ld-purple" aria-hidden="true"><Icon icon={CalendarIcon} /></span>
                   <div className="ld-sd-entry">
                     <div className="ld-sd-entry-text"><b>{mt.title}</b></div>
                     <div className="ld-sd-entry-meta"><span>{mt.when}</span></div>
                     <div className="ld-sd-entry-meta"><span>Affects: {mt.affects}</span></div>
-                    <span><Pill tone="muted"><i className="fa-solid fa-clock" aria-hidden="true" /> Notice sent to {fmt(subscriberTotal)}</Pill></span>
+                    <span><Pill tone="muted"><Icon icon={ClockIcon} /> Notice sent to {fmt(subscriberTotal)}</Pill></span>
                   </div>
                 </li>
               ))}

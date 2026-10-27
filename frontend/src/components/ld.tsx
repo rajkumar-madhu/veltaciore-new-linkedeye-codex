@@ -2,6 +2,7 @@
 // Styled by the ld-* block in styles.css; used by the dashboard and list screens.
 import React from "react";
 
+import { Icon } from "@/components/Icon";
 export type Tone = "crit" | "warn" | "ok" | "info" | "purple" | "muted";
 
 export const PALETTE = ["#2f6bff", "#7c4dff", "#f5a524", "#16a34a", "#e5383b", "#0ea5e9", "#98a2b3"];
@@ -65,7 +66,7 @@ export function StatCard({
   return (
     <button type="button" className="ld-card ld-stat" onClick={onClick}>
       <span className={`ld-tile ld-${tone}`} aria-hidden="true">
-        <i className={`fa-solid ${icon}`} />
+        <Icon className={`fa-solid ${icon}`} />
       </span>
       <span className="ld-stat-body">
         <span className="ld-stat-label">{label}</span>

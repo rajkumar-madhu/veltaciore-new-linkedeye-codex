@@ -8,6 +8,8 @@ import { Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import { useCreateChange } from "@/api/hooks";
 
+import { Icon } from "@/components/Icon";
+import { BotIcon, ChevronRightIcon, GaugeIcon, PaperclipIcon, PencilIcon, SaveIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 const CATEGORIES = ["Network", "Server", "Firewall", "Kubernetes", "Security", "Trading", "CDN", "Database"];
 const CHANGE_TYPES = ["Normal", "Standard", "Emergency"];
 const RISKS = ["Low", "Medium", "High"];
@@ -76,9 +78,9 @@ export default function ChangeNewScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("changes")}>Change Management</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>New Change</span>
       </nav>
 
@@ -88,19 +90,19 @@ export default function ChangeNewScreen() {
           <p>Fields marked <span className="ld-req">*</span> are required · routes to CAB when risk is High</p>
         </div>
         <div className="ld-head-actions">
-          <Pill tone="muted"><i className="fa-solid fa-pen" aria-hidden="true" /> Draft</Pill>
-          <Pill tone={RISK_TONE[risk] ?? "muted"}><i className="fa-solid fa-gauge-high" aria-hidden="true" /> {risk} risk</Pill>
-          <button type="button" className="ld-btn" onClick={() => setRoute("changes")}><i className="fa-solid fa-xmark" aria-hidden="true" /> Cancel</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Draft</button>
+          <Pill tone="muted"><Icon icon={PencilIcon} /> Draft</Pill>
+          <Pill tone={RISK_TONE[risk] ?? "muted"}><Icon icon={GaugeIcon} /> {risk} risk</Pill>
+          <button type="button" className="ld-btn" onClick={() => setRoute("changes")}><Icon icon={XIcon} /> Cancel</button>
+          <button type="button" className="ld-btn"><Icon icon={SaveIcon} /> Save Draft</button>
           <button type="submit" form={formId} className="ld-btn ld-btn-primary" disabled={create.isPending}>
-            <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} aria-hidden="true" /> {create.isPending ? "Saving…" : "Submit change"}
+            <Icon className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Saving…" : "Submit change"}
           </button>
         </div>
       </div>
 
       {error && (
         <div className="ld-card ld-sd-alert ld-sd-alert-crit" role="alert">
-          <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> <span>{error}</span>
+          <Icon icon={TriangleAlertIcon} /> <span>{error}</span>
         </div>
       )}
 
@@ -167,15 +169,15 @@ export default function ChangeNewScreen() {
               />
             </FormField>
             <div className="ld-sd-actions">
-              <button type="button" className="ld-btn ld-btn-sm"><i className="fa-solid fa-robot" aria-hidden="true" /> AI: Draft rollback plan</button>
-              <button type="button" className="ld-btn ld-btn-sm"><i className="fa-solid fa-paperclip" aria-hidden="true" /> Attach runbook</button>
+              <button type="button" className="ld-btn ld-btn-sm"><Icon icon={BotIcon} /> AI: Draft rollback plan</button>
+              <button type="button" className="ld-btn ld-btn-sm"><Icon icon={PaperclipIcon} /> Attach runbook</button>
             </div>
           </Panel>
 
           <div className="ld-sd-actions ld-sd-actions-end">
             <button type="button" className="ld-btn" onClick={() => setRoute("changes")}>Cancel</button>
             <button type="submit" className="ld-btn ld-btn-primary" disabled={create.isPending}>
-              <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} aria-hidden="true" /> {create.isPending ? "Saving…" : "Submit change"}
+              <Icon className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Saving…" : "Submit change"}
             </button>
           </div>
         </form>

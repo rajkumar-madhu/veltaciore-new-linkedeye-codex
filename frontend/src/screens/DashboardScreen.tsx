@@ -20,6 +20,8 @@ import { DEVICE_KINDS } from "@/data/infra";
 import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, TrendChart, countBy, fmt, dailyTrend, openedAt } from "@/components/ld";
 import type { Tone, Slice } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, CalendarIcon } from "lucide-react";
 const RESOLVED_STATES = new Set(["Resolved", "Closed", "Cancelled", "Canceled"]);
 
 const CHANGE_DONE_STATES = new Set(["Completed", "Closed", "Cancelled", "Canceled"]);
@@ -192,7 +194,7 @@ export default function DashboardScreen() {
           <p>Complete view of your IT infrastructure, services, and support operations</p>
         </div>
         <div className="ld-head-actions ld-period">
-          <label className="ld-inline-label" htmlFor={`${id}-period`}><i className="fa-regular fa-calendar" aria-hidden="true" /> Period</label>
+          <label className="ld-inline-label" htmlFor={`${id}-period`}><Icon icon={CalendarIcon} /> Period</label>
           <select id={`${id}-period`} className="ld-select" value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
             {PERIODS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
@@ -440,7 +442,7 @@ export default function DashboardScreen() {
                 return (
                   <li key={a.id}>
                     <span className={`ld-tile ld-tile-sm ld-${tone}`} aria-hidden="true">
-                      <i className="fa-solid fa-bell" />
+                      <Icon icon={BellIcon} />
                     </span>
                     <span className="ld-activity-text">
                       {a.title} · <span className="ld-muted">{a.device}</span>

@@ -12,6 +12,8 @@ import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import "@/styles/trading.css";
 
+import { Icon } from "@/components/Icon";
+import { CheckIcon, ChevronRightIcon, FlaskConicalIcon, HistoryIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
 // ── Data (local fallbacks; identical to the backend seed) ─────────────────
 
 // Generate intraday time labels 09:00–15:30 in N-min steps
@@ -231,7 +233,7 @@ function LineChart({ labels, series, maxV, height = 180, title }: { labels: stri
 }
 
 function SampleBadge() {
-  return <Pill tone="warn"><i className="fa-solid fa-flask" aria-hidden="true" /> Sample data — not connected</Pill>;
+  return <Pill tone="warn"><Icon icon={FlaskConicalIcon} /> Sample data — not connected</Pill>;
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -385,7 +387,7 @@ export default function CtclMonitorScreen() {
 
   const seedNote = seed && (
     <div className="ld-card ld-trading-note warn" role="status">
-      <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+      <Icon icon={UnplugIcon} />
       <p><b>No data from /trading/ctcl/lines/.</b> Lines, peaks and charts below use the embedded seed series, not a live feed.</p>
     </div>
   );
@@ -394,9 +396,9 @@ export default function CtclMonitorScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD / EOD</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>CTCL Monitor</span>
       </nav>
 
@@ -418,7 +420,7 @@ export default function CtclMonitorScreen() {
         {NAV.map((t) => (
           <button key={t.id} type="button" role="tab" id={`ctcl-tab-${t.id}`} aria-selected={tab === t.id} aria-controls="ctcl-panel"
             className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>
-            <i className={`fa-solid ${t.icon}`} aria-hidden="true" /> {t.label}{t.count != null && <> <span className="ld-muted">({t.count})</span></>}
+            <Icon className={`fa-solid ${t.icon}`} /> {t.label}{t.count != null && <> <span className="ld-muted">({t.count})</span></>}
           </button>
         ))}
       </div>
@@ -431,7 +433,7 @@ export default function CtclMonitorScreen() {
           <>
             {problemLines.length > 0 && (
               <div className="ld-card ld-trading-note warn" role="alert">
-                <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+                <Icon icon={TriangleAlertIcon} />
                 <p>
                   {problemLines.map((l, i) => {
                     const st = statsOf(chartedOf(l.id)?.data ?? l.series);
@@ -536,7 +538,7 @@ export default function CtclMonitorScreen() {
                 <div className="ld-trading-presets" role="group" aria-label="Range presets">
                   {PRESETS.map((p, i) => (
                     <button key={p.label} type="button" className="ld-btn ld-btn-sm" aria-pressed={preset === i} onClick={() => pickPreset(i)}>
-                      {preset === i && <i className="fa-solid fa-check" aria-hidden="true" />} {p.label}
+                      {preset === i && <Icon icon={CheckIcon} />} {p.label}
                     </button>
                   ))}
                 </div>
@@ -583,7 +585,7 @@ export default function CtclMonitorScreen() {
                 return (
                   <section key={w.id} className="ld-card ld-panel" aria-labelledby={`win-${w.id}`}>
                     <div className="ld-panel-head">
-                      <h2 id={`win-${w.id}`}><i className={`fa-solid ${w.icon} ld-muted`} aria-hidden="true" /> {w.title}</h2>
+                      <h2 id={`win-${w.id}`}><Icon className={`fa-solid ${w.icon} ld-muted`} /> {w.title}</h2>
                       <Pill tone={LEVEL[lv].tone}>{LEVEL[lv].label}</Pill>
                     </div>
                     <div className="ld-table-wrap">
@@ -670,7 +672,7 @@ export default function CtclMonitorScreen() {
                         const sc = (v: number, seg: string) => (
                           <td className="ld-trading-center">
                             <span className={`ld-trading-check ${v ? "ld-ok" : "ld-crit"}`}>
-                              <i className={`fa-solid ${v ? "fa-check" : "fa-xmark"}`} aria-hidden="true" />
+                              <Icon className={`fa-solid ${v ? "fa-check" : "fa-xmark"}`} />
                               <span className="sr-only">{seg} {v ? "ok" : "failed"}</span>
                             </span>
                           </td>
@@ -692,8 +694,8 @@ export default function CtclMonitorScreen() {
                             {sc(b.bfo, "BFO")}
                             <td>
                               {fail > 0
-                                ? <Pill tone="crit"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {fail} seg(s)</Pill>
-                                : <Pill tone="ok"><i className="fa-solid fa-check" aria-hidden="true" /> {ok}/4</Pill>}
+                                ? <Pill tone="crit"><Icon icon={TriangleAlertIcon} /> {fail} seg(s)</Pill>
+                                : <Pill tone="ok"><Icon icon={CheckIcon} /> {ok}/4</Pill>}
                             </td>
                           </tr>
                         );
@@ -721,7 +723,7 @@ export default function CtclMonitorScreen() {
                 <div className="ld-trading-stack-notes">
                   {alerts.map((a) => (
                     <div key={a.id} className={`ld-card ld-trading-note ${a.tone}`}>
-                      <i className={`fa-solid ${a.tone === "crit" ? "fa-circle-exclamation" : "fa-triangle-exclamation"}`} aria-hidden="true" />
+                      <Icon className={`fa-solid ${a.tone === "crit" ? "fa-circle-exclamation" : "fa-triangle-exclamation"}`} />
                       <p><Pill tone={a.tone}>{a.prio}</Pill> <b>{a.title}.</b> {a.text}</p>
                     </div>
                   ))}
@@ -730,7 +732,7 @@ export default function CtclMonitorScreen() {
             </Panel>
 
             <div className="ld-card ld-trading-note muted">
-              <i className="fa-solid fa-clock-rotate-left" aria-hidden="true" />
+              <Icon icon={HistoryIcon} />
               <p><b>Historical note (not live) — BSE pipeline break:</b> BSE queue data once dropped from 99,219 to 163 samples because of a MySQL max_allowed_packet overflow in the executemany batch. Fix deployed (batches of 1,000 rows); verify it is active on both production servers.</p>
             </div>
 

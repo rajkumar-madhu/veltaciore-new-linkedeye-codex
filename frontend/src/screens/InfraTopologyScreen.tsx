@@ -20,6 +20,8 @@ import { Kpi } from "@/components/KpiCard";
 import { STATUS_COLORS, getHealthColor, getStatusLabel, normalizeStatus, type NormalizedStatus } from "@/lib/statusColors";
 import type { Device, Site, Vm } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { BoxIcon, ChevronRightIcon, ExternalLinkIcon, NetworkIcon, PlusIcon, RadioTowerIcon, SearchIcon, ServerIcon, UnplugIcon, WorkflowIcon } from "lucide-react";
 interface TopoNode {
   id: string;
   layer: number;
@@ -257,7 +259,7 @@ export default function InfraTopologyScreen() {
         <dt>Uptime</dt><dd>{focusDev.uptime || "—"}</dd>
         <dt>Active alerts</dt><dd>{alertCount(focusDev.id)}</dd>
       </dl>
-      <button type="button" className="ld-btn ld-btn-primary" onClick={() => openDevice(focusDev.id)}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Open device page</button>
+      <button type="button" className="ld-btn ld-btn-primary" onClick={() => openDevice(focusDev.id)}><Icon icon={ExternalLinkIcon} /> Open device page</button>
     </Panel>
   ) : focusVm ? (
     <Panel title="VM Detail">
@@ -269,7 +271,7 @@ export default function InfraTopologyScreen() {
         <dt>CPU / Mem</dt><dd>{focusVm.cpuUse}% / {focusVm.memUse}%</dd>
         <dt>State</dt><dd>{focusVm.state}</dd>
       </dl>
-      <button type="button" className="ld-btn ld-btn-primary" onClick={() => openDevice(focusVm.id)}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Open VM page</button>
+      <button type="button" className="ld-btn ld-btn-primary" onClick={() => openDevice(focusVm.id)}><Icon icon={ExternalLinkIcon} /> Open VM page</button>
     </Panel>
   ) : (
     <Panel title="Details">
@@ -286,9 +288,9 @@ export default function InfraTopologyScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Live Topology</span>
       </nav>
 
@@ -302,18 +304,18 @@ export default function InfraTopologyScreen() {
           <select id="ld-topo-site" className="ld-select" value={site} onChange={(e) => changeSite(e.target.value)}>
             {SITES.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.region}</option>)}
           </select>
-          <button type="button" className="ld-btn" onClick={() => setRoute("infra-onboarding")}><i className="fa-solid fa-plus" aria-hidden="true" /> Onboard device</button>
+          <button type="button" className="ld-btn" onClick={() => setRoute("infra-onboarding")}><Icon icon={PlusIcon} /> Onboard device</button>
           <button type="button" className="ld-btn" onClick={() => topoQuery.refetch()} disabled={topoQuery.isFetching}>
-            <i className={`fa-solid fa-rotate${topoQuery.isFetching ? " fa-spin" : ""}`} aria-hidden="true" /> Refresh
+            <Icon className={`fa-solid fa-rotate${topoQuery.isFetching ? " fa-spin" : ""}`} /> Refresh
           </button>
         </div>
       </div>
 
       <div className="ld-head-actions" role="status">
         {useLive
-          ? <Pill tone="ok"><i className="fa-solid fa-tower-broadcast" aria-hidden="true" /> Links: topology API · refreshes every 15 s</Pill>
-          : <Pill tone="warn"><i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" /> Links: seed graph — topology API not reachable</Pill>}
-        <Pill tone="muted"><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> {drawLinks.length} links</Pill>
+          ? <Pill tone="ok"><Icon icon={RadioTowerIcon} /> Links: topology API · refreshes every 15 s</Pill>
+          : <Pill tone="warn"><Icon icon={UnplugIcon} /> Links: seed graph — topology API not reachable</Pill>}
+        <Pill tone="muted"><Icon icon={NetworkIcon} /> {drawLinks.length} links</Pill>
       </div>
 
       <div className="ld-kpis">
@@ -330,14 +332,14 @@ export default function InfraTopologyScreen() {
           <section className="ld-card" aria-label="Topology map">
             <div className="ld-devices-topo-toolbar">
               <label className="ld-search">
-                <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+                <Icon icon={SearchIcon} />
                 <span className="sr-only">Highlight devices</span>
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Highlight by name, IP, model…" />
               </label>
               {q && <button type="button" className="ld-btn ld-btn-sm" onClick={() => setQuery("")}>Clear</button>}
               <span className="ld-devices-seg" role="group" aria-label="View">
-                <button type="button" aria-pressed={view === "layered"} onClick={() => setView("layered")}><i className="fa-solid fa-diagram-project" aria-hidden="true" /> Traffic path</button>
-                <button type="button" aria-pressed={view === "grouped"} onClick={() => setView("grouped")}><i className="fa-solid fa-server" aria-hidden="true" /> By type</button>
+                <button type="button" aria-pressed={view === "layered"} onClick={() => setView("layered")}><Icon icon={WorkflowIcon} /> Traffic path</button>
+                <button type="button" aria-pressed={view === "grouped"} onClick={() => setView("grouped")}><Icon icon={ServerIcon} /> By type</button>
               </span>
               <span className="ld-devices-legend" aria-hidden="true">
                 <span><span className="ld-devices-swatch is-up" /> Healthy</span>
@@ -462,7 +464,7 @@ function GroupedView({ siteDevices, siteVMs, links, matches, focusId, nodeProps,
                 <button key={d.id} data-dev={d.id} {...nodeProps(d.id, `${d.id}, ${getStatusLabel(d.status)}${alerts ? `, ${alerts} alerts` : ""}, open device page`)}
                   className={`ld-devices-card${focusId === d.id ? " is-selected" : ""}${matches(d) ? "" : " is-dim"}`} style={{ borderLeftColor: c.line }}>
                   <span className="ld-devices-card-top">
-                    <i className={`${k?.iconBrand ? "fa-brands" : "fa-solid"} ${k?.icon ?? "fa-server"}`} aria-hidden="true" />
+                    <Icon className={`${k?.iconBrand ? "fa-brands" : "fa-solid"} ${k?.icon ?? "fa-server"}`} />
                     <b>{d.id}</b>
                     <Pill tone={statusTone(d.status)}>{getStatusLabel(d.status)}</Pill>
                   </span>
@@ -490,7 +492,7 @@ function GroupedView({ siteDevices, siteVMs, links, matches, focusId, nodeProps,
                 <button key={v.id} data-dev={v.id} {...nodeProps(v.id, `VM ${v.id}, ${v.state}, open VM page`)}
                   className={`ld-devices-card${focusId === v.id ? " is-selected" : ""}`} style={{ borderLeftColor: getHealthColor(st).line }}>
                   <span className="ld-devices-card-top">
-                    <i className="fa-solid fa-cube" aria-hidden="true" />
+                    <Icon icon={BoxIcon} />
                     <b>{v.id}</b>
                     <Pill tone={statusTone(st)}>{v.state}</Pill>
                   </span>

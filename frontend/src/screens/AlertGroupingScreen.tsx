@@ -9,6 +9,8 @@ import { Empty, PALETTE, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import { Sparkline } from "@/components/MetricCharts";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FlaskConicalIcon, HistoryIcon, PlusIcon } from "lucide-react";
 type Strategy = "Intelligent" | "Content" | "Time";
 
 const GROUPS: { title: string; count: number; svc: string; strat: Strategy; status: "open" | "ack" | "suppressed"; age: string; spark: number[] }[] = [
@@ -59,9 +61,9 @@ export default function AlertGroupingScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("alerts")}>Alerts</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Alert grouping</span>
       </nav>
 
@@ -71,14 +73,14 @@ export default function AlertGroupingScreen() {
           <p>Raw alerts collapsed into actionable incidents by correlation and grouping rules</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-flask" aria-hidden="true" /> Simulate</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> History</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New rule</button>
+          <button type="button" className="ld-btn"><Icon icon={FlaskConicalIcon} /> Simulate</button>
+          <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> History</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New rule</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">Alert grouping is not connected to an event source yet. The groups, rules and sources below are illustrative; summary figures are computed from them.</p>
@@ -117,9 +119,9 @@ export default function AlertGroupingScreen() {
                           <span className="ld-sub">{g.count} alerts collapsed → 1 incident</span>
                         </td>
                         <td className="ld-mono">{g.svc}</td>
-                        <td><Pill tone={sm.tone}><i className={`fa-solid ${sm.icon}`} aria-hidden="true" /> {g.strat}</Pill></td>
+                        <td><Pill tone={sm.tone}><Icon className={`fa-solid ${sm.icon}`} /> {g.strat}</Pill></td>
                         <td><Sparkline points={g.spark.map((v, i) => [i, v])} color={sm.color} label={`${g.title} alert count`} /></td>
-                        <td><Pill tone={st.tone}><i className={`fa-solid ${st.icon}`} aria-hidden="true" /> {st.label}</Pill></td>
+                        <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
                         <td className="ld-muted">{g.age}</td>
                       </tr>
                     );
@@ -141,7 +143,7 @@ export default function AlertGroupingScreen() {
                     return (
                       <tr key={r.name}>
                         <td className="ld-strong ld-wrap">{r.name}</td>
-                        <td><Pill tone={sm.tone}><i className={`fa-solid ${sm.icon}`} aria-hidden="true" /> {r.strat}</Pill></td>
+                        <td><Pill tone={sm.tone}><Icon className={`fa-solid ${sm.icon}`} /> {r.strat}</Pill></td>
                         <td className="ld-muted">{r.window}</td>
                         <td><Pill tone={r.on ? "ok" : "muted"}>{r.on ? "On" : "Off"}</Pill></td>
                       </tr>

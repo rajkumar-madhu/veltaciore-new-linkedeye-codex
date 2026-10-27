@@ -2,8 +2,14 @@
 
 Every screen uses the LinkedEye design system: plain CSS `ld-*` classes in
 `frontend/src/styles.css` (theme tokens, dark mode included) and the shared
-React pieces below. No Tailwind, no new UI libraries. Font Awesome 6 icons
-(`fa-solid …`, `fa-brands …`).
+React pieces below. Tailwind CSS is set up with the same tokens (see
+`tailwind.config.js`); screens are moving from `ld-*` classes to utilities.
+
+Icons are Lucide (`lucide-react`) through `components/Icon.tsx`:
+`<Icon icon={ServerIcon} />` with `import { ServerIcon } from "lucide-react"`
+for a fixed icon, or `<Icon name={kind.icon} />` when the name comes from data
+(names such as `fa-server` / `server` resolve through `components/iconRegistry.ts`).
+Icons are 1em and `currentColor`: size and colour them with font-size and color.
 
 Reference screens — copy their structure:
 - `screens/DashboardScreen.tsx` — summary cards, charts, tables
@@ -42,7 +48,7 @@ Reference screens — copy their structure:
 ## Rules
 1. **Keep behaviour.** Same data hooks, same routes, same navigation params, same actions. Restyle markup only, unless a rule below says otherwise.
 2. **No fake data presented as live.** A hard-coded number that looks like a measurement ("92%", "24m MTTR", "+14% QoQ") is derived from the data the screen already has, or removed, or the panel is labelled "Sample data". Existing seed fallbacks (`?? SEED`) stay as they are.
-3. **Accessible markup.** Anything clickable is a `<button type="button">` (or a real link), never a clickable `div`/`tr`/`a` without `href`. Icons are `aria-hidden="true"`. Form labels use `htmlFor`. Tabs use `role="tab"` + `aria-selected`.
+3. **Accessible markup.** Anything clickable is a `<button type="button">` (or a real link), never a clickable `div`/`tr`/`a` without `href`. `Icon` is aria-hidden unless it has a `title` / `aria-label`. Form labels use `htmlFor`. Tabs use `role="tab"` + `aria-selected`.
 4. **No inline colour soup.** Use classes and theme tokens (`var(--fg)`, `var(--fg-muted)`, `var(--border)`, `var(--bg-raised)`, `var(--accent)`) so dark mode works. Inline `style` only for data-driven values (bar widths, series colours).
 5. **CSS.** Prefer existing `ld-*` classes. A screen that needs more puts it in `frontend/src/styles/<area>.css` with `ld-<area>-*` class names and imports it at the top of the screen file. Do not edit `styles.css` or shared components from a screen conversion.
 6. **Responsive.** Grids collapse to one column on narrow screens; tables sit in `ld-table-wrap`; no fixed pixel widths on page containers.

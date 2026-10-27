@@ -8,6 +8,8 @@ import { Donut, Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
 import { useDevices, useExporters, useBodChecks, useInfraAlerts, useSites } from "@/api/hooks";
 
+import { Icon } from "@/components/Icon";
+import { Building2Icon, ChevronRightIcon, ClipboardCheckIcon, RefreshCwIcon } from "lucide-react";
 // Known LinkedEye sites (id → display metadata). fs-dx-le default.
 interface SiteMeta { label: string; role: string; dc: string; region: string; }
 const SITES: Record<string, SiteMeta> = {
@@ -57,22 +59,22 @@ export default function SiteDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>LE Sites</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{meta.label}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className="fa-solid fa-building" /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={Building2Icon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {meta.label}
-              <Pill tone={health >= 95 ? "ok" : "warn"}><i className={`fa-solid ${health >= 95 ? "fa-circle-check" : "fa-triangle-exclamation"}`} aria-hidden="true" /> {health}% healthy</Pill>
-              {!bodReady && bod.length > 0 && <Pill tone="crit"><i className="fa-solid fa-clipboard-check" aria-hidden="true" /> BOD {bodDown} down</Pill>}
+              <Pill tone={health >= 95 ? "ok" : "warn"}><Icon className={`fa-solid ${health >= 95 ? "fa-circle-check" : "fa-triangle-exclamation"}`} /> {health}% healthy</Pill>
+              {!bodReady && bod.length > 0 && <Pill tone="crit"><Icon icon={ClipboardCheckIcon} /> BOD {bodDown} down</Pill>}
             </h1>
             <p className="ld-entity-meta">
               <span>{meta.role}</span>
@@ -88,7 +90,7 @@ export default function SiteDetailScreen() {
             <select id="site-pick" className="ld-select" value={site} onChange={(e) => setSite(e.target.value)}>
               {SITE_IDS.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-arrows-rotate" aria-hidden="true" /> Refresh</button>
+            <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Refresh</button>
           </div>
         </div>
       </div>
@@ -100,7 +102,7 @@ export default function SiteDetailScreen() {
           const n = liveSites.find((s) => s.id === id)?.devices ?? allDevices.filter((d) => d.site === id).length;
           return (
             <button key={id} type="button" className="ld-card ld-infra-pick" aria-pressed={id === site} onClick={() => setSite(id)}>
-              <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><i className="fa-solid fa-building" /></span>
+              <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><Icon icon={Building2Icon} /></span>
               <span className="ld-infra-pick-body">
                 <span className="ld-infra-pick-title ld-mono">{m.label}</span>
                 <span className="ld-infra-pick-sub">{m.role}</span>

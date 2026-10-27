@@ -11,6 +11,8 @@ import { Donut, Empty, Legend, Panel, Pill } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
 import { SampleNotice, Sparkline, TimeChart, fmtValue } from "@/components/MetricCharts";
 
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, SearchIcon, UnplugIcon } from "lucide-react";
 export function fmtBytes(b: number | null | undefined) {
   if (b == null) return "—";
   const u = ["B", "KB", "MB", "GB", "TB", "PB"];
@@ -172,15 +174,15 @@ export function BmcCard({ c, onDetails }: { c: BmcController; onDetails?: () => 
       <header className="ld-bmc-head">
         <h3>{name}</h3>
         <span className="ld-muted">{c.model}</span>
-        <Pill tone={h.tone}><i className={`fa-solid ${c.health === "ok" ? "fa-circle-check" : "fa-circle-exclamation"}`} aria-hidden="true" /> {h.label}</Pill>
-        {onDetails && <button type="button" className="ld-link ld-bmc-more" onClick={onDetails}>View details <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
+        <Pill tone={h.tone}><Icon className={`fa-solid ${c.health === "ok" ? "fa-circle-check" : "fa-circle-exclamation"}`} /> {h.label}</Pill>
+        {onDetails && <button type="button" className="ld-link ld-bmc-more" onClick={onDetails}>View details <Icon icon={ArrowRightIcon} /></button>}
       </header>
       <div className="ld-bmc-body">
         <span className={`ld-bmc-logo ld-bmc-${c.kind}`} aria-hidden="true">{c.kind === "idrac" ? "DELL" : c.kind === "ilo" ? "HPE" : "BMC"}</span>
         <div className="ld-bmc-tiles">
           <div className="ld-bmc-tile">
             <span className="ld-muted ld-small">System Health</span>
-            <b className={`ld-text-${h.tone}`}><i className={`fa-solid ${c.health === "ok" ? "fa-circle-check" : "fa-circle-exclamation"}`} aria-hidden="true" /> {c.health === "ok" ? "OK" : h.label}</b>
+            <b className={`ld-text-${h.tone}`}><Icon className={`fa-solid ${c.health === "ok" ? "fa-circle-check" : "fa-circle-exclamation"}`} /> {c.health === "ok" ? "OK" : h.label}</b>
           </div>
           {c.sensors.length ? c.sensors.map((s) => {
             const last = s.points[s.points.length - 1];
@@ -215,7 +217,7 @@ export function HardwareSection({ hw, loading, detailed, onDetails }: { hw?: Dev
       {hw.sample && <SampleNotice what="iDRAC / iLO readings" />}
       {hw.source === "unavailable" && (
         <div className="ld-card ld-metrics-off" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <div><b>Prometheus is not connected</b><p className="ld-muted ld-small">{hw.message}</p></div>
         </div>
       )}
@@ -256,7 +258,7 @@ export function EventLogs({ deviceId, title = "Event Logs", kind = "devices", co
       {!compact && <form className="ld-logbar" onSubmit={(e) => { e.preventDefault(); setSearch(draft.trim()); }}>
         <label className="sr-only" htmlFor={`${id}-q`}>Search log text</label>
         <span className="ld-search">
-          <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+          <Icon icon={SearchIcon} />
           <input id={`${id}-q`} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Search message text…" />
         </span>
         <label className="sr-only" htmlFor={`${id}-lvl`}>Level</label>
@@ -273,7 +275,7 @@ export function EventLogs({ deviceId, title = "Event Logs", kind = "devices", co
       <SampleLine sample={q.data?.sample} setting="LOKI_URL" />
       {q.isLoading ? <Empty>Loading logs…</Empty> : !q.data ? <Empty>The API is not reachable from this browser.</Empty> : q.data.source !== "loki" ? (
         <div className="ld-metrics-off" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <div>
             <b>Loki is not connected</b>
             <p className="ld-muted ld-small">{q.data.message} Set LOKI_URL on the API to your Loki to read Windows Event Logs and the journal.</p>
@@ -287,7 +289,7 @@ export function EventLogs({ deviceId, title = "Event Logs", kind = "devices", co
               {q.data.entries.slice(0, 5).map((e, i) => (
                 <tr key={`${e.ts}-${i}`}>
                   <td className="ld-nowrap ld-small">{new Date(e.ts).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td>
-                  <td className={`ld-nowrap ld-small ld-text-${LEVEL_TONE[e.level]}`}><i className={`fa-solid ${LEVEL_ICON[e.level]}`} aria-hidden="true" /> {e.level === "info" ? "Info" : e.level[0].toUpperCase() + e.level.slice(1)}</td>
+                  <td className={`ld-nowrap ld-small ld-text-${LEVEL_TONE[e.level]}`}><Icon className={`fa-solid ${LEVEL_ICON[e.level]}`} /> {e.level === "info" ? "Info" : e.level[0].toUpperCase() + e.level.slice(1)}</td>
                   <td className="ld-wrap ld-small">{e.message}</td>
                 </tr>
               ))}
@@ -302,7 +304,7 @@ export function EventLogs({ deviceId, title = "Event Logs", kind = "devices", co
               {q.data.entries.map((e, i) => (
                 <tr key={`${e.ts}-${i}`}>
                   <td className="ld-nowrap ld-mono ld-small">{new Date(e.ts).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "medium" })}</td>
-                  <td><Pill tone={LEVEL_TONE[e.level]}><i className={`fa-solid ${LEVEL_ICON[e.level]}`} aria-hidden="true" /> {e.level === "info" ? "Information" : e.level[0].toUpperCase() + e.level.slice(1)}</Pill></td>
+                  <td><Pill tone={LEVEL_TONE[e.level]}><Icon className={`fa-solid ${LEVEL_ICON[e.level]}`} /> {e.level === "info" ? "Information" : e.level[0].toUpperCase() + e.level.slice(1)}</Pill></td>
                   <td className="ld-muted">{e.source || "—"}</td>
                   <td className="ld-mono ld-muted">{e.event_id ?? "—"}</td>
                   <td className="ld-wrap">{e.message}</td>

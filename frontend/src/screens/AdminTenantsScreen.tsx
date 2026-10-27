@@ -11,6 +11,8 @@ import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import type { Tenant } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, ChevronRightIcon, FileOutputIcon, PlusIcon } from "lucide-react";
 const healthTone = (h: number): Tone => (h > 95 ? "ok" : h > 85 ? "warn" : "crit");
 
 export default function AdminTenantsScreen() {
@@ -31,9 +33,9 @@ export default function AdminTenantsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Super-admin</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Clients</span>
       </nav>
 
@@ -43,8 +45,8 @@ export default function AdminTenantsScreen() {
           <p>All clients under {ORG.name} · {fmt(ORG.seatsUsed)} of {fmt(ORG.seatsTotal)} seats used</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export CSV</button>
-          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("onboarding")}><i className="fa-solid fa-plus" aria-hidden="true" /> Provision Client</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export CSV</button>
+          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("onboarding")}><Icon icon={PlusIcon} /> Provision Client</button>
         </div>
       </div>
 
@@ -96,7 +98,7 @@ export default function AdminTenantsScreen() {
                       </td>
                       <td>
                         <button type="button" className="ld-btn ld-btn-sm" onClick={() => open(t)} aria-label={`Open ${t.name} dashboard`}>
-                          Open <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                          Open <Icon icon={ArrowRightIcon} />
                         </button>
                       </td>
                     </tr>

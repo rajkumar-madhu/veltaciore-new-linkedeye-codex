@@ -5,6 +5,8 @@ import React from "react";
 import { STATUS_COLORS, normalizeStatus, getHealthColor, type NormalizedStatus } from "@/lib/statusColors";
 import type { Device } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { ServerIcon } from "lucide-react";
 export function DomainHeatmap({
   devices,
   title = "Domain Status · Fleet Health",
@@ -25,7 +27,7 @@ export function DomainHeatmap({
     <div style={{ background: bare ? "transparent" : "#0b1220", padding: bare ? 0 : 16 }}>
       {devices.length === 0 ? (
         <div style={{ color: "#64748b", fontSize: 12.5, textAlign: "center", padding: "22px 0" }}>
-          <i className="fa-solid fa-server" style={{ fontSize: 20, opacity: 0.5, display: "block", marginBottom: 8 }} />
+          <Icon icon={ServerIcon} style={{ fontSize: 20, opacity: 0.5, display: "block", marginBottom: 8 }} />
           No monitored hosts yet.
         </div>
       ) : (

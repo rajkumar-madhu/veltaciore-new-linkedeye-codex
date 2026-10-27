@@ -11,6 +11,8 @@ import type { Tone } from "@/components/ld";
 import { TimeChart } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, DownloadIcon, FlaskConicalIcon, PlusIcon, TrendingUpIcon } from "lucide-react";
 interface Slo {
   id: string;
   name: string;
@@ -74,7 +76,7 @@ export default function SlosScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Service Level Objectives</span>
       </nav>
 
@@ -84,13 +86,13 @@ export default function SlosScreen() {
           <p>Error-budget tracking across trading &amp; platform services · 30-day window · burn-rate alerting</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-download" aria-hidden="true" /> Export</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New SLO</button>
+          <button type="button" className="ld-btn"><Icon icon={DownloadIcon} /> Export</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New SLO</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">SLO tracking is not connected to a metrics source yet. The objectives below are illustrative; budgets and burn-down are computed from them.</p>
@@ -138,7 +140,7 @@ export default function SlosScreen() {
                       </td>
                       <td>
                         <Pill tone={burnTone(s.burnRate)}>
-                          {s.burnRate.toFixed(1)}× {s.burnRate >= 2 && <i className="fa-solid fa-arrow-trend-up" aria-hidden="true" />}
+                          {s.burnRate.toFixed(1)}× {s.burnRate >= 2 && <Icon icon={TrendingUpIcon} />}
                         </Pill>
                       </td>
                     </tr>
@@ -159,7 +161,7 @@ export default function SlosScreen() {
             <span className="ld-obs-label">Error budget burn-down</span>
             <TimeChart series={burndown} startSec={chartStart} endSec={chartEnd} compact />
             <div className={`ld-obs-callout ld-${fast ? "crit" : "ok"}`}>
-              <b><i className={`fa-solid ${fast ? "fa-fire" : "fa-check"}`} aria-hidden="true" /> {fast ? `Fast burn — ${sel.burnRate}× budget` : "Healthy burn rate"}</b>
+              <b><Icon className={`fa-solid ${fast ? "fa-fire" : "fa-check"}`} /> {fast ? `Fast burn — ${sel.burnRate}× budget` : "Healthy burn rate"}</b>
               <span>
                 {fast
                   ? `At this rate the 30-day budget exhausts in ~${Math.max(1, Math.round(30 / sel.burnRate))} days. Page the on-call service owner.`

@@ -9,6 +9,8 @@ import { useArticles } from "@/api/hooks";
 import { USERS } from "@/data/core";
 
 
+import { Icon } from "@/components/Icon";
+import { BookOpenIcon, BotIcon, ChevronRightIcon, Grid3x3Icon, PencilIcon, PlusIcon, PrinterIcon, ShareIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 const CATEGORIES: { label: string; id: string; icon: string }[] = [
   { label: "Runbooks", id: "runbooks", icon: "fa-book" },
   { label: "Process", id: "process", icon: "fa-diagram-project" },
@@ -20,7 +22,7 @@ const userName = (id: string) => USERS.find((u) => u.id === id)?.name ?? id;
 function Summary({ icon, tone, label, value, note }: { icon: string; tone: Tone; label: string; value: React.ReactNode; note: string }) {
   return (
     <div className="ld-card ld-stat ld-sd-stat">
-      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><i className={`fa-solid ${icon}`} /></span>
+      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
       <span className="ld-stat-body">
         <span className="ld-stat-label">{label}</span>
         <span className="ld-stat-value">{value}</span>
@@ -48,7 +50,7 @@ export default function KnowledgeScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Knowledge Base</span>
       </nav>
 
@@ -58,8 +60,8 @@ export default function KnowledgeScreen() {
           <p>{fmt(articles.length)} articles in {catCount} categories · AI-assisted authoring</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-robot" aria-hidden="true" /> Generate from Incident</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Article</button>
+          <button type="button" className="ld-btn"><Icon icon={BotIcon} /> Generate from Incident</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Article</button>
         </div>
       </div>
 
@@ -73,13 +75,13 @@ export default function KnowledgeScreen() {
 
       <div className="ld-chips" role="group" aria-label="Filter by category">
         <button type="button" className={`ld-chip${cat === "all" ? " active" : ""}`} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
-          <i className="fa-solid fa-border-all" aria-hidden="true" />
+          <Icon icon={Grid3x3Icon} />
           <span className="ld-chip-label">All</span>
           <span className="ld-chip-count">{articles.length}</span>
         </button>
         {CATEGORIES.map(({ label, id, icon }) => (
           <button key={id} type="button" className={`ld-chip${cat === id ? " active" : ""}`} aria-pressed={cat === id} onClick={() => setCat(cat === id ? "all" : id)}>
-            <i className={`fa-solid ${icon}`} aria-hidden="true" />
+            <Icon className={`fa-solid ${icon}`} />
             <span className="ld-chip-label">{label}</span>
             <span className="ld-chip-count">{articles.filter(a => a.cat.toLowerCase() === id).length}</span>
           </button>
@@ -141,9 +143,9 @@ export function KnowledgeArticleScreen() {
   const crumbs = (last: string) => (
     <nav className="ld-crumbs" aria-label="Breadcrumb">
       <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-      <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+      <Icon icon={ChevronRightIcon} />
       <button type="button" className="ld-link" onClick={() => setRoute("knowledge")}>Knowledge Base</button>
-      <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+      <Icon icon={ChevronRightIcon} />
       <span>{last}</span>
     </nav>
   );
@@ -153,7 +155,7 @@ export function KnowledgeArticleScreen() {
         {crumbs("Article")}
         <div className="ld-card">
           <Empty>
-            <i className="fa-solid fa-book-open" aria-hidden="true" /> <b>No articles</b>
+            <Icon icon={BookOpenIcon} /> <b>No articles</b>
             <br />The knowledge base has no published articles for this tenant.
           </Empty>
         </div>
@@ -166,7 +168,7 @@ export function KnowledgeArticleScreen() {
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className="fa-solid fa-book-open" /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={BookOpenIcon} /></span>
           <div>
             <span className="ld-sd-number">{a.id}</span>
             <h1 className="ld-entity-title">
@@ -184,9 +186,9 @@ export function KnowledgeArticleScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-share" aria-hidden="true" /> Share</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-pen" aria-hidden="true" /> Edit</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-print" aria-hidden="true" /> Print</button>
+            <button type="button" className="ld-btn"><Icon icon={ShareIcon} /> Share</button>
+            <button type="button" className="ld-btn"><Icon icon={PencilIcon} /> Edit</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PrinterIcon} /> Print</button>
           </div>
         </div>
       </div>
@@ -231,8 +233,8 @@ export function KnowledgeArticleScreen() {
           </Panel>
           <Panel title="Was this helpful?">
             <div className="ld-sd-actions">
-              <button type="button" className="ld-btn"><i className="fa-solid fa-thumbs-up" aria-hidden="true" /> Yes</button>
-              <button type="button" className="ld-btn"><i className="fa-solid fa-thumbs-down" aria-hidden="true" /> No</button>
+              <button type="button" className="ld-btn"><Icon icon={ThumbsUpIcon} /> Yes</button>
+              <button type="button" className="ld-btn"><Icon icon={ThumbsDownIcon} /> No</button>
             </div>
           </Panel>
         </aside>

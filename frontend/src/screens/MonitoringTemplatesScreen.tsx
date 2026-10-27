@@ -7,6 +7,8 @@ import { TEMPLATE_CATEGORIES } from "@/data/monitoring";
 import type { TemplateCategory } from "@/data/monitoring";
 import { Empty, fmt } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { LayersIcon, RadioTowerIcon, SearchIcon, ZoomInIcon } from "lucide-react";
 const PREVIEW = 8;
 
 function CategoryCard({ cat, query }: { cat: TemplateCategory; query: string }) {
@@ -19,7 +21,7 @@ function CategoryCard({ cat, query }: { cat: TemplateCategory; query: string }) 
     <section className="ld-card ld-panel ld-tpl-card" aria-labelledby={headId}>
       <div className="ld-tpl-head">
         <span className="ld-tpl-icon" style={{ color: cat.color, background: `${cat.color}1a` }} aria-hidden="true">
-          <i className={`fa-solid ${cat.icon}`} />
+          <Icon className={`fa-solid ${cat.icon}`} />
         </span>
         <h2 id={headId}>{cat.title}</h2>
         <span className="ld-tpl-count">{cat.templates.length} templates</span>
@@ -28,7 +30,7 @@ function CategoryCard({ cat, query }: { cat: TemplateCategory; query: string }) 
       <ul className="ld-tpl-list">
         {shown.map((t) => (
           <li key={t.name}>
-            <i className={`fa-solid ${t.icon}`} style={{ color: cat.color }} aria-hidden="true" />
+            <Icon className={`fa-solid ${t.icon}`} style={{ color: cat.color }} />
             <span>{t.name}</span>
           </li>
         ))}
@@ -36,7 +38,7 @@ function CategoryCard({ cat, query }: { cat: TemplateCategory; query: string }) 
       {!q && cat.templates.length > PREVIEW && (
         <button type="button" className="ld-link ld-tpl-more" onClick={() => setOpen(!open)} aria-expanded={open}>
           {open ? "Show fewer" : `View all ${cat.templates.length} templates`}
-          <i className={`fa-solid fa-chevron-${open ? "up" : "down"}`} aria-hidden="true" />
+          <Icon className={`fa-solid fa-chevron-${open ? "up" : "down"}`} />
         </button>
       )}
     </section>
@@ -67,23 +69,23 @@ export default function MonitoringTemplatesScreen() {
         </div>
         <div className="ld-head-actions">
           <button type="button" className="ld-btn" onClick={() => setRoute("infra-exporters")}>
-            <i className="fa-solid fa-tower-broadcast" aria-hidden="true" /> Exporters
+            <Icon icon={RadioTowerIcon} /> Exporters
           </button>
           <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("infra-onboarding")}>
-            <i className="fa-solid fa-magnifying-glass-plus" aria-hidden="true" /> Discover &amp; assign
+            <Icon icon={ZoomInIcon} /> Discover &amp; assign
           </button>
         </div>
       </div>
 
       <div className="ld-chips" role="group" aria-label="Filter by category">
         <button type="button" className={`ld-chip${!cat ? " active" : ""}`} aria-pressed={!cat} onClick={() => setCat("")}>
-          <i className="fa-solid fa-layer-group" aria-hidden="true" />
+          <Icon icon={LayersIcon} />
           <span className="ld-chip-count">{fmt(total)}</span>
           <span className="ld-chip-label">All templates</span>
         </button>
         {TEMPLATE_CATEGORIES.map((c) => (
           <button key={c.id} type="button" className={`ld-chip${cat === c.id ? " active" : ""}`} aria-pressed={cat === c.id} onClick={() => setCat(cat === c.id ? "" : c.id)}>
-            <i className={`fa-solid ${c.icon}`} aria-hidden="true" style={cat === c.id ? undefined : { color: c.color }} />
+            <Icon className={`fa-solid ${c.icon}`} style={cat === c.id ? undefined : { color: c.color }} />
             <span className="ld-chip-count">{c.templates.length}</span>
             <span className="ld-chip-label">{c.title}</span>
           </button>
@@ -93,7 +95,7 @@ export default function MonitoringTemplatesScreen() {
       <div className="ld-toolbar ld-card ld-filters">
         <label htmlFor="tpl-search" className="sr-only">Search templates</label>
         <span className="ld-search">
-          <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+          <Icon icon={SearchIcon} />
           <input id="tpl-search" type="search" placeholder="Search templates, devices, services or categories…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </span>
         <label htmlFor="tpl-cat" className="sr-only">Category</label>

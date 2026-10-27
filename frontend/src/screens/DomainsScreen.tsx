@@ -11,6 +11,8 @@ import { NO_TENANT, useUiStore } from "@/store/ui";
 import { Empty, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { GlobeIcon, PencilIcon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from "lucide-react";
 const PAGE_SIZE = 10;
 const TYPES = ["Production", "Application", "API", "Monitoring", "Backup", "VPN", "Mail", "Test", "Other"];
 
@@ -69,7 +71,7 @@ export default function DomainsScreen() {
         </div>
         <div className="ld-head-actions">
           <button type="button" className="ld-btn ld-btn-primary" onClick={() => setEditing({ form: { ...EMPTY } })}>
-            <i className="fa-solid fa-plus" aria-hidden="true" /> Add Domain
+            <Icon icon={PlusIcon} /> Add Domain
           </button>
         </div>
       </div>
@@ -91,7 +93,7 @@ export default function DomainsScreen() {
           <div className="ld-toolbar">
             <label htmlFor="dom-search" className="sr-only">Search domains</label>
             <span className="ld-search">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id="dom-search" type="search" placeholder="Search domains or IPs…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </span>
             <label htmlFor="dom-site" className="sr-only">Site</label>
@@ -134,7 +136,7 @@ export default function DomainsScreen() {
                       <td>
                         <button type="button" className="ld-link ld-domain" aria-pressed={d.id === current?.id}
                           onClick={() => { setSelectedId(d.id); setDetailTab("overview"); setEditing(null); }}>
-                          <i className="fa-solid fa-globe" aria-hidden="true" /> {d.name}
+                          <Icon icon={GlobeIcon} /> {d.name}
                         </button>
                         {!d.active && <span className="ld-sub">inactive</span>}
                       </td>
@@ -205,13 +207,13 @@ function DomainDetails({ domain, readOnly, tab, setTab, onEdit, onDeleted }: {
         <h2 id="dom-detail-h">Domain Details</h2>
         <div className="ld-dom-actions">
           <button type="button" className="ld-btn ld-btn-sm" disabled={check.isPending} onClick={() => check.mutate(domain.id)}>
-            <i className={`fa-solid ${check.isPending ? "fa-spinner fa-spin" : "fa-rotate"}`} aria-hidden="true" /> {check.isPending ? "Checking…" : "Check now"}
+            <Icon className={`fa-solid ${check.isPending ? "fa-spinner fa-spin" : "fa-rotate"}`} /> {check.isPending ? "Checking…" : "Check now"}
           </button>
           {!readOnly && <>
-            <button type="button" className="ld-btn ld-btn-sm" onClick={() => onEdit(domain)}><i className="fa-solid fa-pen" aria-hidden="true" /> Edit</button>
+            <button type="button" className="ld-btn ld-btn-sm" onClick={() => onEdit(domain)}><Icon icon={PencilIcon} /> Edit</button>
             <button type="button" className="ld-btn ld-btn-sm" disabled={del.isPending}
               onClick={() => { if (window.confirm(`Stop monitoring ${domain.name}?`)) del.mutate(domain.id, { onSuccess: onDeleted }); }}>
-              <i className="fa-solid fa-trash" aria-hidden="true" /> Delete
+              <Icon icon={Trash2Icon} /> Delete
             </button>
           </>}
         </div>
@@ -219,7 +221,7 @@ function DomainDetails({ domain, readOnly, tab, setTab, onEdit, onDeleted }: {
       {error && <p className="ld-dom-error" role="alert">{apiErrorText(error)}</p>}
       {readOnly && <p className="ld-muted ld-small">Shared domain: visible to every client, editable from the all-clients view.</p>}
       <div className="ld-detail-title">
-        <span className="ld-tile ld-tile-md ld-info" aria-hidden="true"><i className="fa-solid fa-globe" /></span>
+        <span className="ld-tile ld-tile-md ld-info" aria-hidden="true"><Icon icon={GlobeIcon} /></span>
         <div>
           <div className="ld-detail-name">
             {domain.name} <Pill tone={domain.active ? "ok" : "muted"}>{domain.active ? "Active" : "Inactive"}</Pill>
@@ -330,12 +332,12 @@ function DomainForm({ id, initial, onDone }: { id?: number; initial: DomainInput
               <label className="sr-only" htmlFor={`${uid}-sp-${i}`}>Port</label>
               <input id={`${uid}-sp-${i}`} className="ld-input" type="number" required min={1} max={65535} placeholder="Port" value={s.port || ""} onChange={(e) => setSvc(i, { port: Number(e.target.value) })} />
               <button type="button" className="ld-btn ld-btn-sm" aria-label={`Remove ${s.name || "service"}`} onClick={() => set("services", f.services.filter((_, j) => j !== i))}>
-                <i className="fa-solid fa-xmark" aria-hidden="true" />
+                <Icon icon={XIcon} />
               </button>
             </div>
           ))}
           <button type="button" className="ld-btn ld-btn-sm" onClick={() => set("services", [...f.services, { name: "", type: "", port: 0 }])}>
-            <i className="fa-solid fa-plus" aria-hidden="true" /> Add port
+            <Icon icon={PlusIcon} /> Add port
           </button>
         </fieldset>
         {save.error && <p className="ld-dom-error" role="alert">{apiErrorText(save.error)}</p>}

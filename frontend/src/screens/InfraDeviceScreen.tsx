@@ -16,6 +16,8 @@ import { Empty, Panel, Pill, StatCard } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import type { Device, DeviceKind, Site } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { Building2Icon, ChevronRightIcon, CircleCheckIcon, FlameIcon, FlaskConicalIcon, LinkIcon, PauseIcon, RadioTowerIcon, RefreshCwIcon, SearchIcon, SquareTerminalIcon } from "lucide-react";
 type SparkProps = { data: number[]; color?: string; h?: number; unit?: string };
 type BarProps = { pct: number; warn?: number; crit?: number; width?: number };
 
@@ -79,7 +81,7 @@ function SamplePanel({ title, badge, children }: { title: string; badge?: string
 function SampleNote({ children }: { children: React.ReactNode }) {
   return (
     <div className="ld-card ld-infra-sample" role="note">
-      <i className="fa-solid fa-flask" aria-hidden="true" />
+      <Icon icon={FlaskConicalIcon} />
       <div><b>Sample data</b><p className="ld-muted ld-small">{children}</p></div>
     </div>
   );
@@ -174,17 +176,17 @@ export default function InfraDeviceScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra-topology")}>Site Topology</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{d.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className={kindIcon} /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon className={kindIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {d.hostname || d.id}
@@ -203,15 +205,15 @@ export default function InfraDeviceScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-terminal" aria-hidden="true" /> SSH</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-rotate" aria-hidden="true" /> Re-poll</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-pause" aria-hidden="true" /> Mute Alerts</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-fire" aria-hidden="true" /> Open Incident</button>
+            <button type="button" className="ld-btn"><Icon icon={SquareTerminalIcon} /> SSH</button>
+            <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Re-poll</button>
+            <button type="button" className="ld-btn"><Icon icon={PauseIcon} /> Mute Alerts</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={FlameIcon} /> Open Incident</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
-            {k.label && <li className="ld-tag"><i className={kindIcon} aria-hidden="true" /> {k.label}</li>}
-            {siteObj.name && <li className="ld-tag"><i className="fa-solid fa-building" aria-hidden="true" /> {siteObj.name}</li>}
-            {d.agent && <li className="ld-tag"><i className="fa-solid fa-tower-broadcast" aria-hidden="true" /> {d.agent}</li>}
+            {k.label && <li className="ld-tag"><Icon className={kindIcon} /> {k.label}</li>}
+            {siteObj.name && <li className="ld-tag"><Icon icon={Building2Icon} /> {siteObj.name}</li>}
+            {d.agent && <li className="ld-tag"><Icon icon={RadioTowerIcon} /> {d.agent}</li>}
           </ul>
         </div>
       </div>
@@ -227,7 +229,7 @@ export default function InfraDeviceScreen() {
       <div className="ld-tabs" role="tablist" aria-label={`${d.id} sections`}>
         {TABS.map(([id, label, icon]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={`ld-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>
-            <i className={`fa-solid ${icon}`} aria-hidden="true" /> {label}
+            <Icon className={`fa-solid ${icon}`} /> {label}
             {id === "alerts" && deviceAlerts.length > 0 && <> <Pill tone="crit">{deviceAlerts.length}</Pill></>}
           </button>
         ))}
@@ -286,7 +288,7 @@ export default function InfraDeviceScreen() {
                     const n = DEVICES.find(x => x.id === id);
                     return (
                       <li key={id}>
-                        <i className="fa-solid fa-link ld-muted" aria-hidden="true" />
+                        <Icon icon={LinkIcon} className="ld-muted" />
                         <span className="ld-activity-text">
                           <button type="button" className="ld-link ld-mono" onClick={() => openDevice(id)}>{id}</button>
                           {n?.role && <span className="ld-sub">{n.role}</span>}
@@ -392,7 +394,7 @@ export default function InfraDeviceScreen() {
           <div className="ld-toolbar">
             <label htmlFor="if-search" className="sr-only">Filter interfaces</label>
             <span className="ld-search ld-field-grow">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id="if-search" type="search" value={ifq} onChange={e => setIfq(e.target.value)} placeholder="Filter by port or description…" />
             </span>
             <div className="ld-infra-seg" role="group" aria-label="Interface state">
@@ -497,7 +499,7 @@ export default function InfraDeviceScreen() {
               </table>
             </div>
           ) : (
-            <Empty><i className="fa-solid fa-circle-check ld-text-ok" aria-hidden="true" /> No active alerts on this device</Empty>
+            <Empty><Icon icon={CircleCheckIcon} className="ld-text-ok" /> No active alerts on this device</Empty>
           )}
         </Panel>
       )}
@@ -563,7 +565,7 @@ export function SwitchPortPanel({ d, Spark, Bar }: { d: Device; Spark: (p: Spark
         <div className="ld-toolbar">
           <label htmlFor="port-search" className="sr-only">Filter ports</label>
           <span className="ld-search ld-field-grow">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+            <Icon icon={SearchIcon} />
             <input id="port-search" type="search" value={pq} onChange={e => setPq(e.target.value)} placeholder="Filter by port, description, VLAN…" />
           </span>
         </div>

@@ -8,6 +8,8 @@ import { useDeviceRelationships, type NicLink, type PeerRef } from "@/api/hooks"
 import { Empty, Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BoxIcon, ChevronRightIcon, MapPinIcon, NetworkIcon, ServerIcon } from "lucide-react";
 const KIND_ICON: Record<string, string> = {
   switch: "fa-network-wired", router: "fa-route", firewall: "fa-shield-halved", loadbal: "fa-scale-balanced",
   hypervisor: "fa-server", "phys-srv": "fa-server", "win-srv": "fa-server", "linux-srv": "fa-server",
@@ -73,9 +75,9 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
       <div className="ld-metrics-head">
         <h2>Relationships</h2>
         <nav className="ld-crumbs" aria-label="Location">
-          <i className="fa-solid fa-location-dot" aria-hidden="true" />
+          <Icon icon={MapPinIcon} />
           <button type="button" className="ld-link" onClick={() => setRoute("site-detail")}>{data.site.name || data.site.id}</button>
-          <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+          <Icon icon={ChevronRightIcon} />
           {data.rack ? (
             <button type="button" className="ld-link" onClick={() => setRoute("infra-rack")}>
               Rack {data.rack.name} · U{data.rack.u_bottom}–{data.rack.u_top}
@@ -83,7 +85,7 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
           ) : (
             <span>No rack position</span>
           )}
-          <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+          <Icon icon={ChevronRightIcon} />
           <b>{data.device.id}</b>
         </nav>
       </div>
@@ -94,7 +96,7 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
           {switches.size ? (
             [...switches.values()].map(({ peer, ports }) => (
               <div key={peer.id ?? "restricted"} className="ld-family-node">
-                <i className={`fa-solid ${KIND_ICON[peer.kind ?? ""] ?? "fa-network-wired"}`} aria-hidden="true" />
+                <Icon className={`fa-solid ${KIND_ICON[peer.kind ?? ""] ?? "fa-network-wired"}`} />
                 <div>
                   <b>{peer.restricted ? "Restricted" : peer.name ?? peer.id}</b>
                   {ports.map((p) => <span key={p} className="ld-sub ld-mono">{p}</span>)}
@@ -109,7 +111,7 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
         <div className="ld-family-col ld-family-center">
           <span className="ld-family-label">This device</span>
           <div className="ld-family-node ld-family-self">
-            <i className={`fa-solid ${KIND_ICON[data.device.kind] ?? "fa-server"}`} aria-hidden="true" />
+            <Icon className={`fa-solid ${KIND_ICON[data.device.kind] ?? "fa-server"}`} />
             <div>
               <b>{data.device.id}</b>
               <span className="ld-sub">{data.device.model}</span>
@@ -124,7 +126,7 @@ export function DeviceFamily({ deviceId }: { deviceId: string }) {
           {data.vms.length ? (
             data.vms.slice(0, 6).map((v) => (
               <button key={v.id} type="button" className="ld-family-node ld-family-vm" onClick={() => setRoute("vm-detail", { vmId: v.id })}>
-                <i className="fa-solid fa-cube" aria-hidden="true" />
+                <Icon icon={BoxIcon} />
                 <div>
                   <b>{v.id}</b>
                   <span className="ld-sub ld-mono">{v.ip}</span>
@@ -205,16 +207,16 @@ export function NetworkPath({ vmId, hostId }: { vmId: string; hostId: string }) 
     <Panel title="Network Path">
       {data ? (
         <ol className="ld-path">
-          <li><i className="fa-solid fa-cube" aria-hidden="true" /> <b>{vmId}</b><span className="ld-sub">virtual machine</span></li>
+          <li><Icon icon={BoxIcon} /> <b>{vmId}</b><span className="ld-sub">virtual machine</span></li>
           <li>
-            <i className="fa-solid fa-server" aria-hidden="true" />{" "}
+            <Icon icon={ServerIcon} />{" "}
             <button type="button" className="ld-link" onClick={() => setRoute("server-detail", { deviceId: hostId })}>{hostId}</button>
             <span className="ld-sub">host · {data.site.name}{data.rack ? ` · rack ${data.rack.name} U${data.rack.u_bottom}` : ""}</span>
           </li>
           {uplinks.length ? (
             uplinks.map((n) => (
               <li key={n.name}>
-                <i className="fa-solid fa-network-wired" aria-hidden="true" />{" "}
+                <Icon icon={NetworkIcon} />{" "}
                 <span className="ld-mono">{n.name}</span> ({n.speed}) → <PeerName peer={n.connected_to!.peer} />
                 {!n.connected_to!.peer.restricted && <span className="ld-sub ld-mono">switch port {n.connected_to!.port}</span>}
               </li>

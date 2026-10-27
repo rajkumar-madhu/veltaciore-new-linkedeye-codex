@@ -13,6 +13,8 @@ import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import { colorFor } from "@/components/Shell";
 
+import { Icon } from "@/components/Icon";
+import { Building2Icon, ChevronRightIcon, LockIcon, SearchIcon } from "lucide-react";
 type SortKey = "name" | "sev1" | "incidents_active" | "tickets_open" | "devices_online_pct" | "alerts_critical";
 
 const healthTone = (pct: number | null): Tone => (pct == null ? "muted" : pct >= 98 ? "ok" : pct >= 90 ? "warn" : "crit");
@@ -53,9 +55,9 @@ export default function CrossTenantScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Analytics</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Cross-client view</span>
       </nav>
 
@@ -66,14 +68,14 @@ export default function CrossTenantScreen() {
         </div>
         <div className="ld-head-actions">
           <button type="button" className="ld-btn" onClick={() => setRoute("admin-tenants")}>
-            <i className="fa-solid fa-building" aria-hidden="true" /> Manage clients
+            <Icon icon={Building2Icon} /> Manage clients
           </button>
         </div>
       </div>
 
       {forbidden ? (
         <div className="ld-card ld-metrics-off" role="status">
-          <i className="fa-solid fa-lock" aria-hidden="true" />
+          <Icon icon={LockIcon} />
           <div>
             <b>Admins only</b>
             <p className="ld-muted ld-small">Your role can see one client at a time. Ask an administrator for cross-client access.</p>
@@ -97,7 +99,7 @@ export default function CrossTenantScreen() {
               <label className="ld-field ld-field-grow" htmlFor={`${id}-q`}>
                 Search
                 <span className="ld-search">
-                  <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+                  <Icon icon={SearchIcon} />
                   <input id={`${id}-q`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Client name…" />
                 </span>
               </label>

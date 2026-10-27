@@ -21,6 +21,8 @@ import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
 import { DeviceFamily } from "@/components/DeviceFamily";
 import { EventLogs, FilesystemTable, HardwareSection, ProcessTable, ServicesPanel, serviceSlices } from "@/components/HostPanels";
 
+import { Icon } from "@/components/Icon";
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, CircleCheckIcon, FileTextIcon, NetworkIcon, UnplugIcon } from "lucide-react";
 const SERVER_KINDS = ["hypervisor", "phys-srv", "linux-srv", "win-srv"];
 
 const STATUS: Record<string, { label: string; tone: Tone }> = {
@@ -102,7 +104,7 @@ export default function ServerDetailScreen() {
               {alerts.slice(0, limit).map((a) => (
                 <tr key={a.id}>
                   <td className="ld-nowrap ld-muted">{a.since}</td>
-                  <td><Pill tone={sevTone(a.sev)}><i className={`fa-solid ${a.sev === "critical" ? "fa-circle-xmark" : a.sev === "warning" || a.sev === "warn" ? "fa-triangle-exclamation" : "fa-circle-info"}`} aria-hidden="true" /> {sevLabel(a.sev)}</Pill></td>
+                  <td><Pill tone={sevTone(a.sev)}><Icon className={`fa-solid ${a.sev === "critical" ? "fa-circle-xmark" : a.sev === "warning" || a.sev === "warn" ? "fa-triangle-exclamation" : "fa-circle-info"}`} /> {sevLabel(a.sev)}</Pill></td>
                   <td className="ld-muted">{a.detail || a.device}</td>
                   <td className="ld-wrap">{a.title}</td>
                 </tr>
@@ -150,21 +152,21 @@ export default function ServerDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra-assets")}>Nodes</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{d.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className={`ld-os-logo ${os.cls}`} aria-hidden="true"><i className={os.icon} /></span>
+          <span className={`ld-os-logo ${os.cls}`} aria-hidden="true"><Icon className={os.icon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {d.hostname || d.id}
-              <Pill tone={st.tone}><i className="fa-solid fa-circle-check" aria-hidden="true" /> {st.label}</Pill>
+              <Pill tone={st.tone}><Icon icon={CircleCheckIcon} /> {st.label}</Pill>
             </h1>
             <p className="ld-entity-meta">
               <span>{d.os || os.name}</span>
@@ -181,12 +183,12 @@ export default function ServerDetailScreen() {
           <div className="ld-head-actions">
             <RangeSelect />
             <LiveButton />
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> View in map</button>
-            <button type="button" className="ld-btn" onClick={() => goTab("Event Logs")}><i className="fa-solid fa-file-lines" aria-hidden="true" /> Logs</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
+            <button type="button" className="ld-btn" onClick={() => goTab("Event Logs")}><Icon icon={FileTextIcon} /> Logs</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
             {tags.map((t) => (
-              <li key={t.label} className="ld-tag"><i className={t.icon} aria-hidden="true" /> {t.label}</li>
+              <li key={t.label} className="ld-tag"><Icon className={t.icon} /> {t.label}</li>
             ))}
           </ul>
         </div>
@@ -195,7 +197,7 @@ export default function ServerDetailScreen() {
       {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <div>
             <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
             <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards and charts fill in once the exporter is scraped.</p>
@@ -211,7 +213,7 @@ export default function ServerDetailScreen() {
         <Kpi icon="fa-hard-drive" tone="warn" label={os.name === "Windows" ? "Disk Usage (C:)" : "Disk Usage"} value={disk ? fmtValue(lastOf(disk)!, "%") : na}
           sub={disk ? disk.label : undefined} points={disk?.points} color="#f97316" lowerIsBetter />
         <Kpi icon="fa-network-wired" tone="purple" label="Network (Total)" value={netTotal.length ? fmtValue(netTotal[netTotal.length - 1][1], "Mbps") : na}
-          sub={rx || tx ? <><span><i className="fa-solid fa-arrow-down" aria-hidden="true" /> {rx ? fmtValue(lastOf(rx)!, "Mbps") : "—"}</span> <span><i className="fa-solid fa-arrow-up" aria-hidden="true" /> {tx ? fmtValue(lastOf(tx)!, "Mbps") : "—"}</span></> : undefined}
+          sub={rx || tx ? <><span><Icon icon={ArrowDownIcon} /> {rx ? fmtValue(lastOf(rx)!, "Mbps") : "—"}</span> <span><Icon icon={ArrowUpIcon} /> {tx ? fmtValue(lastOf(tx)!, "Mbps") : "—"}</span></> : undefined}
           points={netTotal.length ? netTotal : undefined} color="#7c4dff" />
         <Kpi icon="fa-gears" tone="info" label="Processes" value={procs ? String(Math.round(lastOf(procs)!)) : na} points={procs?.points} />
         <Kpi icon="fa-cubes" tone="purple" label="Services">

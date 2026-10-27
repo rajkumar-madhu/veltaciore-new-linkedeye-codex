@@ -8,6 +8,8 @@ import { useIncidents, useProblems, useSlas } from "@/api/hooks";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FileOutputIcon, MailIcon, PlusIcon } from "lucide-react";
 const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "muted" };
 const problemTone = (s: string): Tone => (s === "Resolved" ? "ok" : s === "Known error" ? "purple" : "warn");
 const complianceColor = (c: number) => (c > 95 ? "#16a34a" : c > 90 ? "#f5a524" : "#e5383b");
@@ -38,7 +40,7 @@ export default function ReportsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Reports &amp; Analytics</span>
       </nav>
 
@@ -48,8 +50,8 @@ export default function ReportsScreen() {
           <p>Problem and incident trends across the organisation</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Report</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Report</button>
         </div>
       </div>
 
@@ -112,7 +114,7 @@ export default function ReportsScreen() {
             <ul className="ld-activity">
               {SAMPLE_SCHEDULED.map(([n, w, r]) => (
                 <li key={n}>
-                  <i className="fa-solid fa-envelope ld-muted" aria-hidden="true" />
+                  <Icon icon={MailIcon} className="ld-muted" />
                   <span className="ld-activity-text">{n} <span className="ld-muted ld-small">· {w} · {r}</span></span>
                 </li>
               ))}
@@ -141,9 +143,9 @@ export function SLAScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Service Level Management</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>SLA Definitions</span>
       </nav>
 
@@ -153,8 +155,8 @@ export function SLAScreen() {
           <p>{slas.length} SLAs enforced · monthly window · all priorities</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New SLA</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New SLA</button>
         </div>
       </div>
 

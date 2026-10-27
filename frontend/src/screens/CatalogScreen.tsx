@@ -11,12 +11,14 @@ import { useCreateIncident } from "@/api/hooks";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 
+import { Icon } from "@/components/Icon";
+import { ArrowLeftIcon, BoxIcon, CheckIcon, ChevronRightIcon, CircleCheckIcon, ClipboardListIcon, ExternalLinkIcon, FlameIcon, Grid3x3Icon, PencilIcon, PlusIcon, SaveIcon, TriangleAlertIcon } from "lucide-react";
 const BADGE_TONE: Record<string, Tone> = { Urgent: "crit", Auto: "ok", Bundle: "purple" };
 
 function Summary({ icon, tone, label, value, note }: { icon: string; tone: Tone; label: string; value: React.ReactNode; note: string }) {
   return (
     <div className="ld-card ld-stat ld-sd-stat">
-      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><i className={`fa-solid ${icon}`} /></span>
+      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
       <span className="ld-stat-body">
         <span className="ld-stat-label">{label}</span>
         <span className="ld-stat-value">{value}</span>
@@ -44,7 +46,7 @@ export default function CatalogScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Service Catalog</span>
       </nav>
 
@@ -54,8 +56,8 @@ export default function CatalogScreen() {
           <p>Request anything across Finspot — access, hardware, software, infra</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-clipboard-list" aria-hidden="true" /> My Requests</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Build New Item</button>
+          <button type="button" className="ld-btn"><Icon icon={ClipboardListIcon} /> My Requests</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Build New Item</button>
         </div>
       </div>
 
@@ -68,13 +70,13 @@ export default function CatalogScreen() {
 
       <div className="ld-chips" role="group" aria-label="Filter by category">
         <button type="button" className={`ld-chip${cat === null ? " active" : ""}`} aria-pressed={cat === null} onClick={() => setCat(null)}>
-          <i className="fa-solid fa-border-all" aria-hidden="true" />
+          <Icon icon={Grid3x3Icon} />
           <span className="ld-chip-label">All</span>
           <span className="ld-chip-count">{CATALOG_ITEMS.length}</span>
         </button>
         {CATALOG_CATEGORIES.map(c => (
           <button key={c.id} type="button" className={`ld-chip${cat === c.id ? " active" : ""}`} aria-pressed={cat === c.id} onClick={() => setCat(cat === c.id ? null : c.id)}>
-            <i className={`fa-solid ${c.icon}`} aria-hidden="true" />
+            <Icon className={`fa-solid ${c.icon}`} />
             <span className="ld-chip-label">{c.label}</span>
             <span className="ld-chip-count">{countIn(c.id)}</span>
           </button>
@@ -98,7 +100,7 @@ export default function CatalogScreen() {
                           <button type="button" className="ld-link ld-sd-rowlink ld-strong" onClick={() => setRoute("catalog-request")}>{i.title}</button>
                           <span className="ld-sub">{i.desc}</span>
                         </td>
-                        <td><Pill tone="muted">{c ? <><i className={`fa-solid ${c.icon}`} aria-hidden="true" /> {c.label}</> : i.cat}</Pill></td>
+                        <td><Pill tone="muted">{c ? <><Icon className={`fa-solid ${c.icon}`} /> {c.label}</> : i.cat}</Pill></td>
                         <td className="ld-mono">{i.sla}</td>
                         <td className="ld-muted">{i.eta}</td>
                         <td>{i.badge ? <Pill tone={BADGE_TONE[i.badge] ?? "muted"}>{i.badge}</Pill> : <span className="ld-muted">—</span>}</td>
@@ -118,7 +120,7 @@ export default function CatalogScreen() {
             <ul className="ld-activity">
               {MY_REQUESTS.map((r) => (
                 <li key={r.id}>
-                  <span className={`ld-tile ld-tile-sm ld-${r.tone}`} aria-hidden="true"><i className="fa-solid fa-clipboard-list" /></span>
+                  <span className={`ld-tile ld-tile-sm ld-${r.tone}`} aria-hidden="true"><Icon icon={ClipboardListIcon} /></span>
                   <span className="ld-activity-text">{r.title} · <span className="ld-muted ld-mono">{r.id}</span></span>
                   <Pill tone={r.tone}><span className="ld-pill-dot" />{r.state}</Pill>
                 </li>
@@ -129,7 +131,7 @@ export default function CatalogScreen() {
             <ul className="ld-activity">
               {CATALOG_ITEMS.filter(i => i.popular).slice(0, 4).map(i => (
                 <li key={i.id}>
-                  <span className="ld-tile ld-tile-sm ld-warn" aria-hidden="true"><i className="fa-solid fa-fire" /></span>
+                  <span className="ld-tile ld-tile-sm ld-warn" aria-hidden="true"><Icon icon={FlameIcon} /></span>
                   <span className="ld-activity-text">{i.title}</span>
                   <span className="ld-muted ld-nowrap">{i.eta}</span>
                 </li>
@@ -183,23 +185,23 @@ export function CatalogRequestScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("catalog")}>Service Catalog</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>New Employee Onboarding</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-purple" aria-hidden="true"><i className="fa-solid fa-box" /></span>
+          <span className="ld-tile ld-purple" aria-hidden="true"><Icon icon={BoxIcon} /></span>
           <div>
             <span className="ld-sd-number">{submittedId ?? "REQ-4221"}</span>
             <h1 className="ld-entity-title">
               New Employee Onboarding
               {submittedId ? (
-                <Pill tone="ok"><i className="fa-solid fa-check" aria-hidden="true" /> Submitted</Pill>
+                <Pill tone="ok"><Icon icon={CheckIcon} /> Submitted</Pill>
               ) : (
-                <Pill tone="muted"><i className="fa-solid fa-pen" aria-hidden="true" /> Draft</Pill>
+                <Pill tone="muted"><Icon icon={PencilIcon} /> Draft</Pill>
               )}
               <Pill tone="purple">Bundle · {BUNDLE.length} items</Pill>
             </h1>
@@ -213,22 +215,22 @@ export function CatalogRequestScreen() {
           <div className="ld-head-actions">
             {submittedId ? (
               <>
-                <button type="button" className="ld-btn" onClick={() => setRoute("catalog")}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back to catalog</button>
+                <button type="button" className="ld-btn" onClick={() => setRoute("catalog")}><Icon icon={ArrowLeftIcon} /> Back to catalog</button>
                 <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("incidents", { createdIncidentId: submittedId })}>
-                  <i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> View in queue
+                  <Icon icon={ExternalLinkIcon} /> View in queue
                 </button>
               </>
             ) : canWrite ? (
               <>
-                <button type="button" className="ld-btn"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Draft</button>
+                <button type="button" className="ld-btn"><Icon icon={SaveIcon} /> Save Draft</button>
                 <button type="button" className="ld-btn ld-btn-primary" onClick={submit} disabled={create.isPending}>
-                  <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} aria-hidden="true" /> {create.isPending ? "Submitting…" : "Submit Request"}
+                  <Icon className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Submitting…" : "Submit Request"}
                 </button>
               </>
             ) : (
               <>
                 <ReadOnlyBadge />
-                <button type="button" className="ld-btn" onClick={() => setRoute("catalog")}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back to catalog</button>
+                <button type="button" className="ld-btn" onClick={() => setRoute("catalog")}><Icon icon={ArrowLeftIcon} /> Back to catalog</button>
               </>
             )}
           </div>
@@ -237,13 +239,13 @@ export function CatalogRequestScreen() {
 
       {submittedId && (
         <div className="ld-card ld-sd-alert ld-sd-alert-ok" role="status">
-          <i className="fa-solid fa-circle-check" aria-hidden="true" />
+          <Icon icon={CircleCheckIcon} />
           <span>Request submitted as <b>{submittedId}</b> · routed to Service Desk · 2 day SLA</span>
         </div>
       )}
       {error && (
         <div className="ld-card ld-sd-alert ld-sd-alert-crit" role="alert">
-          <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> <span>{error}</span>
+          <Icon icon={TriangleAlertIcon} /> <span>{error}</span>
         </div>
       )}
 

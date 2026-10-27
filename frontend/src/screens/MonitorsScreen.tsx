@@ -12,6 +12,8 @@ import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 import { Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, DownloadIcon, FlaskConicalIcon, PlusIcon, SaveIcon, VolumeXIcon } from "lucide-react";
 type MonType = "Metric" | "Anomaly" | "Composite" | "Log" | "Synthetic";
 type MonState = "ok" | "warn" | "alert" | "nodata";
 
@@ -79,9 +81,9 @@ export default function MonitorsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("alerts")}>Alerts</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Monitors</span>
       </nav>
 
@@ -92,13 +94,13 @@ export default function MonitorsScreen() {
         </div>
         <div className="ld-head-actions">
           <ReadOnlyBadge />
-          <button type="button" className="ld-btn"><i className="fa-solid fa-download" aria-hidden="true" /> Export</button>
-          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New Monitor</button>}
+          <button type="button" className="ld-btn"><Icon icon={DownloadIcon} /> Export</button>
+          {canWrite && <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Monitor</button>}
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">The monitor API is not connected yet. These monitors and the evaluation preview are illustrative.</p>
@@ -135,7 +137,7 @@ export default function MonitorsScreen() {
                         <span className="ld-sub ld-mono ld-ellipsis" title={m.query}>{m.query}</span>
                       </td>
                       <td><Pill tone="muted">{m.type}</Pill></td>
-                      <td><Pill tone={st.tone}><i className={`fa-solid ${st.icon}`} aria-hidden="true" /> {st.label}</Pill></td>
+                      <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
                       <td className="ld-muted">{m.window}</td>
                       <td className="ld-muted">{m.since}</td>
                     </tr>
@@ -188,8 +190,8 @@ export default function MonitorsScreen() {
 
               {canWrite && (
                 <div className="ld-head-actions">
-                  <button type="submit" className="ld-btn ld-btn-primary"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save monitor</button>
-                  <button type="button" className="ld-btn"><i className="fa-solid fa-volume-xmark" aria-hidden="true" /> Mute</button>
+                  <button type="submit" className="ld-btn ld-btn-primary"><Icon icon={SaveIcon} /> Save monitor</button>
+                  <button type="button" className="ld-btn"><Icon icon={VolumeXIcon} /> Mute</button>
                 </div>
               )}
             </form>
@@ -199,7 +201,7 @@ export default function MonitorsScreen() {
             <ul className="ld-obs-list">
               {NOTIFY.map(([ic, who, when]) => (
                 <li key={who}>
-                  <i className={ic} aria-hidden="true" />
+                  <Icon className={ic} />
                   <span className="ld-strong">{who}</span>
                   <span className="ld-obs-end">{when}</span>
                 </li>

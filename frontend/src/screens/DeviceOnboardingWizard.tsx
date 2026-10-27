@@ -18,6 +18,8 @@ import {
 import { STATUS_COLORS, statusBadgeStyle } from "@/lib/statusColors";
 import type { Site, OnboardDeviceType, MonitoringMethod, CredentialProfile } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { ArrowLeftIcon, ArrowRightIcon, Building2Icon, CheckCheckIcon, CheckIcon, CircleAlertIcon, CircleCheckIcon, CircleHelpIcon, CircleIcon, CircleXIcon, LoaderCircleIcon, PlugZapIcon, PlusIcon, RefreshCwIcon, RocketIcon, SaveIcon, ThumbsUpIcon, WandSparklesIcon, XIcon } from "lucide-react";
 interface OnboardForm {
   tenant: string;
   site: string;
@@ -132,10 +134,10 @@ export default function DeviceOnboardingWizard() {
   };
 
   // ---- small UI helpers ----
-  const Err = ({ k }: { k: string }) => errors[k] ? <div style={{ color: STATUS_COLORS.crit.fg, fontSize: 11.5, marginTop: 4 }}><i className="fa-solid fa-circle-exclamation" style={{ marginRight: 5 }} />{errors[k]}</div> : null;
+  const Err = ({ k }: { k: string }) => errors[k] ? <div style={{ color: STATUS_COLORS.crit.fg, fontSize: 11.5, marginTop: 4 }}><Icon icon={CircleAlertIcon} style={{ marginRight: 5 }} />{errors[k]}</div> : null;
   const L = ({ children, tip }: { children?: React.ReactNode; tip?: string }) => (
     <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, marginBottom: 4, color: "var(--fg, #16212e)" }}>
-      {children}{tip && <i className="fa-solid fa-circle-question" title={tip} style={{ marginLeft: 5, color: "var(--fg-faint)", cursor: "help" }} />}
+      {children}{tip && <Icon icon={CircleHelpIcon} title={tip} style={{ marginLeft: 5, color: "var(--fg-faint)", cursor: "help" }} />}
     </label>
   );
   const inputStyle = (k: string): React.CSSProperties => ({ width: "100%", boxSizing: "border-box", padding: "7px 10px", fontSize: 12.5, border: `1px solid ${errors[k] ? STATUS_COLORS.crit.border : "var(--border, #d5dbe1)"}`, borderRadius: 4, outline: "none", fontFamily: "inherit", background: "white" });
@@ -159,9 +161,9 @@ export default function DeviceOnboardingWizard() {
         </div>
         <div className="ld-head-actions">
           <Pill tone="info">{f.tenant}</Pill>
-          <Pill tone="muted"><i className="fa-solid fa-building" aria-hidden="true" /> {(SITES.find(s => s.id === f.site) || ({} as Site)).name}</Pill>
-          {draft && <Pill tone="warn"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Draft saved</Pill>}
-          <button type="button" className="ld-btn" onClick={() => { setDraft(true); setTimeout(() => setDraft(false), 2500); }}><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save as draft</button>
+          <Pill tone="muted"><Icon icon={Building2Icon} /> {(SITES.find(s => s.id === f.site) || ({} as Site)).name}</Pill>
+          {draft && <Pill tone="warn"><Icon icon={SaveIcon} /> Draft saved</Pill>}
+          <button type="button" className="ld-btn" onClick={() => { setDraft(true); setTimeout(() => setDraft(false), 2500); }}><Icon icon={SaveIcon} /> Save as draft</button>
           <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}>Cancel</button>
         </div>
       </div>
@@ -173,7 +175,7 @@ export default function DeviceOnboardingWizard() {
           return (
             <li key={label} className={`ld-step ld-step-${state}`} aria-current={i === step ? "step" : undefined}>
               <button type="button" className="ld-step-btn" onClick={() => i < step && setStep(i)} disabled={i >= step}>
-                <span className="ld-step-num" aria-hidden="true">{i < step ? <i className="fa-solid fa-check" /> : i + 1}</span>
+                <span className="ld-step-num" aria-hidden="true">{i < step ? <Icon icon={CheckIcon} /> : i + 1}</span>
                 <span className="ld-step-label">{label}</span>
               </button>
             </li>
@@ -212,7 +214,7 @@ export default function DeviceOnboardingWizard() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, marginTop: 8 }}>
                   {ONBOARD_DEVICE_TYPES.map(t => (
                     <Card key={t.id} active={f.type === t.id} onClick={() => { set("type", t.id); set("vendor", null); set("model", null); set("role", null); }}>
-                      <i className={`${(t as OnboardDeviceType & { brand?: boolean }).brand ? "fa-brands" : "fa-solid"} ${t.icon}`} style={{ fontSize: 17, color: f.type === t.id ? "#0ea5e9" : "var(--fg-muted)" }} />
+                      <Icon className={`${(t as OnboardDeviceType & { brand?: boolean }).brand ? "fa-brands" : "fa-solid"} ${t.icon}`} style={{ fontSize: 17, color: f.type === t.id ? "#0ea5e9" : "var(--fg-muted)" }} />
                       <div style={{ marginTop: 7, fontSize: 12.5, fontWeight: 600 }}>{t.label}</div>
                     </Card>
                   ))}
@@ -251,7 +253,7 @@ export default function DeviceOnboardingWizard() {
                       ))}
                       {f.vendor && (
                         <button type="button" className={`ld-list-option ld-list-option-add${f.model === "__custom" ? " active" : ""}`} aria-pressed={f.model === "__custom"} onClick={() => set("model", "__custom")}>
-                          <i className="fa-solid fa-plus" aria-hidden="true" style={{ marginRight: 6 }} />Other / Custom model…
+                          <Icon icon={PlusIcon} style={{ marginRight: 6 }} />Other / Custom model…
                         </button>
                       )}
                     </div>
@@ -276,7 +278,7 @@ export default function DeviceOnboardingWizard() {
                 </div>
                 {(profile || f.model === "__custom") && (
                   <div style={{ marginTop: 16, border: `1px solid ${STATUS_COLORS.ok.border}`, background: "#f0fdf6", borderRadius: 6, padding: "12px 14px" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}><i className="fa-solid fa-wand-magic-sparkles" style={{ color: STATUS_COLORS.ok.line, marginRight: 6 }} />Auto-mapped profile — {f.vendor} {modelLabel}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}><Icon icon={WandSparklesIcon} style={{ color: STATUS_COLORS.ok.line, marginRight: 6 }} />Auto-mapped profile — {f.vendor} {modelLabel}</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 11.5, color: "var(--fg-muted)" }}>
                       <span><b>SNMP profile:</b> <span className="mono">{profile ? profile.snmp : "generic-mib2 (custom)"}</span></span>
                       <span><b>Discovery:</b> {profile && profile.caps.includes("interfaces") ? "IF-MIB + LLDP" : "ICMP sweep"}</span>
@@ -320,7 +322,7 @@ export default function DeviceOnboardingWizard() {
                       <Card key={m.id} active={f.method === m.id} onClick={() => set("method", m.id)} style={{ opacity: rec ? 1 : 0.55 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <b style={{ fontSize: 13 }}>{m.label}</b>
-                          {rec && profile && <span style={statusBadgeStyle("ok")}><i className="fa-solid fa-thumbs-up" style={{ fontSize: 8 }} /> Recommended</span>}
+                          {rec && profile && <span style={statusBadgeStyle("ok")}><Icon icon={ThumbsUpIcon} style={{ fontSize: 8 }} /> Recommended</span>}
                         </div>
                         <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--fg-muted)", lineHeight: 1.45 }}>{m.hint}</div>
                       </Card>
@@ -347,7 +349,7 @@ export default function DeviceOnboardingWizard() {
                   ))}
                   <div className={`ld-choice ld-choice-static${f.cred === "__new" ? " active" : ""}`}>
                     <button type="button" className="ld-link" aria-pressed={f.cred === "__new"} onClick={() => set("cred", "__new")}>
-                      <i className="fa-solid fa-plus" aria-hidden="true" style={{ marginRight: 6 }} />Create new credential profile
+                      <Icon icon={PlusIcon} style={{ marginRight: 6 }} />Create new credential profile
                     </button>
                     {f.cred === "__new" && (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
@@ -359,10 +361,10 @@ export default function DeviceOnboardingWizard() {
                 </div>
                 <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12 }}>
                   <button type="button" className="ld-btn" onClick={runTest} disabled={test === "testing"}>
-                    {test === "testing" ? <><i className="fa-solid fa-circle-notch fa-spin" /> Testing…</> : <><i className="fa-solid fa-plug-circle-check" /> Test connection</>}
+                    {test === "testing" ? <><Icon icon={LoaderCircleIcon} spin /> Testing…</> : <><Icon icon={PlugZapIcon} /> Test connection</>}
                   </button>
-                  {test === "ok" && <span style={statusBadgeStyle("ok")}><i className="fa-solid fa-check" style={{ fontSize: 8 }} /> Reachable · SNMP OK · sysName matched in 84 ms</span>}
-                  {test === "fail" && <span style={statusBadgeStyle("crit")}><i className="fa-solid fa-xmark" style={{ fontSize: 8 }} /> Couldn’t reach {f.ip} — check IP, VLAN routing, or firewall rules, then retry</span>}
+                  {test === "ok" && <span style={statusBadgeStyle("ok")}><Icon icon={CheckIcon} style={{ fontSize: 8 }} /> Reachable · SNMP OK · sysName matched in 84 ms</span>}
+                  {test === "fail" && <span style={statusBadgeStyle("crit")}><Icon icon={XIcon} style={{ fontSize: 8 }} /> Couldn’t reach {f.ip} — check IP, VLAN routing, or firewall rules, then retry</span>}
                 </div>
               </div>
             )}
@@ -378,24 +380,24 @@ export default function DeviceOnboardingWizard() {
                     return (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--border, #e5e8eb)", borderRadius: 5, padding: "10px 14px", background: state === "fail" ? "#fef2f2" : "white" }}>
                         <span style={{ width: 20, textAlign: "center" }}>
-                          {state === "done" && <i className="fa-solid fa-circle-check" style={{ color: STATUS_COLORS.ok.line }} />}
-                          {state === "run" && <i className="fa-solid fa-circle-notch fa-spin" style={{ color: "#0ea5e9" }} />}
-                          {state === "fail" && <i className="fa-solid fa-circle-xmark" style={{ color: STATUS_COLORS.crit.line }} />}
-                          {state === "wait" && <i className="fa-regular fa-circle" style={{ color: "var(--fg-faint)" }} />}
+                          {state === "done" && <Icon icon={CircleCheckIcon} style={{ color: STATUS_COLORS.ok.line }} />}
+                          {state === "run" && <Icon icon={LoaderCircleIcon} spin style={{ color: "#0ea5e9" }} />}
+                          {state === "fail" && <Icon icon={CircleXIcon} style={{ color: STATUS_COLORS.crit.line }} />}
+                          {state === "wait" && <Icon icon={CircleIcon} style={{ color: "var(--fg-faint)" }} />}
                         </span>
-                        <i className={`fa-solid ${s[1]}`} style={{ color: "var(--fg-muted)", width: 16 }} />
+                        <Icon className={`fa-solid ${s[1]}`} style={{ color: "var(--fg-muted)", width: 16 }} />
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 12.5, fontWeight: 600 }}>{s[0]}</div>
                           {state === "done" && <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{s[2]}</div>}
                           {state === "fail" && <div style={{ fontSize: 11, color: STATUS_COLORS.crit.fg }}>Sensor walk timed out — the device may filter SNMP hardware OIDs. You can retry or skip this step.</div>}
                         </div>
-                        {state === "fail" && <button type="button" className="ld-btn ld-btn-sm" onClick={() => runDiscovery(false)}><i className="fa-solid fa-rotate" aria-hidden="true" /> Retry</button>}
+                        {state === "fail" && <button type="button" className="ld-btn ld-btn-sm" onClick={() => runDiscovery(false)}><Icon icon={RefreshCwIcon} /> Retry</button>}
                       </div>
                     );
                   })}
                 </div>
                 {disc && disc.stage >= DISC_STAGES.length && (
-                  <div style={{ marginTop: 12, ...statusBadgeStyle("ok"), padding: "8px 12px", fontSize: 12 }}><i className="fa-solid fa-check-double" /> Discovery complete — review before saving</div>
+                  <div style={{ marginTop: 12, ...statusBadgeStyle("ok"), padding: "8px 12px", fontSize: 12 }}><Icon icon={CheckCheckIcon} /> Discovery complete — review before saving</div>
                 )}
               </div>
             )}
@@ -421,12 +423,12 @@ export default function DeviceOnboardingWizard() {
                 </div>
                 {(profile || f.model === "__custom") && (
                   <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 5 }}>
-                    {(profile ? profile.caps : ["interfaces"]).map(c => <span key={c} style={{ background: "#f1f5f9", borderRadius: 10, padding: "2px 9px", fontSize: 10.5, fontWeight: 600 }}><i className="fa-solid fa-check" style={{ color: STATUS_COLORS.ok.line, marginRight: 4 }} />{CAP_LABELS[c]}</span>)}
+                    {(profile ? profile.caps : ["interfaces"]).map(c => <span key={c} style={{ background: "#f1f5f9", borderRadius: 10, padding: "2px 9px", fontSize: 10.5, fontWeight: 600 }}><Icon icon={CheckIcon} style={{ color: STATUS_COLORS.ok.line, marginRight: 4 }} />{CAP_LABELS[c]}</span>)}
                   </div>
                 )}
                 {saved && (
                   <div style={{ marginTop: 14, ...statusBadgeStyle("ok"), padding: "10px 14px", fontSize: 12.5 }}>
-                    <i className="fa-solid fa-circle-check" /> Device saved · monitoring started · added to {(SITES.find(s => s.id === f.site) || ({} as Site)).name} topology — opening device page…
+                    <Icon icon={CircleCheckIcon} /> Device saved · monitoring started · added to {(SITES.find(s => s.id === f.site) || ({} as Site)).name} topology — opening device page…
                   </div>
                 )}
               </div>
@@ -434,11 +436,11 @@ export default function DeviceOnboardingWizard() {
 
             {/* Nav buttons */}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 22, paddingTop: 14, borderTop: "1px solid var(--border, #e5e8eb)" }}>
-              <button type="button" className="ld-btn" onClick={back} disabled={step === 0 || saved}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back</button>
+              <button type="button" className="ld-btn" onClick={back} disabled={step === 0 || saved}><Icon icon={ArrowLeftIcon} /> Back</button>
               {step < 7 && <button type="button" className="ld-btn ld-btn-primary" onClick={next} disabled={step === 6 && (!disc || disc.failed || disc.stage < 6)}>
-                {step === 6 && disc && !disc.failed && disc.stage < 6 ? <><i className="fa-solid fa-circle-notch fa-spin" /> Discovering…</> : <>Continue <i className="fa-solid fa-arrow-right" /></>}
+                {step === 6 && disc && !disc.failed && disc.stage < 6 ? <><Icon icon={LoaderCircleIcon} spin /> Discovering…</> : <>Continue <Icon icon={ArrowRightIcon} /></>}
               </button>}
-              {step === 7 && <button type="button" className="ld-btn ld-btn-primary" onClick={finish} disabled={saved}><i className="fa-solid fa-rocket" aria-hidden="true" /> Save & start monitoring</button>}
+              {step === 7 && <button type="button" className="ld-btn ld-btn-primary" onClick={finish} disabled={saved}><Icon icon={RocketIcon} /> Save & start monitoring</button>}
             </div>
           </div>
         </div>

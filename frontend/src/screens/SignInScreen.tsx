@@ -5,6 +5,8 @@ import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useAuth, KEYCLOAK_ENABLED } from "@/auth/auth";
 
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, FlaskConicalIcon, KeyRoundIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 export default function SignInScreen() {
   const { setRoute } = useNav();
   const login = useAuth((s) => s.login);
@@ -52,7 +54,7 @@ export default function SignInScreen() {
           <p className="sub">Access the Finspot Technology Solutions monitoring platform.</p>
 
           <button type="button" className="sso-btn" onClick={() => submit()}>
-            <i className="fa-solid fa-key" /> Continue with Keycloak SSO
+            <Icon icon={KeyRoundIcon} /> Continue with Keycloak SSO
           </button>
           <div className="auth-divider">or with directory credentials</div>
 
@@ -66,17 +68,17 @@ export default function SignInScreen() {
 
           {error && (
             <div style={{ color: "var(--critical)", fontSize: 12.5, marginTop: 12 }}>
-              <i className="fa-solid fa-triangle-exclamation" /> {error}
+              <Icon icon={TriangleAlertIcon} /> {error}
             </div>
           )}
 
           <button type="submit" className="sn-btn primary" style={{ width: "100%", height: 44, marginTop: 20, justifyContent: "center", fontSize: 14 }} disabled={busy}>
-            {busy ? <><i className="fa-solid fa-spinner fa-spin" /> Signing in…</> : <>Sign in <i className="fa-solid fa-arrow-right" /></>}
+            {busy ? <><Icon icon={LoaderCircleIcon} spin /> Signing in…</> : <>Sign in <Icon icon={ArrowRightIcon} /></>}
           </button>
 
           {!KEYCLOAK_ENABLED && (
             <p className="sub" style={{ marginTop: 16, fontSize: 11.5 }}>
-              <i className="fa-solid fa-flask" /> Dev mode — Keycloak not configured; any credentials sign you in as the demo identity.
+              <Icon icon={FlaskConicalIcon} /> Dev mode — Keycloak not configured; any credentials sign you in as the demo identity.
             </p>
           )}
         </form>

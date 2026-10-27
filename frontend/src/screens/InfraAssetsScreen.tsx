@@ -14,6 +14,8 @@ import type { DeviceKind } from "@/lib/types";
 
 
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FileSpreadsheetIcon, LayersIcon, PlusIcon, SearchCodeIcon, SearchIcon } from "lucide-react";
 const statusTone = (s: string): Tone => (s === "ok" ? "ok" : s === "warn" ? "warn" : s === "critical" || s === "down" ? "crit" : "muted");
 const statusLabel = (s: string) => (s === "ok" ? "Healthy" : s === "warn" ? "Warning" : s === "down" ? "Down" : s === "critical" ? "Critical" : "Unknown");
 const usageTone = (v: number): Tone => (v > 80 ? "crit" : v > 65 ? "warn" : "ok");
@@ -64,9 +66,9 @@ export default function InfraAssetsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Asset Inventory</span>
       </nav>
 
@@ -76,9 +78,9 @@ export default function InfraAssetsScreen() {
           <p>Every monitored device across sites and device classes</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-csv" aria-hidden="true" /> Export</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-magnifying-glass-arrow-right" aria-hidden="true" /> Discovery</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Onboard</button>
+          <button type="button" className="ld-btn"><Icon icon={FileSpreadsheetIcon} /> Export</button>
+          <button type="button" className="ld-btn"><Icon icon={SearchCodeIcon} /> Discovery</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Onboard</button>
         </div>
       </div>
 
@@ -93,7 +95,7 @@ export default function InfraAssetsScreen() {
 
       <div className="ld-chips" role="group" aria-label="Filter by device kind">
         <button type="button" className={`ld-chip${kind === "all" ? " active" : ""}`} aria-pressed={kind === "all"} onClick={() => setKind("all")}>
-          <i className="fa-solid fa-layer-group" aria-hidden="true" />
+          <Icon icon={LayersIcon} />
           <span className="ld-chip-label">All</span>
           <span className="ld-chip-count">{devices.length}</span>
         </button>
@@ -102,7 +104,7 @@ export default function InfraAssetsScreen() {
           if (n === 0) return null;
           return (
             <button key={k.id} type="button" className={`ld-chip${kind === k.id ? " active" : ""}`} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
-              <i className={iconOf(k)} aria-hidden="true" />
+              <Icon className={iconOf(k)} />
               <span className="ld-chip-label">{k.label}</span>
               <span className="ld-chip-count">{n}</span>
             </button>
@@ -118,7 +120,7 @@ export default function InfraAssetsScreen() {
           <div className="ld-toolbar">
             <label htmlFor="assets-search" className="sr-only">Search devices</label>
             <span className="ld-search ld-field-grow">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id="assets-search" type="search" placeholder="Search hostname, IP, model, role…" value={q} onChange={e => setQ(e.target.value)} />
             </span>
             <label htmlFor="assets-kind" className="sr-only">Device kind</label>
@@ -156,7 +158,7 @@ export default function InfraAssetsScreen() {
                       <tr key={d.id}>
                         <td>
                           <div className="ld-infra-cell">
-                            <span className="ld-infra-kind" aria-hidden="true"><i className={iconOf(k)} /></span>
+                            <span className="ld-infra-kind" aria-hidden="true"><Icon className={iconOf(k)} /></span>
                             <div>
                               <button type="button" className="ld-link ld-mono" onClick={() => setRoute(deviceRoute(d.kind), { deviceId: d.id })}>{d.id}</button>
                               <span className="ld-sub">{d.role}</span>
@@ -198,7 +200,7 @@ export default function InfraAssetsScreen() {
             <div className="ld-infra-actions">
               {QUICK_ACTIONS.map(([ic, l, route]) => (
                 <button key={l} type="button" className="ld-btn ld-btn-sm" onClick={() => { if (route) setRoute(route); }}>
-                  <i className={`fa-solid ${ic}`} aria-hidden="true" /> {l}
+                  <Icon className={`fa-solid ${ic}`} /> {l}
                 </button>
               ))}
             </div>

@@ -8,6 +8,8 @@ import { useTenants, useIncidents, useIncidentRecords, useProblemRecords, useCha
 import { useAuth } from "@/auth/auth";
 import type { Tenant } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, ChevronDownIcon, CircleHelpIcon, EyeIcon, InboxIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon, SettingsIcon, SlidersHorizontalIcon, UserIcon, XIcon } from "lucide-react";
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrator",
   "infra-admin": "Infra Admin",
@@ -160,7 +162,7 @@ export function Sidebar() {
         title={i.label}
         onClick={() => go(i.id)}
       >
-        {!sub && <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${i.icon}`} /></span>}
+        {!sub && <span className="sb-icon" aria-hidden="true"><Icon className={`fa-solid ${i.icon}`} /></span>}
         <span className="sb-label">{i.label}</span>
         {badge && <span className={`sb-badge ${badge.kind}`}>{badge.n}</span>}
         {!badge && i.kbd && <kbd>{i.kbd}</kbd>}
@@ -171,7 +173,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sb-head">
-        <div className="sb-logo" aria-hidden="true"><i className="fa-solid fa-eye" /></div>
+        <div className="sb-logo" aria-hidden="true"><Icon icon={EyeIcon} /></div>
         <div className="sb-brand">
           <b>LinkedEye</b>
           <span>ITSM &amp; Monitoring Platform</span>
@@ -193,9 +195,9 @@ export function Sidebar() {
                 title={n.label}
                 onClick={() => setOpen((o) => ({ ...o, [n.group]: !expanded }))}
               >
-                <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${n.icon}`} /></span>
+                <span className="sb-icon" aria-hidden="true"><Icon className={`fa-solid ${n.icon}`} /></span>
                 <span className="sb-label">{n.label}</span>
-                <i className={`fa-solid fa-chevron-${expanded ? "down" : "right"} sb-caret`} aria-hidden="true" />
+                <Icon className={`fa-solid fa-chevron-${expanded ? "down" : "right"} sb-caret`} />
               </button>
               {expanded && <div id={`sb-${n.group}`} className="sb-children">{n.items.map((i) => leaf(i, true))}</div>}
             </div>
@@ -210,13 +212,13 @@ export function Sidebar() {
             <span className="t-unit-label">Client</span>
             <span className="t-org">{tenant.name}</span>
           </span>
-          <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+          <Icon icon={ChevronDownIcon} />
         </button>
         <div className="sb-version">
           <b>LinkedEye v9.0</b>
           <span>Full-Stack Observability</span>
           <span className={`sb-api ${apiUp ? "up" : "down"}`}>
-            <i className={`fa-solid ${apiUp ? "fa-circle-check" : "fa-circle-exclamation"}`} aria-hidden="true" /> {apiUp ? "API connected" : "API not reachable"}
+            <Icon className={`fa-solid ${apiUp ? "fa-circle-check" : "fa-circle-exclamation"}`} /> {apiUp ? "API connected" : "API not reachable"}
           </span>
         </div>
       </div>
@@ -243,11 +245,11 @@ export function Header() {
   return (
     <header className="header">
       <button type="button" className="icon-btn hdr-burger" aria-label="Toggle navigation" onClick={toggleNav}>
-        <i className="fa-solid fa-bars" aria-hidden="true" />
+        <Icon icon={MenuIcon} />
       </button>
 
       <div className="hdr-command">
-        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+        <Icon icon={SearchIcon} />
         <input
           className="hdr-command-input"
           aria-label="Search"
@@ -267,7 +269,7 @@ export function Header() {
         />
         {q ? (
           <button type="button" className="hdr-clear" aria-label="Clear search" onClick={() => { setQ(""); setSearch(""); }}>
-            <i className="fa-solid fa-xmark" aria-hidden="true" />
+            <Icon icon={XIcon} />
           </button>
         ) : (
           <kbd>↵</kbd>
@@ -282,14 +284,14 @@ export function Header() {
           </button>
         )}
         <button type="button" className="hdr-new" onClick={() => setRoute("incident-new")}>
-          <i className="fa-solid fa-plus" aria-hidden="true" /> New
+          <Icon icon={PlusIcon} /> New
         </button>
         <button type="button" className="icon-btn" title="Alerts" aria-label={`Alerts (${alertCount})`} onClick={() => setRoute("alerts")}>
-          <i className="fa-solid fa-bell" aria-hidden="true" />
+          <Icon icon={BellIcon} />
           {alertCount > 0 && <span className="hdr-count">{alertCount > 99 ? "99+" : alertCount}</span>}
         </button>
-        <button type="button" className="icon-btn" title="Help" aria-label="Help" onClick={() => setRoute("knowledge")}><i className="fa-solid fa-circle-question" aria-hidden="true" /></button>
-        <button type="button" className="icon-btn" title="Settings" aria-label="Settings" onClick={() => setRoute("settings")}><i className="fa-solid fa-gear" aria-hidden="true" /></button>
+        <button type="button" className="icon-btn" title="Help" aria-label="Help" onClick={() => setRoute("knowledge")}><Icon icon={CircleHelpIcon} /></button>
+        <button type="button" className="icon-btn" title="Settings" aria-label="Settings" onClick={() => setRoute("settings")}><Icon icon={SettingsIcon} /></button>
         <div className="hdr-user-wrap">
           <button type="button" className="hdr-user" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}
             title={`${identity.name} · ${identity.email}\nroles: ${identity.roles.join(", ") || "none"}`}>
@@ -298,14 +300,14 @@ export function Header() {
               <b>{identity.name.split(" ")[0]}</b>
               <span>{identity.roles[0] ? roleLabel(identity.roles[0]) : "no role"}</span>
             </span>
-            <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+            <Icon icon={ChevronDownIcon} />
           </button>
           {menu && (
             <div className="hdr-menu" role="menu">
               <div className="hdr-menu-id"><b>{identity.name}</b><span>{identity.email}</span></div>
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("users"); }}><i className="fa-solid fa-user" aria-hidden="true" /> Profile &amp; roles</button>
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("settings"); }}><i className="fa-solid fa-sliders" aria-hidden="true" /> Settings</button>
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); logout(); setRoute("sign-in"); }}><i className="fa-solid fa-right-from-bracket" aria-hidden="true" /> Sign out</button>
+              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("users"); }}><Icon icon={UserIcon} /> Profile &amp; roles</button>
+              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("settings"); }}><Icon icon={SlidersHorizontalIcon} /> Settings</button>
+              <button type="button" role="menuitem" onClick={() => { setMenu(false); logout(); setRoute("sign-in"); }}><Icon icon={LogOutIcon} /> Sign out</button>
             </div>
           )}
         </div>
@@ -343,7 +345,7 @@ export function TenantSwitcher() {
     <div className="tsw-backdrop" onClick={onClose}>
       <div className="tsw" onClick={(e) => e.stopPropagation()}>
         <div className="tsw-head">
-          <i className="fa-solid fa-magnifying-glass" />
+          <Icon icon={SearchIcon} />
           <input autoFocus placeholder="Jump to tenant, workspace, or view…" value={q} onChange={(e) => setQ(e.target.value)} />
           <kbd>esc</kbd>
         </div>
@@ -361,7 +363,7 @@ export function TenantSwitcher() {
           <div className="tsw-section-title">Business units ({filtered.length})</div>
           {source.length === 0 && (
             <div className="tsw-row" style={{ cursor: "default", opacity: 0.75 }}>
-              <div className="tsw-icon" style={{ background: "var(--bg-muted)", color: "var(--fg-muted)" }}><i className="fa-solid fa-inbox" /></div>
+              <div className="tsw-icon" style={{ background: "var(--bg-muted)", color: "var(--fg-muted)" }}><Icon icon={InboxIcon} /></div>
               <div className="tsw-info">
                 <b>No business units provisioned</b>
                 <span>Clean deployment · create one to get started</span>
@@ -387,7 +389,7 @@ export function TenantSwitcher() {
 
           <div className="tsw-section-title">Quick actions</div>
           <div className="tsw-row" onClick={() => { onClose(); setRoute("onboarding"); }}>
-            <div className="tsw-icon" style={{ background: "var(--bg-muted)", color: "var(--fg)" }}><i className="fa-solid fa-plus" /></div>
+            <div className="tsw-icon" style={{ background: "var(--bg-muted)", color: "var(--fg)" }}><Icon icon={PlusIcon} /></div>
             <div className="tsw-info">
               <b>Create a new business unit</b>
               <span>Provision a new sub-tenant under {ORG.name}</span>

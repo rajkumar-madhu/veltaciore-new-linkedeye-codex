@@ -11,6 +11,8 @@ import { useConfigItems } from "@/api/hooks";
 import { CIS } from "@/data/itsm";
 import type { ConfigItem } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { CheckIcon, ChevronRightIcon, FileInputIcon, FilterIcon, PencilIcon, PlusIcon, RefreshCwIcon, XIcon } from "lucide-react";
 // Editable CI class taxonomy. `cls` matches the value on CI rows so the table can filter.
 interface ClassDef {
   key: string;
@@ -101,11 +103,11 @@ export default function CMDBScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Configuration</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         {cls ? <button type="button" className="ld-link" onClick={clearFilter}>CMDB · CIs</button> : <span>CMDB · CIs</span>}
-        {cls && <><i className="fa-solid fa-chevron-right" aria-hidden="true" /><span>{cls.label}</span></>}
+        {cls && <><Icon icon={ChevronRightIcon} /><span>{cls.label}</span></>}
       </nav>
 
       <div className="ld-head">
@@ -114,9 +116,9 @@ export default function CMDBScreen() {
           <p>Discovered configuration items, their classes, owners and dependencies</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-rotate" aria-hidden="true" /> Re-sync</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-import" aria-hidden="true" /> Import</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> New CI</button>
+          <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Re-sync</button>
+          <button type="button" className="ld-btn"><Icon icon={FileInputIcon} /> Import</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New CI</button>
         </div>
       </div>
 
@@ -142,7 +144,7 @@ export default function CMDBScreen() {
               onClick={() => openClass(c.key)}
               aria-pressed={activeClass === c.key}
             >
-              <i className={`fa-solid ${c.icon}`} aria-hidden="true" style={activeClass === c.key ? undefined : { color: c.color }} />
+              <Icon className={`fa-solid ${c.icon}`} style={activeClass === c.key ? undefined : { color: c.color }} />
               <span className="ld-chip-label">{c.label}</span>
               <span className="ld-chip-count">{fmt(countOf(c.key))}</span>
             </button>
@@ -159,9 +161,9 @@ export default function CMDBScreen() {
           {activeClass && (
             <div className="ld-toolbar">
               <span className="ld-tag">
-                <i className={`fa-solid ${cls!.icon}`} style={{ color: cls!.color }} aria-hidden="true" /> Class: <b>{cls!.label}</b>
+                <Icon className={`fa-solid ${cls!.icon}`} style={{ color: cls!.color }} /> Class: <b>{cls!.label}</b>
               </span>
-              <button type="button" className="ld-btn ld-btn-sm" onClick={clearFilter}><i className="fa-solid fa-xmark" aria-hidden="true" /> Clear filter</button>
+              <button type="button" className="ld-btn ld-btn-sm" onClick={clearFilter}><Icon icon={XIcon} /> Clear filter</button>
               <span className="ld-muted ld-small">{visibleCIs.length} of {cis.length} CIs</span>
             </div>
           )}
@@ -209,12 +211,12 @@ export default function CMDBScreen() {
           {sideMode === "class" && cls ? (
             <section className="ld-card ld-panel" aria-labelledby="cmdb-side-cls-h">
               <div className="ld-panel-head">
-                <h2 id="cmdb-side-cls-h"><i className={`fa-solid ${cls.icon}`} style={{ color: cls.color }} aria-hidden="true" /> CI Class</h2>
+                <h2 id="cmdb-side-cls-h"><Icon className={`fa-solid ${cls.icon}`} style={{ color: cls.color }} /> CI Class</h2>
                 {!editing
-                  ? <button type="button" className="ld-btn ld-btn-sm" onClick={startEdit}><i className="fa-solid fa-pen" aria-hidden="true" /> Edit</button>
+                  ? <button type="button" className="ld-btn ld-btn-sm" onClick={startEdit}><Icon icon={PencilIcon} /> Edit</button>
                   : <span className="ld-admin-actions">
                       <button type="button" className="ld-btn ld-btn-sm" onClick={cancelEdit}>Cancel</button>
-                      <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={saveEdit}><i className="fa-solid fa-check" aria-hidden="true" /> Save</button>
+                      <button type="button" className="ld-btn ld-btn-sm ld-btn-primary" onClick={saveEdit}><Icon icon={CheckIcon} /> Save</button>
                     </span>
                 }
               </div>
@@ -384,12 +386,12 @@ export function ClassModal({
     <div className="le-modal-backdrop" onClick={onClose}>
       <div className="le-modal ld-admin-modal" role="dialog" aria-modal="true" aria-labelledby="cmdb-modal-h" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div className="le-modal-head">
-          <div className="le-modal-icon" style={{ color: cls.color, background: cls.color + "18" }} aria-hidden="true"><i className={`fa-solid ${cls.icon}`} /></div>
+          <div className="le-modal-icon" style={{ color: cls.color, background: cls.color + "18" }} aria-hidden="true"><Icon className={`fa-solid ${cls.icon}`} /></div>
           <div className="le-modal-titles">
             <h3 id="cmdb-modal-h">{cls.label}</h3>
             <p>CI Class · {cls.cls} · {fmt(visibleCount)} configuration items loaded</p>
           </div>
-          <button type="button" className="le-modal-x" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark" aria-hidden="true" /></button>
+          <button type="button" className="le-modal-x" onClick={onClose} aria-label="Close"><Icon icon={XIcon} /></button>
         </div>
 
         <div className="le-modal-body">
@@ -399,14 +401,14 @@ export function ClassModal({
         <div className="le-modal-foot">
           {!editing ? (
             <>
-              <button type="button" className="ld-btn" onClick={onShowCIs}><i className="fa-solid fa-filter" aria-hidden="true" /> Show {visibleCount} CIs</button>
+              <button type="button" className="ld-btn" onClick={onShowCIs}><Icon icon={FilterIcon} /> Show {visibleCount} CIs</button>
               <button type="button" className="ld-btn" onClick={onClose}>Close</button>
-              <button type="button" className="ld-btn ld-btn-primary" onClick={onEdit}><i className="fa-solid fa-pen" aria-hidden="true" /> Edit class</button>
+              <button type="button" className="ld-btn ld-btn-primary" onClick={onEdit}><Icon icon={PencilIcon} /> Edit class</button>
             </>
           ) : (
             <>
               <button type="button" className="ld-btn" onClick={onCancel}>Cancel</button>
-              <button type="button" className="ld-btn ld-btn-primary" onClick={onSave}><i className="fa-solid fa-check" aria-hidden="true" /> Save changes</button>
+              <button type="button" className="ld-btn ld-btn-primary" onClick={onSave}><Icon icon={CheckIcon} /> Save changes</button>
             </>
           )}
         </div>

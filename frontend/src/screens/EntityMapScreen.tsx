@@ -9,6 +9,8 @@ import { USERS } from "@/data/core";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FileOutputIcon, FlaskConicalIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 interface MapEntity {
   id: string;
   type: string;
@@ -75,7 +77,7 @@ export default function EntityMapScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Business Service Map</span>
       </nav>
 
@@ -85,14 +87,14 @@ export default function EntityMapScreen() {
           <p>{services.length} business services · {entities.length} configuration items and the dependencies between them</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-rotate" aria-hidden="true" /> Re-discover</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export Map</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Add Service</button>
+          <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Re-discover</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export Map</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add Service</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">Service discovery is not connected yet. The services, CIs and dependencies below are illustrative; counts and averages are computed from them.</p>

@@ -5,6 +5,7 @@ import type { MetricSeries, MetricsResponse } from "@/api/hooks";
 import type { Tone } from "@/components/ld";
 import { Sparkline } from "@/components/MetricCharts";
 
+import { Icon } from "@/components/Icon";
 export function seriesOf(m: MetricsResponse | undefined, key: string): MetricSeries | undefined {
   return m?.source === "prometheus" ? m.series.find((s) => s.key === key && s.points.length) : undefined;
 }
@@ -25,7 +26,7 @@ function Delta({ points, lowerIsBetter }: { points: [number, number][]; lowerIsB
   const tone = Math.abs(c) < 0.05 ? "muted" : lowerIsBetter === undefined ? "muted" : up === lowerIsBetter ? "crit" : "ok";
   return (
     <span className={`ld-delta ld-text-${tone}`} title="Change over the selected range">
-      <i className={`fa-solid ${up ? "fa-arrow-up" : "fa-arrow-down"}`} aria-hidden="true" /> {Math.abs(c).toFixed(1)}%
+      <Icon className={`fa-solid ${up ? "fa-arrow-up" : "fa-arrow-down"}`} /> {Math.abs(c).toFixed(1)}%
       <span className="sr-only"> {up ? "up" : "down"} over the selected range</span>
     </span>
   );
@@ -38,7 +39,7 @@ export function Kpi({ icon, tone, label, value, sub, points, color, lowerIsBette
   return (
     <section className="ld-card ld-kpi" aria-label={label}>
       <div className="ld-kpi-top">
-        <span className={`ld-tile ld-tile-sm ld-${tone}`} aria-hidden="true"><i className={`fa-solid ${icon}`} /></span>
+        <span className={`ld-tile ld-tile-sm ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
         <span className="ld-kpi-label">{label}</span>
       </div>
       {children ?? (

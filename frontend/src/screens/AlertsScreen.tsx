@@ -13,6 +13,8 @@ import { Empty, PALETTE, Panel, Pill, StatCard, countBy, fmt } from "@/component
 import type { Tone } from "@/components/ld";
 
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FilterIcon, LayersIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
 type Sev = "critical" | "warning" | "info";
 const sevOf = (s: string): Sev => (s === "critical" ? "critical" : s === "warning" || s === "warn" ? "warning" : "info");
 const SEV: Record<Sev, { label: string; tone: Tone; icon: string; rank: number }> = {
@@ -64,9 +66,9 @@ export default function AlertsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Alerts</span>
       </nav>
 
@@ -77,10 +79,10 @@ export default function AlertsScreen() {
         </div>
         <div className="ld-head-actions">
           <button type="button" className="ld-btn" onClick={() => setRoute("alert-grouping")}>
-            <i className="fa-solid fa-layer-group" aria-hidden="true" /> Alert grouping
+            <Icon icon={LayersIcon} /> Alert grouping
           </button>
           <button type="button" className="ld-btn" onClick={() => setRoute("monitors")}>
-            <i className="fa-solid fa-sliders" aria-hidden="true" /> Monitors
+            <Icon icon={SlidersHorizontalIcon} /> Monitors
           </button>
         </div>
       </div>
@@ -97,7 +99,7 @@ export default function AlertsScreen() {
         onSubmit={(e) => e.preventDefault()}
         onReset={(e) => { e.preventDefault(); reset(); }}
       >
-        <span className="ld-filter-icon" aria-hidden="true"><i className="fa-solid fa-filter" /></span>
+        <span className="ld-filter-icon" aria-hidden="true"><Icon icon={FilterIcon} /></span>
         <div className="ld-field">
           <label htmlFor={`${idp}-sev`}>Severity</label>
           <select id={`${idp}-sev`} className="ld-select" value={sev} onChange={(e) => setSev(e.target.value)}>
@@ -115,7 +117,7 @@ export default function AlertsScreen() {
         <div className="ld-field ld-field-grow">
           <label htmlFor={`${idp}-q`} className="sr-only">Search alerts</label>
           <span className="ld-search">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+            <Icon icon={SearchIcon} />
             <input id={`${idp}-q`} type="search" placeholder="Search by alert, device, rule or ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
           </span>
         </div>
@@ -148,7 +150,7 @@ export default function AlertsScreen() {
                     const s = SEV[sevOf(a.sev)];
                     return (
                       <tr key={a.id}>
-                        <td><Pill tone={s.tone}><i className={`fa-solid ${s.icon}`} aria-hidden="true" /> {s.label}</Pill></td>
+                        <td><Pill tone={s.tone}><Icon className={`fa-solid ${s.icon}`} /> {s.label}</Pill></td>
                         <td className="ld-wrap">
                           <span className="ld-strong">{a.title}</span>
                           {a.detail && <span className="ld-sub">{a.detail}</span>}

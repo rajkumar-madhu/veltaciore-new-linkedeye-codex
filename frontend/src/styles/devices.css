@@ -7,7 +7,7 @@
 
 /* ── "Sample data" note inside a panel ──────────────────────────────── */
 .ld-devices-sample { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--bg-muted); font-size: 12px; color: var(--fg-muted); }
-.ld-devices-sample i { margin-top: 2px; color: var(--warning); }
+.ld-devices-sample .ld-icon { margin-top: 2px; color: var(--warning); }
 
 /* ── port map (from discovered interfaces) ──────────────────────────── */
 .ld-devices-ports { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
@@ -95,7 +95,7 @@
 .ld-devices-card.is-selected { box-shadow: 0 0 0 3px var(--info-bg); border-color: var(--accent); }
 .ld-devices-card.is-dim { opacity: 0.3; }
 .ld-devices-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ld-devices-card-top i { color: var(--accent); }
+.ld-devices-card-top .ld-icon { color: var(--accent); }
 .ld-devices-card-top b { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ld-devices-card-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--fg-muted); }
 .ld-devices-card .ld-bar-track { height: 6px; }

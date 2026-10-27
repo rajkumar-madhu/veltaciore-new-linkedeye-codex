@@ -9,6 +9,8 @@ import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, StatCard } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FlaskConicalIcon, HexagonIcon } from "lucide-react";
 interface Host {
   name: string;
   dc: string;
@@ -77,9 +79,9 @@ export default function HostMapScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Host Map</span>
       </nav>
 
@@ -103,7 +105,7 @@ export default function HostMapScreen() {
       </div>
 
       <div className="ld-card ld-infra-sample" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">This map shows a generated fleet to demonstrate the layout. It is not connected to live host metrics yet.</p>
@@ -127,7 +129,7 @@ export default function HostMapScreen() {
             const members = HOSTS.filter((h) => (groupBy === "dc" ? h.dc : h.role) === g);
             return (
               <div key={g} className="ld-infra-hexgroup">
-                <h3><i className={`fa-solid ${groupBy === "dc" ? "fa-warehouse" : "fa-layer-group"}`} aria-hidden="true" /> {g} <span className="ld-muted ld-small">· {members.length} hosts</span></h3>
+                <h3><Icon className={`fa-solid ${groupBy === "dc" ? "fa-warehouse" : "fa-layer-group"}`} /> {g} <span className="ld-muted ld-small">· {members.length} hosts</span></h3>
                 <div className="ld-infra-hexes">
                   {members.map((h) => (
                     <button key={h.name} type="button" className="ld-infra-hex" aria-pressed={hover?.name === h.name}
@@ -168,7 +170,7 @@ export default function HostMapScreen() {
               </div>
             ) : (
               <div className="ld-empty">
-                <i className="fa-solid fa-hexagon-nodes" aria-hidden="true" /> Hover or focus a hex to inspect a host.
+                <Icon icon={HexagonIcon} /> Hover or focus a hex to inspect a host.
               </div>
             )}
           </Panel>

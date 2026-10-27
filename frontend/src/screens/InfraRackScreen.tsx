@@ -14,6 +14,8 @@ import type { Tone } from "@/components/ld";
 import { useRacks } from "@/api/hooks";
 import { RACKS, type RackUnit } from "@/data/racks";
 
+import { Icon } from "@/components/Icon";
+import { CameraIcon, ChevronRightIcon, CircleCheckIcon, CircleXIcon, ExternalLinkIcon, PlusIcon, ServerIcon, TriangleAlertIcon } from "lucide-react";
 const U_TOTAL = 42;
 
 const statusColor = (s: string) => (s === "ok" ? "#10b981" : s === "warn" ? "#f59e0b" : "#ef4444");
@@ -258,17 +260,17 @@ export default function InfraRackScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Bangalore DC-1</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Rack {rack.id} · {rack.row}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-purple" aria-hidden="true"><i className="fa-solid fa-server" /></span>
+          <span className="ld-tile ld-purple" aria-hidden="true"><Icon icon={ServerIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               Rack {rack.id} / {rack.row}
@@ -287,14 +289,14 @@ export default function InfraRackScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-camera" aria-hidden="true" /> Photo</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Open in CMDB</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Add Device</button>
+            <button type="button" className="ld-btn"><Icon icon={CameraIcon} /> Photo</button>
+            <button type="button" className="ld-btn"><Icon icon={ExternalLinkIcon} /> Open in CMDB</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add Device</button>
           </div>
           <ul className="ld-tags" aria-label="Unit status">
-            <li className="ld-tag"><i className="fa-solid fa-circle-check" aria-hidden="true" /> {counts.ok} / {units.length} healthy</li>
-            <li className="ld-tag"><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {counts.warn} warning</li>
-            <li className="ld-tag"><i className="fa-solid fa-circle-xmark" aria-hidden="true" /> {counts.crit} critical</li>
+            <li className="ld-tag"><Icon icon={CircleCheckIcon} /> {counts.ok} / {units.length} healthy</li>
+            <li className="ld-tag"><Icon icon={TriangleAlertIcon} /> {counts.warn} warning</li>
+            <li className="ld-tag"><Icon icon={CircleXIcon} /> {counts.crit} critical</li>
           </ul>
         </div>
       </div>
@@ -333,7 +335,7 @@ export default function InfraRackScreen() {
           <div className="ld-infra-seg" role="group" aria-label="Rack side">
             {(["front", "rear"] as const).map((s) => (
               <button key={s} type="button" aria-pressed={side === s} onClick={() => setSide(s)}>
-                <i className={`fa-solid ${s === "front" ? "fa-square-caret-down" : "fa-plug"}`} aria-hidden="true" /> {s === "front" ? "Front" : "Rear"}
+                <Icon className={`fa-solid ${s === "front" ? "fa-square-caret-down" : "fa-plug"}`} /> {s === "front" ? "Front" : "Rear"}
               </button>
             ))}
           </div>
@@ -346,7 +348,7 @@ export default function InfraRackScreen() {
             {callouts.map((r) => {
               const body = (
                 <>
-                  <span className="ld-infra-callout-icon" aria-hidden="true"><i className={`fa-solid ${r.icon}`} /></span>
+                  <span className="ld-infra-callout-icon" aria-hidden="true"><Icon className={`fa-solid ${r.icon}`} /></span>
                   <span>
                     <span className="ld-infra-callout-title">{r.label}</span>
                     <span className="ld-infra-callout-desc">{r.desc}</span>
@@ -410,7 +412,7 @@ export default function InfraRackScreen() {
               return (
                 <span key={r.asset} className={`ld-infra-chip${hover === r.asset ? " active" : ""}`} style={cv(r.chip ? "var(--accent)" : r.color, { gridRow: `${rowStart} / span ${span}` })}
                   onMouseEnter={() => setHover(r.asset)} onMouseLeave={() => setHover(null)}>
-                  {r.chip ? <span className="ld-infra-chip-tag"><i className="fa-solid fa-server" /> {r.chip}</span> : <span className="ld-infra-chip-asset">{r.asset}</span>}
+                  {r.chip ? <span className="ld-infra-chip-tag"><Icon icon={ServerIcon} /> {r.chip}</span> : <span className="ld-infra-chip-asset">{r.asset}</span>}
                 </span>
               );
             })}
@@ -429,7 +431,7 @@ export default function InfraRackScreen() {
                     <tr key={r.asset} className={hover === r.asset ? "ld-row-selected" : undefined}>
                       <td>
                         <div className="ld-infra-cell">
-                          <span className="ld-infra-kind" aria-hidden="true"><i className={`fa-solid ${r.icon}`} /></span>
+                          <span className="ld-infra-kind" aria-hidden="true"><Icon className={`fa-solid ${r.icon}`} /></span>
                           {r.device
                             ? <button type="button" className="ld-link" onClick={() => open(r)}>{nameOf(r)}</button>
                             : <span className="ld-strong">{nameOf(r)}</span>}

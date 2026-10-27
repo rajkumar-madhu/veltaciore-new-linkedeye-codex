@@ -3,6 +3,8 @@
 // expanded (C/W/O/U counts) vs compact (single status cell) view, and a
 // PROD-ENV donut summary. Recreated from the Finspot LinkedEye dashboard.
 import React from "react";
+import { Icon } from "@/components/Icon";
+import { ClockIcon, MoveHorizontalIcon, NetworkIcon, RefreshCwIcon } from "lucide-react";
 import {
   HEATMAP_PROD, HEATMAP_UAT, CATEGORIES, catTotals,
   type HeatDomain, type CatKey, type CatCounts,
@@ -71,9 +73,9 @@ export function HeatMap() {
           ))}
         </div>
         <div style={{ display: "inline-flex", gap: 10, color: "#9a9a9a" }}>
-          <i className="fa-solid fa-arrows-left-right" title="Prev / next" style={{ cursor: "pointer" }} />
-          <i className="fa-solid fa-rotate" title="Refresh" style={{ cursor: "pointer" }} />
-          <i className={`fa-solid ${expanded ? "fa-compress" : "fa-expand"}`} title={expanded ? "Compact" : "Expand"} style={{ cursor: "pointer" }} onClick={() => setExpanded((x) => !x)} />
+          <Icon icon={MoveHorizontalIcon} title="Prev / next" style={{ cursor: "pointer" }} />
+          <Icon icon={RefreshCwIcon} title="Refresh" style={{ cursor: "pointer" }} />
+          <Icon className={`fa-solid ${expanded ? "fa-compress" : "fa-expand"}`} title={expanded ? "Compact" : "Expand"} style={{ cursor: "pointer" }} onClick={() => setExpanded((x) => !x)} />
         </div>
       </div>
 
@@ -87,7 +89,7 @@ export function HeatMap() {
                   {CATEGORIES.map((c) => (
                     <th key={c.key} colSpan={4} style={{ padding: "8px 4px", fontSize: 13, fontWeight: 700, borderRight: "1px solid #0d0d0d", borderBottom: "1px solid #0d0d0d" }}>{c.label}</th>
                   ))}
-                  <th rowSpan={2} style={{ padding: "8px 10px", fontSize: 12.5, minWidth: 92 }}><i className="fa-regular fa-clock" /> Time</th>
+                  <th rowSpan={2} style={{ padding: "8px 10px", fontSize: 12.5, minWidth: 92 }}><Icon icon={ClockIcon} /> Time</th>
                 </tr>
                 <tr style={{ background: "#1e1e1e" }}>
                   {CATEGORIES.flatMap((c) =>
@@ -107,8 +109,8 @@ export function HeatMap() {
                     <span style={{ display: "inline-grid", placeItems: "center", width: 18, height: 18, background: "#000", borderRadius: 3, fontSize: 10.5, fontWeight: 700 }}>{c.short}</span>
                   </th>
                 ))}
-                <th style={{ padding: "8px 10px" }}><i className="fa-solid fa-circle-nodes" /></th>
-                <th style={{ padding: "8px 10px", minWidth: 92 }}><i className="fa-regular fa-clock" /></th>
+                <th style={{ padding: "8px 10px" }}><Icon icon={NetworkIcon} /></th>
+                <th style={{ padding: "8px 10px", minWidth: 92 }}><Icon icon={ClockIcon} /></th>
               </tr>
             )}
           </thead>
@@ -132,11 +134,11 @@ export function HeatMap() {
                 )}
                 {!expanded && (
                   <td style={{ textAlign: "center", background: d.pending ? RED : "transparent" }}>
-                    <i className="fa-solid fa-rotate" style={{ color: d.pending ? "#fff" : "#2ecc71" }} />
+                    <Icon icon={RefreshCwIcon} style={{ color: d.pending ? "#fff" : "#2ecc71" }} />
                   </td>
                 )}
                 <td style={{ padding: "9px 10px", textAlign: "center", fontSize: 12, color: "#cfcfcf", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                  {expanded && <i className="fa-solid fa-rotate" style={{ color: "#2ecc71", marginRight: 8 }} />}
+                  {expanded && <Icon icon={RefreshCwIcon} style={{ color: "#2ecc71", marginRight: 8 }} />}
                   {d.time || "- : - : -"}
                 </td>
               </tr>

@@ -9,6 +9,8 @@ import { useUiStore } from "@/store/ui";
 import { INTEGRATIONS } from "@/data/core";
 import { Panel, Pill } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ArrowLeftIcon, CheckIcon, ChevronRightIcon, RefreshCwIcon, SaveIcon, TestTubeIcon, Trash2Icon } from "lucide-react";
 const AUTH_LABEL: Record<string, string> = {
   apikey: "API Key",
   basic: "Username + Password",
@@ -48,15 +50,15 @@ export default function IntegrationDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("integrations")}>Integrations</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{integ.name}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className={integ.icon} /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon className={integ.icon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {integ.name} Integration
@@ -67,14 +69,14 @@ export default function IntegrationDetailScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <span role="status" className="ld-admin-status">{saved && <><i className="fa-solid fa-check ld-text-ok" aria-hidden="true" /> Saved</>}</span>
-            <button type="button" className="ld-btn" onClick={() => setRoute("integrations")}><i className="fa-solid fa-arrow-left" aria-hidden="true" /> Back</button>
-            <button type="button" className="ld-btn" onClick={test}><i className="fa-solid fa-vial" aria-hidden="true" /> Test Connection</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-trash" aria-hidden="true" /> Disconnect</button>
-            <button type="button" className="ld-btn ld-btn-primary" onClick={save}><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Changes</button>
+            <span role="status" className="ld-admin-status">{saved && <><Icon icon={CheckIcon} className="ld-text-ok" /> Saved</>}</span>
+            <button type="button" className="ld-btn" onClick={() => setRoute("integrations")}><Icon icon={ArrowLeftIcon} /> Back</button>
+            <button type="button" className="ld-btn" onClick={test}><Icon icon={TestTubeIcon} /> Test Connection</button>
+            <button type="button" className="ld-btn"><Icon icon={Trash2Icon} /> Disconnect</button>
+            <button type="button" className="ld-btn ld-btn-primary" onClick={save}><Icon icon={SaveIcon} /> Save Changes</button>
           </div>
           <ul className="ld-tags">
-            <li className="ld-tag"><i className={integ.icon} aria-hidden="true" /> {integ.category}</li>
+            <li className="ld-tag"><Icon className={integ.icon} /> {integ.category}</li>
           </ul>
         </div>
       </div>
@@ -126,7 +128,7 @@ export default function IntegrationDetailScreen() {
                       <label htmlFor="ic-key">API key <span className="ld-req">*</span></label>
                       <span className="ld-admin-input-row">
                         <input id="ic-key" className="ld-input ld-mono" type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={STORED} />
-                        <button type="button" className="ld-btn" aria-label="Rotate API key" title="Rotate"><i className="fa-solid fa-rotate" aria-hidden="true" /></button>
+                        <button type="button" className="ld-btn" aria-label="Rotate API key" title="Rotate"><Icon icon={RefreshCwIcon} /></button>
                       </span>
                     </div>
                     <div className="ld-form-field">
@@ -215,7 +217,7 @@ export default function IntegrationDetailScreen() {
               </div>
               <div className="ld-admin-actions">
                 <span className="ld-admin-hint ld-admin-status">Secrets are write-only and never shown after saving.</span>
-                <button type="submit" className="ld-btn ld-btn-primary"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Changes</button>
+                <button type="submit" className="ld-btn ld-btn-primary"><Icon icon={SaveIcon} /> Save Changes</button>
               </div>
             </form>
           </section>

@@ -8,6 +8,8 @@ import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, BookmarkIcon, ChevronRightIcon, FlaskConicalIcon, LineChartIcon, PauseIcon, SearchIcon } from "lucide-react";
 type Level = "ERROR" | "WARN" | "INFO" | "DEBUG";
 const LEVEL_TONE: Record<Level, Tone> = { ERROR: "crit", WARN: "warn", INFO: "info", DEBUG: "muted" };
 const LEVEL_COLOR = { DEBUG: "#98a2b3", INFO: "#2f6bff", WARN: "#f5a524", ERROR: "#e5383b" };
@@ -58,7 +60,7 @@ export default function LogsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Logs</span>
       </nav>
 
@@ -68,14 +70,14 @@ export default function LogsScreen() {
           <p>Search, tail and cluster application logs across services</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-pause" aria-hidden="true" /> Pause</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-bookmark" aria-hidden="true" /> Save</button>
-          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("monitors")}><i className="fa-solid fa-bell" aria-hidden="true" /> Alert on this</button>
+          <button type="button" className="ld-btn"><Icon icon={PauseIcon} /> Pause</button>
+          <button type="button" className="ld-btn"><Icon icon={BookmarkIcon} /> Save</button>
+          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Alert on this</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">No tenant-wide log source is connected yet. The stream, patterns and histogram below are illustrative; per-device logs are on each server page.</p>
@@ -94,7 +96,7 @@ export default function LogsScreen() {
         <div className="ld-toolbar">
           <label htmlFor={`${idp}-q`} className="sr-only">Log query</label>
           <span className="ld-search">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+            <Icon icon={SearchIcon} />
             <input id={`${idp}-q`} className="ld-obs-mono-input" type="search" value={q} onChange={(e) => setQ(e.target.value)} />
           </span>
           <button type="submit" className="ld-btn ld-btn-primary">Run</button>
@@ -177,7 +179,7 @@ export default function LogsScreen() {
             <ul className="ld-obs-list">
               {SAVED.map((n) => (
                 <li key={n}>
-                  <i className="fa-solid fa-chart-line" aria-hidden="true" />
+                  <Icon icon={LineChartIcon} />
                   <span className="ld-mono">{n}</span>
                 </li>
               ))}

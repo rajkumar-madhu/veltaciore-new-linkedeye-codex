@@ -9,6 +9,8 @@ import { ORG, USERS } from "@/data/core";
 import { colorFor } from "@/components/Shell";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, CreditCardIcon, ExternalLinkIcon, FileOutputIcon, FileTextIcon, LandmarkIcon, LockIcon, SmartphoneIcon, WalletIcon, ZapIcon } from "lucide-react";
 const PAY_URL = "https://razorpay.me/@madhurajkumar";
 const SEAT_PRICE = 12;
 
@@ -37,9 +39,9 @@ export default function AdminBillingScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Super-admin</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Billing &amp; Plans</span>
       </nav>
 
@@ -49,10 +51,10 @@ export default function AdminBillingScreen() {
           <p>{ORG.plan} agreement · {tenants.length} clients</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-invoice" aria-hidden="true" /> Invoices</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export</button>
-          <a className="ld-btn" href={PAY_URL} target="_blank" rel="noopener noreferrer"><i className="fa-solid fa-bolt" aria-hidden="true" /> Pay invoice</a>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Contract</button>
+          <button type="button" className="ld-btn"><Icon icon={FileTextIcon} /> Invoices</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export</button>
+          <a className="ld-btn" href={PAY_URL} target="_blank" rel="noopener noreferrer"><Icon icon={ZapIcon} /> Pay invoice</a>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={ExternalLinkIcon} /> Contract</button>
         </div>
       </div>
 
@@ -146,7 +148,7 @@ export default function AdminBillingScreen() {
         <div className="ld-rail">
           <section className="ld-card ld-panel" aria-labelledby="bill-pay-h">
             <div className="ld-panel-head">
-              <h2 id="bill-pay-h"><i className="fa-solid fa-bolt" aria-hidden="true" /> Pay your invoice</h2>
+              <h2 id="bill-pay-h"><Icon icon={ZapIcon} /> Pay your invoice</h2>
               <span className="ld-muted ld-small">Razorpay</span>
             </div>
             <div className="ld-admin-amount">
@@ -159,13 +161,13 @@ export default function AdminBillingScreen() {
               <dt>Pay to</dt><dd>@madhurajkumar</dd>
             </dl>
             <a className="ld-btn ld-btn-primary" href={PAY_URL} target="_blank" rel="noopener noreferrer">
-              <i className="fa-solid fa-lock" aria-hidden="true" /> Pay securely via Razorpay
+              <Icon icon={LockIcon} /> Pay securely via Razorpay
             </a>
             <ul className="ld-tags ld-admin-methods" aria-label="Accepted payment methods">
-              <li className="ld-tag"><i className="fa-solid fa-mobile-screen" aria-hidden="true" /> UPI</li>
-              <li className="ld-tag"><i className="fa-solid fa-credit-card" aria-hidden="true" /> Cards</li>
-              <li className="ld-tag"><i className="fa-solid fa-building-columns" aria-hidden="true" /> Netbanking</li>
-              <li className="ld-tag"><i className="fa-solid fa-wallet" aria-hidden="true" /> Wallets</li>
+              <li className="ld-tag"><Icon icon={SmartphoneIcon} /> UPI</li>
+              <li className="ld-tag"><Icon icon={CreditCardIcon} /> Cards</li>
+              <li className="ld-tag"><Icon icon={LandmarkIcon} /> Netbanking</li>
+              <li className="ld-tag"><Icon icon={WalletIcon} /> Wallets</li>
             </ul>
           </section>
 

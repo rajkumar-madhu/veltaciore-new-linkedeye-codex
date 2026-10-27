@@ -20,6 +20,8 @@ import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
 import { NetworkPath } from "@/components/DeviceFamily";
 import { EventLogs, fmtBytes } from "@/components/HostPanels";
 
+import { Icon } from "@/components/Icon";
+import { BoxIcon, ChevronRightIcon, CircleCheckIcon, ClockIcon, NetworkIcon, ServerIcon, UnplugIcon, WrenchIcon } from "lucide-react";
 const STATE_TONE: Record<string, Tone> = { running: "ok", stopped: "muted", suspended: "warn", error: "crit" };
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const sevTone = (s: string): Tone => (s === "critical" ? "crit" : s === "warning" || s === "warn" ? "warn" : "info");
@@ -88,8 +90,8 @@ export default function VmDetailScreen() {
         <dt>Disk</dt><dd>{vm.disk || "—"}</dd>
         <dt>OS</dt><dd>{vm.os || "—"}</dd>
         <dt>Tools status</dt>
-        <dd>{inv ? <Pill tone={toolsOk ? "ok" : "warn"}><i className={`fa-solid ${toolsOk ? "fa-circle-check" : "fa-circle-exclamation"}`} aria-hidden="true" /> {tools || "unknown"}{inv.tools?.version ? ` (${inv.tools.version})` : ""}</Pill> : "—"}</dd>
-        <dt>VM state</dt><dd><Pill tone={STATE_TONE[state] ?? "muted"}><i className="fa-solid fa-circle-check" aria-hidden="true" /> {state === "running" ? "Powered On" : cap(state)}</Pill></dd>
+        <dd>{inv ? <Pill tone={toolsOk ? "ok" : "warn"}><Icon className={`fa-solid ${toolsOk ? "fa-circle-check" : "fa-circle-exclamation"}`} /> {tools || "unknown"}{inv.tools?.version ? ` (${inv.tools.version})` : ""}</Pill> : "—"}</dd>
+        <dt>VM state</dt><dd><Pill tone={STATE_TONE[state] ?? "muted"}><Icon icon={CircleCheckIcon} /> {state === "running" ? "Powered On" : cap(state)}</Pill></dd>
         <dt>Booted</dt><dd>{inv?.boot_time ? new Date(inv.boot_time).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—"}</dd>
       </dl>
     </Panel>
@@ -99,7 +101,7 @@ export default function VmDetailScreen() {
     <section className="ld-card ld-chart-card" aria-label="Resource utilization">
       <header>
         <h3>Resource Utilization</h3>
-        <span className="ld-muted ld-small"><i className="fa-regular fa-clock" aria-hidden="true" /> {rangeLabel(preset, from, to)}</span>
+        <span className="ld-muted ld-small"><Icon icon={ClockIcon} /> {rangeLabel(preset, from, to)}</span>
       </header>
       {connected && utilSeries.length
         ? <TimeChart series={utilSeries.map((s) => ({ ...s, label: s.key === "cpu" ? "CPU" : s.key === "mem" ? "Memory" : "Disk" }))} startSec={startSec} endSec={endSec} compact />
@@ -112,7 +114,7 @@ export default function VmDetailScreen() {
       <div className="ld-vm-actions">
         {ACTIONS.map(([icon, label]) => (
           <button key={label} type="button" className="ld-btn" disabled title="Needs the vCenter integration">
-            <i className={`fa-solid ${icon}`} aria-hidden="true" /> {label}
+            <Icon className={`fa-solid ${icon}`} /> {label}
           </button>
         ))}
       </div>
@@ -210,19 +212,19 @@ export default function VmDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra-vms")}>Virtual Machines</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>VM Details</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className="fa-solid fa-cube" /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={BoxIcon} /></span>
           <div>
             <h1 className="ld-entity-title">
               {vm.id}
-              <Pill tone={STATE_TONE[state] ?? "muted"}><i className="fa-solid fa-circle-check" aria-hidden="true" /> {cap(state)}</Pill>
+              <Pill tone={STATE_TONE[state] ?? "muted"}><Icon icon={CircleCheckIcon} /> {cap(state)}</Pill>
             </h1>
             <p className="ld-entity-meta">
               <span>{host?.os || "VMware ESXi"}</span>
@@ -242,13 +244,13 @@ export default function VmDetailScreen() {
           <div className="ld-head-actions">
             <RangeSelect />
             <LiveButton />
-            <button type="button" className="ld-btn" onClick={openHost}><i className="fa-solid fa-server" aria-hidden="true" /> Open host</button>
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><i className="fa-solid fa-circle-nodes" aria-hidden="true" /> View in topology</button>
+            <button type="button" className="ld-btn" onClick={openHost}><Icon icon={ServerIcon} /> Open host</button>
+            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in topology</button>
           </div>
           <ul className="ld-tags" aria-label="Tags">
-            <li className="ld-tag"><i className="fa-solid fa-cube" aria-hidden="true" /> VMware</li>
-            <li className="ld-tag"><i className={isWin ? "fa-brands fa-windows" : "fa-brands fa-linux"} aria-hidden="true" /> {isWin ? "Windows" : "Linux"}</li>
-            {inv && <li className="ld-tag"><i className="fa-solid fa-toolbox" aria-hidden="true" /> Tools {toolsOk ? "OK" : tools || "unknown"}</li>}
+            <li className="ld-tag"><Icon icon={BoxIcon} /> VMware</li>
+            <li className="ld-tag"><Icon className={isWin ? "fa-brands fa-windows" : "fa-brands fa-linux"} /> {isWin ? "Windows" : "Linux"}</li>
+            {inv && <li className="ld-tag"><Icon icon={WrenchIcon} /> Tools {toolsOk ? "OK" : tools || "unknown"}</li>}
           </ul>
         </div>
       </div>
@@ -256,7 +258,7 @@ export default function VmDetailScreen() {
       {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
-          <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+          <Icon icon={UnplugIcon} />
           <div>
             <b>Prometheus is not connected</b>
             <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards and charts fill in once the VMware exporter is scraped. The allocations below come from the inventory.</p>

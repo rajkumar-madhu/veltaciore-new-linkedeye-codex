@@ -40,7 +40,7 @@
 .ld-admin-nav a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: var(--radius); font-size: 13px; color: var(--fg); text-decoration: none; }
 .ld-admin-nav a:hover { background: var(--bg-hover); }
 .ld-admin-nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.ld-admin-nav i { font-size: 10px; color: var(--fg-subtle); }
+.ld-admin-nav .ld-icon { font-size: 10px; color: var(--fg-subtle); }
 
 /* Colour swatch input row */
 .ld-admin-color { display: flex; align-items: center; gap: 8px; }

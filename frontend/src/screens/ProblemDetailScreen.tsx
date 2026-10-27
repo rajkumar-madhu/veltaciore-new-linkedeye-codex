@@ -6,6 +6,8 @@ import { INCIDENTS, USERS } from "@/data/core";
 import { Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BookIcon, BugIcon, ChevronRightIcon, CopyIcon, LinkIcon } from "lucide-react";
 const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "ok" };
 const PRI_LABEL: Record<number, string> = { 1: "Critical", 2: "High", 3: "Moderate", 4: "Low" };
 const STATUS_TONE: Record<string, Tone> = { active: "crit", mitigating: "warn", investigating: "info", resolved: "ok" };
@@ -20,15 +22,15 @@ export default function ProblemDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("problems")}>Problem Management</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{p.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className={`ld-tile ld-${SEV_TONE[p.priority]}`} aria-hidden="true"><i className="fa-solid fa-bug" /></span>
+          <span className={`ld-tile ld-${SEV_TONE[p.priority]}`} aria-hidden="true"><Icon icon={BugIcon} /></span>
           <div>
             <span className="ld-sd-number">{p.id}</span>
             <h1 className="ld-entity-title">
@@ -45,9 +47,9 @@ export default function ProblemDetailScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-link" aria-hidden="true" /> Link Incident</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-copy" aria-hidden="true" /> Clone</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-book" aria-hidden="true" /> Publish Known Error</button>
+            <button type="button" className="ld-btn"><Icon icon={LinkIcon} /> Link Incident</button>
+            <button type="button" className="ld-btn"><Icon icon={CopyIcon} /> Clone</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={BookIcon} /> Publish Known Error</button>
           </div>
         </div>
       </div>

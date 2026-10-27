@@ -18,13 +18,13 @@
 
 /* Error / success messages under a page head. */
 .ld-sd-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; font-size: 13px; color: var(--fg); }
-.ld-sd-alert i { margin-top: 2px; }
+.ld-sd-alert .ld-icon { margin-top: 2px; }
 .ld-sd-alert-crit { border-color: #f3b8b4; background: var(--critical-bg); }
-.ld-sd-alert-crit i { color: #b42318; }
+.ld-sd-alert-crit .ld-icon { color: #b42318; }
 .ld-sd-alert-ok { border-color: #a6dfbd; background: var(--success-bg); }
-.ld-sd-alert-ok i { color: #137a3f; }
-[data-theme="dark"] .ld-sd-alert-crit i { color: #fca5a5; }
-[data-theme="dark"] .ld-sd-alert-ok i { color: #6ee7b7; }
+.ld-sd-alert-ok .ld-icon { color: #137a3f; }
+[data-theme="dark"] .ld-sd-alert-crit .ld-icon { color: #fca5a5; }
+[data-theme="dark"] .ld-sd-alert-ok .ld-icon { color: #6ee7b7; }
 
 /* Record header: number above the title. */
 .ld-sd-number { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--fg-muted); }
@@ -48,7 +48,7 @@
 .ld-sd-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; color: var(--fg); }
 .ld-sd-list-plain { list-style: none; padding-left: 0; }
 .ld-sd-list-plain li { display: flex; align-items: flex-start; gap: 8px; }
-.ld-sd-list-plain i { margin-top: 3px; }
+.ld-sd-list-plain .ld-icon { margin-top: 3px; }
 
 /* Long-form text: article bodies, narratives. */
 .ld-sd-prose { font-size: 14px; line-height: 1.7; color: var(--fg); max-width: 820px; }

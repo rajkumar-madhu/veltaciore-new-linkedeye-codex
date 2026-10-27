@@ -4,6 +4,8 @@
 import React from "react";
 import { useCanWrite, useAuth } from "@/auth/auth";
 
+import { Icon } from "@/components/Icon";
+import { EyeIcon } from "lucide-react";
 export default function ReadOnlyBadge() {
   const canWrite = useCanWrite();
   const role = useAuth((s) => s.identity.roles[0] ?? "viewer");
@@ -17,7 +19,7 @@ export default function ReadOnlyBadge() {
         background: "#f3f4f6", border: "1px solid #e5e7eb",
       }}
     >
-      <i className="fa-solid fa-eye" style={{ fontSize: 10 }} /> Read-only
+      <Icon icon={EyeIcon} style={{ fontSize: 10 }} /> Read-only
     </span>
   );
 }

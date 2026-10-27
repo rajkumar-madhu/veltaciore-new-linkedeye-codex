@@ -9,6 +9,8 @@ import { getStatusLabel } from "@/lib/statusColors";
 import { Empty, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, ChevronLeftIcon, ChevronRightIcon, Columns3Icon, ExternalLinkIcon, EyeIcon, FileSpreadsheetIcon, FlaskConicalIcon, PlusIcon, SearchIcon, WandSparklesIcon, XIcon } from "lucide-react";
 export interface CatalogEntity {
   id: string;
   type: string;
@@ -105,7 +107,7 @@ export default function APMCatalogScreen() {
 
   const toggleSort = (k: keyof CatalogEntity) => { if (sortKey === k) setSortDir(d => -d); else { setSortKey(k); setSortDir(1); } setPage(1); };
   const ariaSort = (k: keyof CatalogEntity) => (sortKey === k ? (sortDir === 1 ? "ascending" : "descending") : undefined);
-  const SortIcon = ({ k }: { k: keyof CatalogEntity }) => sortKey === k ? <i className={`fa-solid fa-arrow-${sortDir === 1 ? "up" : "down"}`} aria-hidden="true" /> : null;
+  const SortIcon = ({ k }: { k: keyof CatalogEntity }) => sortKey === k ? <Icon className={`fa-solid fa-arrow-${sortDir === 1 ? "up" : "down"}`} /> : null;
   const openEntity = (id: string) => { setRoute("app-detail", { appName: id }); };
 
   const exportCSV = () => {
@@ -155,14 +157,14 @@ export default function APMCatalogScreen() {
       {visCols.infra && <td title={e.infra > 0 ? `${e.infra} resources · ${e.cluster !== "—" ? e.cluster : "no cluster"}` : undefined}>{e.infra > 0 ? e.infra : <span className="ld-muted">—</span>}</td>}
       {visCols.ns && <td className="ld-mono">{e.ns}</td>}
       {visCols.cluster && <td className="ld-mono">{e.cluster}</td>}
-      {visCols.alerts && <td>{e.alerts > 0 ? <Pill tone={e.alerts > 2 ? "crit" : "warn"}><i className="fa-solid fa-bell" aria-hidden="true" /> {e.alerts}</Pill> : <span className="ld-muted">0</span>}</td>}
+      {visCols.alerts && <td>{e.alerts > 0 ? <Pill tone={e.alerts > 2 ? "crit" : "warn"}><Icon icon={BellIcon} /> {e.alerts}</Pill> : <span className="ld-muted">0</span>}</td>}
       {visCols.lastDeploy && <td>
         {e.lastDeploy}
         <span className="ld-sub"><Pill tone={outcomeTone(e.deployOutcome)}>{e.deployOutcome}</Pill></span>
       </td>}
       {visCols.lastReport && <td className="ld-muted">{e.lastReport}</td>}
       {visCols.repos && <td title={`git.internal/finspot/${e.id}`}>{e.repos}</td>}
-      {visCols.ai && <td>{e.ai ? <Pill tone="purple"><i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" /> {e.ai}</Pill> : <span className="ld-muted">—</span>}</td>}
+      {visCols.ai && <td>{e.ai ? <Pill tone="purple"><Icon icon={WandSparklesIcon} /> {e.ai}</Pill> : <span className="ld-muted">—</span>}</td>}
       {visCols.rt && <td>{fmtRt(e.rt)}</td>}
       {visCols.tput && <td>{(e.tput/1000).toFixed(1)}k rpm</td>}
       {visCols.err && <td><Pill tone={errTone(e.err)}>{e.err.toFixed(2)}%</Pill></td>}
@@ -173,8 +175,8 @@ export default function APMCatalogScreen() {
       {visCols.runbook && <td className="ld-mono">{e.runbook}</td>}
       <td>
         <span className="ld-obs-seg">
-          <button type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(e.id)} aria-label={`Quick view ${e.id}`} title="Quick view"><i className="fa-regular fa-eye" aria-hidden="true" /></button>
-          <button type="button" className="ld-btn ld-btn-sm" onClick={() => openEntity(e.id)} aria-label={`Open ${e.id}`} title="Open detail"><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /></button>
+          <button type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(e.id)} aria-label={`Quick view ${e.id}`} title="Quick view"><Icon icon={EyeIcon} /></button>
+          <button type="button" className="ld-btn ld-btn-sm" onClick={() => openEntity(e.id)} aria-label={`Open ${e.id}`} title="Open detail"><Icon icon={ExternalLinkIcon} /></button>
         </span>
       </td>
     </tr>
@@ -193,7 +195,7 @@ export default function APMCatalogScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Application Catalog</span>
       </nav>
 
@@ -203,13 +205,13 @@ export default function APMCatalogScreen() {
           <p>Every application, service, and mobile/browser entity — health, ownership, deployments, and golden metrics in one table</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn" onClick={exportCSV}><i className="fa-solid fa-file-csv" aria-hidden="true" /> Export CSV</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Add application</button>
+          <button type="button" className="ld-btn" onClick={exportCSV}><Icon icon={FileSpreadsheetIcon} /> Export CSV</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add application</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">The application catalog API is not connected yet. These {CATALOG_ENTITIES.length} entities and their metrics are illustrative.</p>
@@ -235,7 +237,7 @@ export default function APMCatalogScreen() {
           <div className="ld-field ld-field-grow">
             <label htmlFor={`${idp}-q`}>Search</label>
             <span className="ld-search">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id={`${idp}-q`} type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search application name…" />
             </span>
           </div>
@@ -266,7 +268,7 @@ export default function APMCatalogScreen() {
           <span className="ld-field-grow" />
           <div className="ld-obs-menu-wrap">
             <button type="button" className="ld-btn ld-btn-sm" aria-expanded={colMenuOpen} aria-controls={`${idp}-cols`} onClick={() => setColMenuOpen(o => !o)}>
-              <i className="fa-solid fa-table-columns" aria-hidden="true" /> Columns
+              <Icon icon={Columns3Icon} /> Columns
             </button>
             {colMenuOpen && (
               <fieldset id={`${idp}-cols`} className="ld-obs-menu">
@@ -316,9 +318,9 @@ export default function APMCatalogScreen() {
             <div className="ld-pager-btns">
               <label htmlFor={`${idp}-size`} className="sr-only">Rows per page</label>
               <select id={`${idp}-size`} className="ld-select" value={pageSize} onChange={e => setPageSize(+e.target.value)}>{[10, 25, 50].map(n => <option key={n} value={n}>{n} / page</option>)}</select>
-              <button type="button" className="ld-btn ld-btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} aria-label="Previous page"><i className="fa-solid fa-chevron-left" aria-hidden="true" /></button>
+              <button type="button" className="ld-btn ld-btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)} aria-label="Previous page"><Icon icon={ChevronLeftIcon} /></button>
               <span className="ld-muted ld-small">Page {page} / {totalPages}</span>
-              <button type="button" className="ld-btn ld-btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)} aria-label="Next page"><i className="fa-solid fa-chevron-right" aria-hidden="true" /></button>
+              <button type="button" className="ld-btn ld-btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)} aria-label="Next page"><Icon icon={ChevronRightIcon} /></button>
             </div>
           </nav>
         )}
@@ -334,7 +336,7 @@ export default function APMCatalogScreen() {
                 <h2 id={`${idp}-drawer-h`}>{drawerEntity.id}</h2>
                 <span className="ld-sub">{drawerEntity.bizSvc} · {drawerEntity.client}</span>
               </div>
-              <button ref={closeRef} type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(null)} aria-label="Close"><i className="fa-solid fa-xmark" aria-hidden="true" /></button>
+              <button ref={closeRef} type="button" className="ld-btn ld-btn-sm" onClick={() => setDrawer(null)} aria-label="Close"><Icon icon={XIcon} /></button>
             </div>
             <Pill tone="muted">Sample data</Pill>
             <dl className="ld-dl">
@@ -351,7 +353,7 @@ export default function APMCatalogScreen() {
               <dt>Last deployment</dt><dd>{drawerEntity.lastDeploy} · {drawerEntity.deployOutcome}</dd>
               <dt>Runbook</dt><dd className="ld-mono">{drawerEntity.runbook}</dd>
             </dl>
-            <button type="button" className="ld-btn ld-btn-primary" onClick={() => openEntity(drawerEntity.id)}><i className="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" /> Open full detail</button>
+            <button type="button" className="ld-btn ld-btn-primary" onClick={() => openEntity(drawerEntity.id)}><Icon icon={ExternalLinkIcon} /> Open full detail</button>
           </aside>
         </>
       )}

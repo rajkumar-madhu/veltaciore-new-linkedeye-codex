@@ -15,6 +15,8 @@ import { deviceRoute } from "@/lib/deviceRoute";
 import { Empty, Pill, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, ChevronRightIcon, ListIcon, NetworkIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
 type Health = "ok" | "warn" | "crit" | "unknown";
 type ColKey = "health" | "availability" | "response" | "errors" | "alerts" | "cpu" | "memory";
 
@@ -232,9 +234,9 @@ export default function HeatmapScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Heatmap</span>
       </nav>
 
@@ -248,10 +250,10 @@ export default function HeatmapScreen() {
             <span className="ld-muted ld-small"><span className="ld-live"><span className="ld-pill-dot" /> Live</span> Updated {new Date(updatedAt).toLocaleTimeString("en-GB")}</span>
           )}
           <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}>
-            <i className="fa-solid fa-sitemap" aria-hidden="true" /> View Topology
+            <Icon icon={NetworkIcon} /> View Topology
           </button>
           <button type="button" className="ld-btn ld-btn-primary" onClick={() => setEditing("new")}>
-            <i className="fa-solid fa-plus" aria-hidden="true" /> Add Domain
+            <Icon icon={PlusIcon} /> Add Domain
           </button>
         </div>
       </div>
@@ -267,7 +269,7 @@ export default function HeatmapScreen() {
         <label className="ld-field ld-field-grow" htmlFor={`${id}-q`}>
           Search
           <span className="ld-search">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+            <Icon icon={SearchIcon} />
             <input id={`${id}-q`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Service, device kind or device id…" />
           </span>
         </label>
@@ -277,7 +279,7 @@ export default function HeatmapScreen() {
           ))}
         </ul>
         <button type="button" className={`ld-btn${showValues ? " ld-btn-primary" : ""}`} aria-pressed={showValues} onClick={() => setShowValues((v) => !v)}>
-          <i className="fa-solid fa-list" aria-hidden="true" /> {showValues ? "Show colours" : "Show values"}
+          <Icon icon={ListIcon} /> {showValues ? "Show colours" : "Show values"}
         </button>
       </div>
 
@@ -307,7 +309,7 @@ export default function HeatmapScreen() {
                         <tr className="ld-heat-domain">
                           <th scope="rowgroup" colSpan={COLS.length + 1}>
                             <button type="button" className="ld-heat-toggle" aria-expanded={open} onClick={() => toggle(d.id)}>
-                              <i className={`fa-solid ${open ? "fa-chevron-down" : "fa-chevron-right"}`} aria-hidden="true" />
+                              <Icon className={`fa-solid ${open ? "fa-chevron-down" : "fa-chevron-right"}`} />
                               {d.name}
                             </button>
                             <Pill tone={TONE[dh]}>{LABEL[dh]}</Pill>
@@ -356,7 +358,7 @@ export default function HeatmapScreen() {
                   ["fa-circle-xmark", "crit", "Critical", counts.crit],
                 ] as const).map(([icon, tone, label, n]) => (
                   <li key={label} className="ld-heat-stat">
-                    <span className={`ld-tile ld-${tone}`} aria-hidden="true"><i className={`fa-solid ${icon}`} /></span>
+                    <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
                     <span><span className="ld-muted ld-small">{label}</span><b>{fmt(n)}</b></span>
                   </li>
                 ))}
@@ -376,7 +378,7 @@ export default function HeatmapScreen() {
                         <tr key={d.id} className={current?.id === d.id ? "ld-heat-selected" : undefined}>
                           <td>
                             <button type="button" className="ld-link ld-strong" onClick={() => pick(d.id)}>
-                              <i className={`fa-solid ${d.icon}`} aria-hidden="true" /> {d.name}
+                              <Icon className={`fa-solid ${d.icon}`} /> {d.name}
                             </button>
                             <span className="ld-sub">{d.rows.length} {d.rows.every((r) => r.service) ? "service" : d.rows.every((r) => !r.service) ? "device kind" : "row"}{d.rows.length === 1 ? "" : "s"}</span>
                           </td>
@@ -431,14 +433,14 @@ function DomainDetails({ domain, rowId, tab, setTab, onRow, onEdit }: {
       <div className="ld-heat-detail-head">
         <h2 id="ld-heat-detail">Domain details — {domain.name}</h2>
         <Pill tone={TONE[h]}><span className="ld-pill-dot" />{LABEL[h]}</Pill>
-        {onEdit && <button type="button" className="ld-btn ld-btn-sm ld-heat-edit" onClick={onEdit}><i className="fa-solid fa-pen" aria-hidden="true" /> Edit domain</button>}
+        {onEdit && <button type="button" className="ld-btn ld-btn-sm ld-heat-edit" onClick={onEdit}><Icon icon={PencilIcon} /> Edit domain</button>}
       </div>
       <div className="ld-tabs" role="tablist">
         {tabs.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
-        {hasServices && <button type="button" className="ld-tab" onClick={() => setRoute("apm")}>APM <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
-        {hasDevices && <button type="button" className="ld-tab" onClick={() => setRoute("infra-assets")}>Assets <i className="fa-solid fa-arrow-right" aria-hidden="true" /></button>}
+        {hasServices && <button type="button" className="ld-tab" onClick={() => setRoute("apm")}>APM <Icon icon={ArrowRightIcon} /></button>}
+        {hasDevices && <button type="button" className="ld-tab" onClick={() => setRoute("infra-assets")}>Assets <Icon icon={ArrowRightIcon} /></button>}
       </div>
 
       {tab === "alerts" && hasDevices ? (
@@ -456,7 +458,7 @@ function DomainDetails({ domain, rowId, tab, setTab, onRow, onEdit }: {
       ) : (
         <>
           <div className="ld-heat-summary">
-            <i className={`fa-solid ${domain.icon}`} aria-hidden="true" />
+            <Icon className={`fa-solid ${domain.icon}`} />
             <div><b>{domain.name}</b><p className="ld-muted ld-small">{domain.description}</p></div>
             <div className="ld-heat-summary-val"><b>{a == null ? "—" : pct(a)}</b><span className="ld-muted ld-small">Availability</span></div>
           </div>

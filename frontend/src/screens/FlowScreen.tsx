@@ -7,6 +7,8 @@ import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
 import { Panel, Pill, StatCard, fmt } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, HistoryIcon, PlayIcon, TestTubeIcon, WorkflowIcon } from "lucide-react";
 interface FlowStep { kind: "trigger" | "ai" | "logic" | "action"; icon: string; title: string; sub: string }
 
 const NODE_COLOR: Record<FlowStep["kind"], string> = { trigger: "#2563eb", ai: "#8b5cf6", logic: "#f59e0b", action: "#6b7785" };
@@ -35,7 +37,7 @@ function FlowNode({ step }: { step: FlowStep }) {
   const c = NODE_COLOR[step.kind];
   return (
     <div className="ld-admin-node" style={{ ["--node" as string]: c }}>
-      <span className="ld-tile ld-tile-sm" style={{ color: c, background: `${c}20` }} aria-hidden="true"><i className={`fa-solid ${step.icon}`} /></span>
+      <span className="ld-tile ld-tile-sm" style={{ color: c, background: `${c}20` }} aria-hidden="true"><Icon className={`fa-solid ${step.icon}`} /></span>
       <span>
         <span className="ld-admin-node-title">{step.title}</span>
         <span className="ld-admin-node-sub">{step.sub}</span>
@@ -53,15 +55,15 @@ export default function FlowScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Automation</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Flow Designer</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><i className="fa-solid fa-diagram-project" /></span>
+          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={WorkflowIcon} /></span>
           <div>
             <h1 className="ld-entity-title">Sev-1 Auto-Response <Pill tone="ok"><span className="ld-pill-dot" />Active</Pill></h1>
             <p className="ld-entity-meta ld-muted"><span className="ld-mono">FLOW-0042</span><span>Triggered when a Sev 1 is declared</span></p>
@@ -69,9 +71,9 @@ export default function FlowScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> History</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-vial" aria-hidden="true" /> Test Run</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-play" aria-hidden="true" /> Activate</button>
+            <button type="button" className="ld-btn"><Icon icon={HistoryIcon} /> History</button>
+            <button type="button" className="ld-btn"><Icon icon={TestTubeIcon} /> Test Run</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlayIcon} /> Activate</button>
           </div>
         </div>
       </div>

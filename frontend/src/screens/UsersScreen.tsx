@@ -9,6 +9,8 @@ import { colorFor } from "@/components/Shell";
 import { Empty, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, KeyRoundIcon, UserCogIcon, UserPlusIcon } from "lucide-react";
 const ROLE_TONE: Record<string, Tone> = {
   Admin: "crit",
   "Incident Commander": "purple",
@@ -43,9 +45,9 @@ export default function UsersScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{tenant.name}</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>People &amp; Roles</span>
       </nav>
 
@@ -55,8 +57,8 @@ export default function UsersScreen() {
           <p>Who can sign in to {tenant.name}, what role they hold and whether they are in an on-call rotation</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-user-gear" aria-hidden="true" /> Role Matrix</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-user-plus" aria-hidden="true" /> Invite People</button>
+          <button type="button" className="ld-btn"><Icon icon={UserCogIcon} /> Role Matrix</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={UserPlusIcon} /> Invite People</button>
         </div>
       </div>
 
@@ -103,7 +105,7 @@ export default function UsersScreen() {
                       <td><Pill tone={ROLE_TONE[u.role] ?? "muted"}>{u.role}</Pill></td>
                       <td>{u.team}</td>
                       <td>{onCall(u.role) ? <Pill tone="info"><span className="ld-pill-dot" />Rotating</Pill> : <span className="ld-muted">—</span>}</td>
-                      <td><Pill tone="muted"><i className="fa-solid fa-key" aria-hidden="true" /> SSO</Pill></td>
+                      <td><Pill tone="muted"><Icon icon={KeyRoundIcon} /> SSO</Pill></td>
                       <td className="ld-muted">{u.last}</td>
                       <td><Pill tone={STATUS_TONE[u.status] ?? "muted"}><span className="ld-pill-dot" />{u.status}</Pill></td>
                     </tr>

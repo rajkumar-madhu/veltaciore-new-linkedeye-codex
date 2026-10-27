@@ -11,6 +11,8 @@ import { Panel, StatCard, fmt } from "@/components/ld";
 import { COLORS, Sparkline, TimeChart, fmtValue } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FilterIcon, FlaskConicalIcon, PlusIcon, Share2Icon } from "lucide-react";
 // A small catalog of on-prem infrastructure metrics, grouped by namespace.
 const METRICS: { ns: string; items: { m: string; unit: string; desc: string }[] }[] = [
   { ns: "system", items: [
@@ -80,7 +82,7 @@ export default function MetricsExplorerScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Metrics Explorer</span>
       </nav>
 
@@ -90,13 +92,13 @@ export default function MetricsExplorerScreen() {
           <p>Ad-hoc query across tenant infrastructure · {METRICS.reduce((s, g) => s + g.items.length, 0)} metrics in the catalog</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-share-nodes" aria-hidden="true" /> Share</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Add to dashboard</button>
+          <button type="button" className="ld-btn"><Icon icon={Share2Icon} /> Share</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Add to dashboard</button>
         </div>
       </div>
 
       <div className="ld-card ld-metrics-off" role="note">
-        <i className="fa-solid fa-flask" aria-hidden="true" />
+        <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
           <p className="ld-muted ld-small">Ad-hoc metric queries are not connected yet; the series below are illustrative. Live Prometheus graphs are on each server and VM page.</p>
@@ -117,7 +119,7 @@ export default function MetricsExplorerScreen() {
         </div>
         <div className="ld-field">
           <span>From</span>
-          <span className="ld-tag"><i className="fa-solid fa-filter" aria-hidden="true" /> tenant:fyers</span>
+          <span className="ld-tag"><Icon icon={FilterIcon} /> tenant:fyers</span>
         </div>
         <div className="ld-field">
           <span id={`${idp}-agg`}>Aggregate</span>

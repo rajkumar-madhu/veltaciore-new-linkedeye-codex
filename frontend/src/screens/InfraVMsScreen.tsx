@@ -8,6 +8,8 @@ import { useVms } from "@/api/hooks";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, PlusIcon, RadioTowerIcon, RefreshCwIcon } from "lucide-react";
 const barColor = (t: Tone) => (t === "crit" ? "#e5383b" : t === "warn" ? "#f5a524" : "#16a34a");
 
 function Usage({ v, warn, crit, label }: { v: number; warn: number; crit: number; label: string }) {
@@ -66,9 +68,9 @@ export default function InfraVMsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Virtual Machines</span>
       </nav>
 
@@ -78,9 +80,9 @@ export default function InfraVMsScreen() {
           <p>{fmt(vms.length)} VMs in {clusters.length} cluster{clusters.length === 1 ? "" : "s"} · {fmt(totalVCPU)} vCPU · {fmt(totalMem)} GB RAM allocated</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-rotate" aria-hidden="true" /> Sync vCenter</button>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-tower-broadcast" aria-hidden="true" /> Migrate</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-plus" aria-hidden="true" /> Provision VM</button>
+          <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> Sync vCenter</button>
+          <button type="button" className="ld-btn"><Icon icon={RadioTowerIcon} /> Migrate</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Provision VM</button>
         </div>
       </div>
 
@@ -200,7 +202,7 @@ export default function InfraVMsScreen() {
           <Panel title="Quick Actions">
             <div className="ld-infra-actions">
               {QUICK_ACTIONS.map(([ic, lbl]) => (
-                <button key={lbl} type="button" className="ld-btn ld-btn-sm"><i className={`fa-solid ${ic}`} aria-hidden="true" /> {lbl}</button>
+                <button key={lbl} type="button" className="ld-btn ld-btn-sm"><Icon className={`fa-solid ${ic}`} /> {lbl}</button>
               ))}
             </div>
           </Panel>

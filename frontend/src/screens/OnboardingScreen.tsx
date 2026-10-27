@@ -5,6 +5,8 @@ import { useNav } from "@/hooks/useNav";
 import { ORG, USERS, INTEGRATIONS } from "@/data/core";
 import { Avatar, Pill } from "@/components/primitives";
 
+import { Icon } from "@/components/Icon";
+import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, KeyRoundIcon, LayoutGridIcon, PlusIcon, ShieldIcon } from "lucide-react";
 export default function OnboardingScreen() {
   const { setRoute } = useNav();
   const [step, setStep] = React.useState(1);
@@ -56,17 +58,17 @@ export default function OnboardingScreen() {
               <p className="intro">Argus-LinkedEye inherits SSO from {ORG.name}. You can override per-workspace.</p>
               <div className="stack stack-12">
                 <div className="row row-12" style={{ padding: 14, border: "1px solid var(--accent)", background: "var(--blue-50)", borderRadius: 10 }}>
-                  <i className="fa-solid fa-shield-halved" style={{ fontSize: 22, color: "var(--accent)" }} />
+                  <Icon icon={ShieldIcon} style={{ fontSize: 22, color: "var(--accent)" }} />
                   <div style={{ flex: 1 }}><b>Use parent SSO (Okta)</b><div className="text-mute" style={{ fontSize: 11.5 }}>Users from finspot.okta.com → this workspace</div></div>
                   <input type="radio" defaultChecked className="checkbox" />
                 </div>
                 <div className="row row-12" style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 10 }}>
-                  <i className="fa-brands fa-microsoft" style={{ fontSize: 22, color: "#00a4ef" }} />
+                  <Icon icon={LayoutGridIcon} style={{ fontSize: 22, color: "#00a4ef" }} />
                   <div style={{ flex: 1 }}><b>Entra ID / Azure AD</b><div className="text-mute" style={{ fontSize: 11.5 }}>Configure separately</div></div>
                   <input type="radio" className="checkbox" />
                 </div>
                 <div className="row row-12" style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 10 }}>
-                  <i className="fa-solid fa-key" style={{ fontSize: 22, color: "var(--fg-muted)" }} />
+                  <Icon icon={KeyRoundIcon} style={{ fontSize: 22, color: "var(--fg-muted)" }} />
                   <div style={{ flex: 1 }}><b>Custom SAML</b><div className="text-mute" style={{ fontSize: 11.5 }}>Upload metadata XML</div></div>
                   <input type="radio" className="checkbox" />
                 </div>
@@ -85,7 +87,7 @@ export default function OnboardingScreen() {
               <div className="grid-3">
                 {INTEGRATIONS.map(g => (
                   <div key={g.name} className="row row-12" style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 10, cursor: "pointer" }}>
-                    <i className={g.icon} style={{ fontSize: 20, width: 24, textAlign: "center", color: "var(--fg-muted)" }} />
+                    <Icon className={g.icon} style={{ fontSize: 20, width: 24, textAlign: "center", color: "var(--fg-muted)" }} />
                     <div style={{ flex: 1 }}><b style={{ fontSize: 12.5 }}>{g.name}</b></div>
                     <input type="checkbox" defaultChecked={g.connected} className="checkbox" />
                   </div>
@@ -107,7 +109,7 @@ export default function OnboardingScreen() {
                     </select>
                   </div>
                 ))}
-                <button className="btn"><i className="fa-solid fa-plus" /> Invite by email</button>
+                <button className="btn"><Icon icon={PlusIcon} /> Invite by email</button>
               </div>
             </>
           )}
@@ -124,7 +126,7 @@ export default function OnboardingScreen() {
                   ["Plan", "Business · $12/seat · inherited billing"],
                 ].map(([k, v], i) => (
                   <div key={i} className="row row-12" style={{ padding: "10px 14px", border: "1px solid var(--border-subtle)", borderRadius: 6 }}>
-                    <i className="fa-solid fa-check" style={{ color: "var(--success)" }} />
+                    <Icon icon={CheckIcon} style={{ color: "var(--success)" }} />
                     <div style={{ flex: 1 }}><b style={{ fontSize: 12 }}>{k}</b><div className="text-mute" style={{ fontSize: 11.5 }}>{v}</div></div>
                   </div>
                 ))}
@@ -135,11 +137,11 @@ export default function OnboardingScreen() {
         <div className="wizard-foot">
           <button className="btn ghost" onClick={() => setRoute("admin-tenants")}>Cancel</button>
           <div className="row row-8">
-            {step > 1 && <button className="btn" onClick={() => setStep(step - 1)}><i className="fa-solid fa-arrow-left" /> Back</button>}
+            {step > 1 && <button className="btn" onClick={() => setStep(step - 1)}><Icon icon={ArrowLeftIcon} /> Back</button>}
             {step < 5 ? (
-              <button className="btn primary" onClick={() => setStep(step + 1)}>Continue <i className="fa-solid fa-arrow-right" /></button>
+              <button className="btn primary" onClick={() => setStep(step + 1)}>Continue <Icon icon={ArrowRightIcon} /></button>
             ) : (
-              <button className="btn primary" onClick={() => setRoute("admin-tenants")}><i className="fa-solid fa-check" /> Provision workspace</button>
+              <button className="btn primary" onClick={() => setRoute("admin-tenants")}><Icon icon={CheckIcon} /> Provision workspace</button>
             )}
           </div>
         </div>

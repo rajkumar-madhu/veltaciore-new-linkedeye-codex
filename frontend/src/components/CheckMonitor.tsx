@@ -11,6 +11,8 @@ import { TENANTS } from "@/data/core";
 import { Donut, Empty, Legend, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { PlusIcon, SearchIcon } from "lucide-react";
 export type CheckStatus = "up" | "down" | "warn" | "pending";
 
 export interface CheckRow {
@@ -143,7 +145,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <a className="ld-btn ld-btn-primary" href={`#${idp}-form`}>
-            <i className="fa-solid fa-plus" aria-hidden="true" /> Add {lc(cfg.noun.one)}
+            <Icon icon={PlusIcon} /> Add {lc(cfg.noun.one)}
           </a>
         </div>
       </div>
@@ -195,7 +197,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
           <div className="ld-toolbar">
             <label htmlFor={`${idp}-q`} className="sr-only">Search</label>
             <span className="ld-search">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id={`${idp}-q`} type="search" placeholder={`Search ${lc(cfg.noun.many)}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
             </span>
             <label htmlFor={`${idp}-site`} className="sr-only">Site</label>
@@ -331,7 +333,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
                 {events.map((r) => (
                   <li key={r.id}>
                     <span className={`ld-tile ld-tile-sm ld-${STATUS_TONE[r.status]}`} aria-hidden="true">
-                      <i className={`fa-solid ${r.status === "up" ? "fa-check" : r.status === "down" ? "fa-xmark" : "fa-clock"}`} />
+                      <Icon className={`fa-solid ${r.status === "up" ? "fa-check" : r.status === "down" ? "fa-xmark" : "fa-clock"}`} />
                     </span>
                     <span className="ld-activity-text">
                       {r.name} · <span className="ld-muted">{cfg.eventMessage[r.status]}</span>

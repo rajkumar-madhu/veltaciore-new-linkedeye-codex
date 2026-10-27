@@ -9,6 +9,8 @@ import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, fmt } from "@/com
 import type { Slice } from "@/components/ld";
 import type { Exporter } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { BookIcon, LayersIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
 interface Category {
   id: string;
   label: string;
@@ -80,7 +82,7 @@ export default function InfraExportersScreen() {
           <p>Prometheus-compatible exporters collecting metrics from your infrastructure, network, databases and services</p>
         </div>
         <div className="ld-head-actions">
-          <a className="ld-btn" href="#install-snippet"><i className="fa-solid fa-book" aria-hidden="true" /> Install docs</a>
+          <a className="ld-btn" href="#install-snippet"><Icon icon={BookIcon} /> Install docs</a>
         </div>
       </div>
 
@@ -95,13 +97,13 @@ export default function InfraExportersScreen() {
 
       <div className="ld-chips" role="group" aria-label="Filter by category">
         <button type="button" className={`ld-chip${cat === "all" ? " active" : ""}`} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
-          <i className="fa-solid fa-layer-group" aria-hidden="true" />
+          <Icon icon={LayersIcon} />
           <span className="ld-chip-label">All</span>
           <span className="ld-chip-count">{exporters.length}</span>
         </button>
         {usedCats.map((c) => (
           <button key={c.id} type="button" className={`ld-chip${cat === c.id ? " active" : ""}`} aria-pressed={cat === c.id} onClick={() => setCat(c.id)}>
-            <i className={`fa-solid ${c.icon}`} aria-hidden="true" />
+            <Icon className={`fa-solid ${c.icon}`} />
             <span className="ld-chip-label">{c.label}</span>
             <span className="ld-chip-count">{countIn(c.id)}</span>
           </button>
@@ -116,7 +118,7 @@ export default function InfraExportersScreen() {
           <div className="ld-toolbar">
             <label htmlFor="exp-search" className="sr-only">Search exporters</label>
             <span className="ld-search ld-field-grow">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <Icon icon={SearchIcon} />
               <input id="exp-search" type="search" placeholder="Search by name, protocol or site…" value={query} onChange={(e) => setQuery(e.target.value)} />
             </span>
             <label htmlFor="exp-status" className="sr-only">Status</label>
@@ -150,7 +152,7 @@ export default function InfraExportersScreen() {
                           <span className="ld-strong ld-mono-name">{e.name}</span>
                           <span className="ld-sub">{c.label} · {e.port ? `:${e.port}/metrics` : "/metrics"}</span>
                           {e.note && (
-                            <span className="ld-sub ld-note" title={e.note}><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /> {e.note}</span>
+                            <span className="ld-sub ld-note" title={e.note}><Icon icon={TriangleAlertIcon} /> {e.note}</span>
                           )}
                         </td>
                         <td className="ld-muted">

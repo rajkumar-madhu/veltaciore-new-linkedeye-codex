@@ -5,6 +5,8 @@
 import React from "react";
 import type { Integration } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { ActivityIcon, CheckIcon, LoaderCircleIcon, LockIcon, PlugIcon, PlugZapIcon, SlidersHorizontalIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 export interface CredField {
   key: string;
   label: string;
@@ -175,31 +177,31 @@ export function ConnectModal({
     <div className="le-modal-backdrop" onClick={() => phase !== "connecting" && onClose()}>
       <div className="le-modal wide" onClick={e => e.stopPropagation()}>
         <div className="le-modal-head">
-          <div className="le-modal-icon" style={{ color, background: color + "18" }}><i className={integ.icon} /></div>
+          <div className="le-modal-icon" style={{ color, background: color + "18" }}><Icon className={integ.icon} /></div>
           <div className="le-modal-titles">
             <h3>{phase === "done" ? `${integ.name} connected` : `Connect ${integ.name}`}</h3>
             <p>{integ.category} · {phase === "done" ? "live · syncing automatically" : schema.blurb}</p>
           </div>
-          {phase !== "connecting" && <button className="le-modal-x" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark" /></button>}
+          {phase !== "connecting" && <button className="le-modal-x" onClick={onClose} aria-label="Close"><Icon icon={XIcon} /></button>}
         </div>
 
         <div className="le-modal-body">
           {phase === "done" ? (
             <div className="le-connect-success">
-              <div className="le-connect-check"><i className="fa-solid fa-check" /></div>
+              <div className="le-connect-check"><Icon icon={CheckIcon} /></div>
               <h4>You're live</h4>
               <p>Credentials verified. {integ.name} is now wired into Argus-LinkedEye and working automatically.</p>
               <div className="le-pipe">
                 <div className="le-pipe-row">
                   <span className="dot" style={{ background: "var(--success)" }} />
-                  <span className="ic" style={{ background: "var(--success-bg)", color: "var(--success)" }}><i className="fa-solid fa-plug-circle-check" /></span>
+                  <span className="ic" style={{ background: "var(--success-bg)", color: "var(--success)" }}><Icon icon={PlugZapIcon} /></span>
                   <div className="body"><b>Connection verified</b><span>TCP · TLS · API auth 200 OK</span></div>
                   <span className="mono">12ms</span>
                 </div>
                 {autoMetrics && (
                   <div className="le-pipe-row">
                     <span className="dot live" />
-                    <span className="ic" style={{ background: "var(--blue-50)", color: "var(--blue-600)" }}><i className="fa-solid fa-wave-square" /></span>
+                    <span className="ic" style={{ background: "var(--blue-50)", color: "var(--blue-600)" }}><Icon icon={ActivityIcon} /></span>
                     <div className="body"><b>{copy.metrics.title}</b><span>flowing now · {ingestStat(integ)}</span></div>
                     <span className="mono">live</span>
                   </div>
@@ -207,7 +209,7 @@ export function ConnectModal({
                 {autoIncidents && (
                   <div className="le-pipe-row">
                     <span className="dot live" />
-                    <span className="ic" style={{ background: "#fef2f2", color: "var(--critical)" }}><i className="fa-solid fa-triangle-exclamation" /></span>
+                    <span className="ic" style={{ background: "#fef2f2", color: "var(--critical)" }}><Icon icon={TriangleAlertIcon} /></span>
                     <div className="body"><b>Alert→incident automation armed</b><span>watching {ruleStat(integ)} · auto-dedupe + correlation on</span></div>
                     <span className="mono">live</span>
                   </div>
@@ -226,7 +228,7 @@ export function ConnectModal({
                   ) : f.secret ? (
                     <div className="le-input-group">
                       <input className={`le-input ${f.mono ? "mono" : ""}`} type={reveal[f.key] ? "text" : "password"} value={vals[f.key]} placeholder={f.ph} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"} />
-                      <button className="sn-btn" type="button" onClick={() => setReveal(r => ({ ...r, [f.key]: !r[f.key] }))} title={reveal[f.key] ? "Hide" : "Show"}><i className={`fa-solid ${reveal[f.key] ? "fa-eye-slash" : "fa-eye"}`} /></button>
+                      <button className="sn-btn" type="button" onClick={() => setReveal(r => ({ ...r, [f.key]: !r[f.key] }))} title={reveal[f.key] ? "Hide" : "Show"}><Icon className={`fa-solid ${reveal[f.key] ? "fa-eye-slash" : "fa-eye"}`} /></button>
                     </div>
                   ) : (
                     <input className={`le-input ${f.mono ? "mono" : ""}`} value={vals[f.key]} placeholder={f.ph} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"} />
@@ -238,12 +240,12 @@ export function ConnectModal({
                 <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--fg-subtle)" }}>On connect — runs automatically</label>
                 <div className="le-auto">
                   <div className={`le-auto-card ${autoMetrics ? "on" : ""}`} onClick={() => phase !== "connecting" && setAutoMetrics(v => !v)}>
-                    <span className="le-auto-ic"><i className="fa-solid fa-wave-square" /></span>
+                    <span className="le-auto-ic"><Icon icon={ActivityIcon} /></span>
                     <span className="le-auto-txt"><b>{copy.metrics.title}</b><span>{copy.metrics.desc}</span></span>
                     <span className="le-switch" />
                   </div>
                   <div className={`le-auto-card ${autoIncidents ? "on" : ""}`} onClick={() => phase !== "connecting" && setAutoIncidents(v => !v)}>
-                    <span className="le-auto-ic"><i className="fa-solid fa-triangle-exclamation" /></span>
+                    <span className="le-auto-ic"><Icon icon={TriangleAlertIcon} /></span>
                     <span className="le-auto-txt"><b>{copy.incidents.title}</b><span>{copy.incidents.desc}</span></span>
                     <span className="le-switch" />
                   </div>
@@ -258,18 +260,18 @@ export function ConnectModal({
             <>
               <span className="spacer" />
               <button className="sn-btn" onClick={onClose}>Done</button>
-              <button className="sn-btn primary" onClick={() => onConnected && onConnected(integ)}><i className="fa-solid fa-sliders" /> Configure integration</button>
+              <button className="sn-btn primary" onClick={() => onConnected && onConnected(integ)}><Icon icon={SlidersHorizontalIcon} /> Configure integration</button>
             </>
           ) : (
             <>
               <span className="spacer" style={{ fontSize: 11.5, color: "var(--fg-subtle)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <i className="fa-solid fa-lock" /> Credentials are encrypted at rest · stored in Vault
+                <Icon icon={LockIcon} /> Credentials are encrypted at rest · stored in Vault
               </span>
               <button className="sn-btn" onClick={onClose} disabled={phase === "connecting"}>Cancel</button>
               <button className="sn-btn primary" onClick={connect} disabled={missing || phase === "connecting"}>
                 {phase === "connecting"
-                  ? <><i className="fa-solid fa-circle-notch fa-spin" /> Connecting…</>
-                  : <><i className="fa-solid fa-plug" /> Connect &amp; start sync</>}
+                  ? <><Icon icon={LoaderCircleIcon} spin /> Connecting…</>
+                  : <><Icon icon={PlugIcon} /> Connect &amp; start sync</>}
               </button>
             </>
           )}

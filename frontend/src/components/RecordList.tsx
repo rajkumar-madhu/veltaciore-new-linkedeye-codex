@@ -10,6 +10,8 @@ import ReadOnlyBadge from "@/components/ReadOnlyBadge";
 import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, TrendChart, countBy, dailyTrend, fmt } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, ChevronLeftIcon, ChevronRightIcon, FilterIcon, PlusIcon, SearchIcon } from "lucide-react";
 export interface ItsmRecord {
   id: string;
   opened: string;
@@ -186,7 +188,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
           <ReadOnlyBadge />
           {canWrite && (
             <button type="button" className="ld-btn ld-btn-primary" onClick={() => setRoute(cfg.newRoute)}>
-              <i className="fa-solid fa-plus" aria-hidden="true" /> New {noun.one}
+              <Icon icon={PlusIcon} /> New {noun.one}
             </button>
           )}
         </div>
@@ -275,7 +277,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
           reset();
         }}
       >
-        <span className="ld-filter-icon" aria-hidden="true"><i className="fa-solid fa-filter" /></span>
+        <span className="ld-filter-icon" aria-hidden="true"><Icon icon={FilterIcon} /></span>
         <div className="ld-field">
           <label htmlFor={`${idp}-status`}>Status</label>
           <select id={`${idp}-status`} className="ld-select" value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -308,7 +310,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
         <div className="ld-field ld-field-grow">
           <label htmlFor={`${idp}-search`} className="sr-only">Search {noun.many.toLowerCase()}</label>
           <span className="ld-search">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+            <Icon icon={SearchIcon} />
             <input id={`${idp}-search`} type="search" placeholder={`Search ${noun.many.toLowerCase()}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
           </span>
         </div>
@@ -358,7 +360,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
                         <td className="ld-muted">{shortDate(r.opened, !!cfg.extraColumn)}</td>
                         <td>
                           <span className={`ld-sla ld-sla-${sla.tone}`}>
-                            <i className={`fa-solid ${sla.icon}`} aria-hidden="true" /> {sla.label}
+                            <Icon className={`fa-solid ${sla.icon}`} /> {sla.label}
                           </span>
                         </td>
                         <td>
@@ -370,7 +372,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
                               disabled={cfg.advancing}
                               title={`Move ${r.id} to ${next}`}
                             >
-                              {next} <i className="fa-solid fa-arrow-right" aria-hidden="true" />
+                              {next} <Icon icon={ArrowRightIcon} />
                             </button>
                           )}
                         </td>
@@ -390,7 +392,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
               </span>
               <div className="ld-pager-btns">
                 <button type="button" className="ld-btn ld-btn-sm" onClick={() => setPage(page - 1)} disabled={page === 0} aria-label="Previous page">
-                  <i className="fa-solid fa-chevron-left" aria-hidden="true" />
+                  <Icon icon={ChevronLeftIcon} />
                 </button>
                 {Array.from({ length: pages }, (_, i) => (
                   <button
@@ -404,7 +406,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
                   </button>
                 ))}
                 <button type="button" className="ld-btn ld-btn-sm" onClick={() => setPage(page + 1)} disabled={page >= pages - 1} aria-label="Next page">
-                  <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+                  <Icon icon={ChevronRightIcon} />
                 </button>
               </div>
             </nav>
@@ -417,7 +419,7 @@ export function RecordListScreen<T extends ItsmRecord>(cfg: RecordListConfig<T>)
               <ul className="ld-major">
                 {major.map((r) => (
                   <li key={r.id}>
-                    <span className="ld-tile ld-tile-sm ld-crit" aria-hidden="true"><i className={`fa-solid ${cfg.majorIcon}`} /></span>
+                    <span className="ld-tile ld-tile-sm ld-crit" aria-hidden="true"><Icon className={`fa-solid ${cfg.majorIcon}`} /></span>
                     <span className="ld-major-body">
                       <button type="button" className="ld-link ld-mono" onClick={() => setRoute(cfg.detailRoute, { id: r.id })}>{r.id}</button>
                       <span className="ld-major-title" title={r.title}>{r.title}</span>

@@ -19,6 +19,8 @@ import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, fmt } from "@/com
 import type { Slice, Tone } from "@/components/ld";
 import "@/styles/trading.css";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, CircleDotIcon, FlaskConicalIcon, InfoIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
 interface QueuePoint {
   label: string;
   mean: number;
@@ -177,7 +179,7 @@ function Bars({ rows, color = COLOR.blue, format = fmtV }: { rows: { label: stri
 }
 
 function SampleBadge() {
-  return <Pill tone="warn"><i className="fa-solid fa-flask" aria-hidden="true" /> Sample data — not connected</Pill>;
+  return <Pill tone="warn"><Icon icon={FlaskConicalIcon} /> Sample data — not connected</Pill>;
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
@@ -257,9 +259,9 @@ export default function OrderLatencyScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>BOD / EOD</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Order Latency</span>
       </nav>
 
@@ -279,7 +281,7 @@ export default function OrderLatencyScreen() {
         {TABS.map((t) => (
           <button key={t.id} type="button" role="tab" id={`ol-tab-${t.id}`} aria-selected={tab === t.id} aria-controls="ol-panel"
             className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>
-            <i className={`fa-solid ${t.icon}`} aria-hidden="true" /> {t.label}{t.count && <> <span className="ld-muted">({t.count})</span></>}
+            <Icon className={`fa-solid ${t.icon}`} /> {t.label}{t.count && <> <span className="ld-muted">({t.count})</span></>}
           </button>
         ))}
       </div>
@@ -287,7 +289,7 @@ export default function OrderLatencyScreen() {
       <div id="ol-panel" role="tabpanel" aria-labelledby={`ol-tab-${tab}`} className="ld-trading-tabpanel">
         {noData && tab !== "schema" && tab !== "queue" && tab !== "orders" && (
           <div className="ld-card ld-trading-note muted" role="status">
-            <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
+            <Icon icon={UnplugIcon} />
             <p><b>No latency data loaded.</b> /trading/latency/hourly/ and /trading/latency/segments/ returned nothing — cards and charts fill in once the EOD batch has run.</p>
           </div>
         )}
@@ -297,7 +299,7 @@ export default function OrderLatencyScreen() {
           <>
             {firstSpike && (
               <div className="ld-card ld-trading-note crit" role="alert">
-                <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+                <Icon icon={TriangleAlertIcon} />
                 <p>
                   <b>Spike — {spikes.map((s) => s.label).join(", ")} IST:</b> OMS latency p99 reached <b>{fmtUs(firstSpike.oms_p99)}</b>
                   {" "}({fmtV(firstSpike.orders)} orders in that window, {SPIKE_FACTOR}× above the day's median hourly p99 of {fmtUs(p99Base)}).
@@ -372,7 +374,7 @@ export default function OrderLatencyScreen() {
         {tab === "latency" && (
           <>
             <div className="ld-card ld-trading-note warn">
-              <i className="fa-solid fa-circle-info" aria-hidden="true" />
+              <Icon icon={InfoIcon} />
               <p><b>OMS_LATENCY note:</b> requires the placement timestamp from a separate Noren placement log or the Argus routing layer. The field is blank for unconfirmed rows; use the <code>norentm</code> delta when available.</p>
             </div>
 
@@ -485,7 +487,7 @@ export default function OrderLatencyScreen() {
         {tab === "queue" && (
           <>
             <div className="ld-card ld-trading-note warn" role="status">
-              <i className="fa-solid fa-flask" aria-hidden="true" />
+              <Icon icon={FlaskConicalIcon} />
               <p><b>Sample data — not connected.</b> The NSE adapter queue has no live feed yet. These figures come from a single captured file, QueSize_NSE_22Jul2026.csv (11:31–15:20 IST, 2,318 samples).</p>
             </div>
 
@@ -628,7 +630,7 @@ export default function OrderLatencyScreen() {
                 ] as [string, string, string, boolean][]).map(([ic, t, sub, hl]) => (
                   <li key={t}>
                     <div className={`ld-trading-flow-node${hl ? " hl" : ""}`}>
-                      <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><i className={`fa-solid ${ic}`} /></span>
+                      <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><Icon className={`fa-solid ${ic}`} /></span>
                       <div><b>{t}</b><span>{sub}</span></div>
                     </div>
                   </li>
@@ -647,7 +649,7 @@ export default function OrderLatencyScreen() {
                 <p className="ld-trading-sub">Cases covered by the parser tests. Results are not reported to this page yet.</p>
                 <ul className="ld-trading-steps">
                   {["JSON-lines parse", "Pipe-delimited parse", "COMPLETE transform", "OPEN/unconfirmed transform", "REJECT transform", "CSV write + L_ prefix", "Header exact match", "Row count"].map((t) => (
-                    <li key={t} className="pending"><i className="fa-solid fa-circle-dot none" aria-hidden="true" /> {t}</li>
+                    <li key={t} className="pending"><Icon icon={CircleDotIcon} className="none" /> {t}</li>
                   ))}
                 </ul>
               </section>

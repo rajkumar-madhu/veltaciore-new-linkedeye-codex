@@ -8,6 +8,8 @@ import { useTenants } from "@/api/hooks";
 import { colorFor } from "@/components/Shell";
 import { Empty, Pill, StatCard, fmt } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, ChevronRightIcon, FileOutputIcon } from "lucide-react";
 // Sample quota utilisation by client position (no metering API yet).
 const SAMPLE_EVENTS = [72, 84, 112, 48, 22, 66];
 const SAMPLE_STORAGE = [38, 52, 78, 30, 12, 44];
@@ -48,9 +50,9 @@ export default function AdminUsageScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Super-admin</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Usage &amp; Quotas</span>
       </nav>
 
@@ -60,8 +62,8 @@ export default function AdminUsageScreen() {
           <p>Event ingest, storage and API consumption by client · monthly window</p>
         </div>
         <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><i className="fa-solid fa-bell" aria-hidden="true" /> Quota Alerts</button>
-          <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export</button>
+          <button type="button" className="ld-btn"><Icon icon={BellIcon} /> Quota Alerts</button>
+          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={FileOutputIcon} /> Export</button>
         </div>
       </div>
 

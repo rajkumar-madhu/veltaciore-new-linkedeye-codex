@@ -3,6 +3,7 @@
 // domain (0/1/2/3, up/degraded/down, ok/warn/alert/nodata) to a tone + label + icon.
 import React from "react";
 
+import { Icon } from "@/components/Icon";
 export type PillTone = "ok" | "warn" | "crit" | "muted";
 
 const TONE: Record<PillTone, { c: string; bg: string }> = {
@@ -16,7 +17,7 @@ export function StatusPill({ tone, label, icon }: { tone: PillTone; label: strin
   const t = TONE[tone];
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: t.c, background: t.bg, padding: "2px 9px", borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
-      <i className={`fa-solid ${icon}`} /> {label}
+      <Icon className={`fa-solid ${icon}`} /> {label}
     </span>
   );
 }

@@ -9,6 +9,8 @@ import { useUiStore } from "@/store/ui";
 import { ORG } from "@/data/core";
 import { Pill } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, CircleCheckIcon, FileOutputIcon, SaveIcon } from "lucide-react";
 const SAMPLE_DOMAINS: [string, boolean][] = [
   ["finspot.in", true],
   ["finspot-ventures.com", true],
@@ -48,9 +50,9 @@ export default function SettingsScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{tenant.name}</span>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>Settings</span>
       </nav>
 
@@ -61,8 +63,8 @@ export default function SettingsScreen() {
         </div>
         <div className="ld-head-actions">
           <Pill tone="ok"><span className="ld-pill-dot" />Active</Pill>
-          <button type="button" className="ld-btn"><i className="fa-solid fa-file-export" aria-hidden="true" /> Export Config</button>
-          <button type="submit" form="settings-form" className="ld-btn ld-btn-primary"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Changes</button>
+          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export Config</button>
+          <button type="submit" form="settings-form" className="ld-btn ld-btn-primary"><Icon icon={SaveIcon} /> Save Changes</button>
         </div>
       </div>
 
@@ -161,10 +163,10 @@ export default function SettingsScreen() {
 
           <div className="ld-admin-actions">
             <span className="ld-admin-status" role="status">
-              {saved && <><i className="fa-solid fa-circle-check ld-text-ok" aria-hidden="true" /> Saved on this page — the settings API is not connected yet.</>}
+              {saved && <><Icon icon={CircleCheckIcon} className="ld-text-ok" /> Saved on this page — the settings API is not connected yet.</>}
             </span>
             <button type="reset" className="ld-btn" onClick={() => setSaved(false)}>Reset</button>
-            <button type="submit" className="ld-btn ld-btn-primary"><i className="fa-solid fa-floppy-disk" aria-hidden="true" /> Save Changes</button>
+            <button type="submit" className="ld-btn ld-btn-primary"><Icon icon={SaveIcon} /> Save Changes</button>
           </div>
 
           <section id="set-domains" className="ld-card ld-panel" aria-labelledby="set-domains-h">
@@ -196,7 +198,7 @@ export default function SettingsScreen() {
             <ul className="ld-admin-nav">
               {SECTIONS.map((s) => (
                 <li key={s.id}>
-                  <a href={`#${s.id}`}>{s.label} <i className="fa-solid fa-chevron-right" aria-hidden="true" /></a>
+                  <a href={`#${s.id}`}>{s.label} <Icon icon={ChevronRightIcon} /></a>
                 </li>
               ))}
             </ul>

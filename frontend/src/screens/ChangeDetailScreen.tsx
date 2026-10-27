@@ -6,6 +6,8 @@ import { USERS } from "@/data/core";
 import { Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { CheckIcon, ChevronRightIcon, GavelIcon, GitBranchIcon, MessageSquareIcon, XIcon } from "lucide-react";
 const RISK_TONE: Record<string, Tone> = { High: "crit", Medium: "warn", Low: "ok" };
 const userName = (id: string | null | undefined) => USERS.find((u) => u.id === id)?.name ?? "Unassigned";
 
@@ -36,20 +38,20 @@ export default function ChangeDetailScreen() {
     <div className="ld-dash">
       <nav className="ld-crumbs" aria-label="Breadcrumb">
         <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <button type="button" className="ld-link" onClick={() => setRoute("changes")}>Change Management</button>
-        <i className="fa-solid fa-chevron-right" aria-hidden="true" />
+        <Icon icon={ChevronRightIcon} />
         <span>{c.id}</span>
       </nav>
 
       <div className="ld-head ld-entity-head">
         <div className="ld-entity">
-          <span className={`ld-tile ld-${riskTone}`} aria-hidden="true"><i className="fa-solid fa-code-branch" /></span>
+          <span className={`ld-tile ld-${riskTone}`} aria-hidden="true"><Icon icon={GitBranchIcon} /></span>
           <div>
             <span className="ld-sd-number">{c.id}</span>
             <h1 className="ld-entity-title">
               {c.title}
-              <Pill tone="info"><i className="fa-solid fa-gavel" aria-hidden="true" /> {c.state}</Pill>
+              <Pill tone="info"><Icon icon={GavelIcon} /> {c.state}</Pill>
               <Pill tone={riskTone}>{c.risk} risk</Pill>
             </h1>
             <p className="ld-entity-meta">
@@ -61,9 +63,9 @@ export default function ChangeDetailScreen() {
         </div>
         <div className="ld-head-side">
           <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><i className="fa-solid fa-xmark" aria-hidden="true" /> Reject</button>
-            <button type="button" className="ld-btn"><i className="fa-solid fa-comment" aria-hidden="true" /> Request Info</button>
-            <button type="button" className="ld-btn ld-btn-primary"><i className="fa-solid fa-check" aria-hidden="true" /> Approve</button>
+            <button type="button" className="ld-btn"><Icon icon={XIcon} /> Reject</button>
+            <button type="button" className="ld-btn"><Icon icon={MessageSquareIcon} /> Request Info</button>
+            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={CheckIcon} /> Approve</button>
           </div>
         </div>
       </div>
@@ -91,7 +93,7 @@ export default function ChangeDetailScreen() {
             {APPROVALS.map((a) => (
               <li key={a.who}>
                 <span className={`ld-tile ld-tile-sm ld-${a.state === "approved" ? "ok" : "warn"}`} aria-hidden="true">
-                  <i className={`fa-solid ${a.state === "approved" ? "fa-check" : "fa-clock"}`} />
+                  <Icon className={`fa-solid ${a.state === "approved" ? "fa-check" : "fa-clock"}`} />
                 </span>
                 <span className="ld-activity-text">{userName(a.who)} · <span className="ld-muted">{a.role}</span></span>
                 {a.state === "approved" ? <Pill tone="ok">approved</Pill> : <Pill tone="warn">pending</Pill>}
