@@ -1,9 +1,10 @@
-// Shared LinkedEye UI pieces (cards, pills, panels, donut and trend charts).
-// Styled by the ld-* block in styles.css; used by the dashboard and list screens.
+// Shared LinkedEye UI pieces (cards, pills, panels, donut and trend charts),
+// styled with Tailwind via components/ui.tsx.
 import React from "react";
 
 import { Icon } from "@/components/Icon";
-export type Tone = "crit" | "warn" | "ok" | "info" | "purple" | "muted";
+import { TextButton, cx, toneBg, ui, type Tone } from "@/components/ui";
+export type { Tone };
 
 export const PALETTE = ["#2f6bff", "#7c4dff", "#f5a524", "#16a34a", "#e5383b", "#0ea5e9", "#98a2b3"];
 
@@ -15,29 +16,36 @@ export function countBy<T>(rows: T[], key: (r: T) => string) {
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-export function Pill({ tone, children }: { tone: Tone; children: React.ReactNode }) {
-  return <span className={`ld-pill ld-${tone}`}>{children}</span>;
+const PILL_TONE: Record<Tone, string> = { ...toneBg, muted: "bg-bg-muted text-fg-muted" };
+
+export function Pill({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
+  return (
+    <span className={cx("inline-flex items-center gap-[5px] text-xs font-semibold rounded-full px-2.5 py-[3px] whitespace-nowrap", PILL_TONE[tone], className)}>
+      {children}
+    </span>
+  );
 }
+
+/** The coloured dot at the start of a status pill (was ld-pill-dot). */
+export const PillDot = () => <span className={ui.pillDot} />;
 
 export function Panel({
   title,
   action,
   children,
+  className,
 }: {
   title: string;
   action?: { label: string; onClick: () => void };
   children: React.ReactNode;
+  className?: string;
 }) {
   const id = React.useId();
   return (
-    <section className="ld-card ld-panel" aria-labelledby={id}>
-      <div className="ld-panel-head">
-        <h2 id={id}>{title}</h2>
-        {action && (
-          <button type="button" className="ld-link" onClick={action.onClick}>
-            {action.label}
-          </button>
-        )}
+    <section className={cx(ui.card, ui.panel, className)} aria-labelledby={id}>
+      <div className={ui.panelHead}>
+        <h2 id={id} className={ui.panelTitle}>{title}</h2>
+        {action && <TextButton onClick={action.onClick}>{action.label}</TextButton>}
       </div>
       {children}
     </section>
@@ -45,7 +53,7 @@ export function Panel({
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="ld-empty">{children}</div>;
+  return <div className={ui.empty}>{children}</div>;
 }
 
 export function StatCard({
@@ -64,14 +72,19 @@ export function StatCard({
   onClick?: () => void;
 }) {
   return (
-    <button type="button" className="ld-card ld-stat" onClick={onClick}>
-      <span className={`ld-tile ld-${tone}`} aria-hidden="true">
-        <Icon className={`fa-solid ${icon}`} />
+    <button
+      type="button"
+      data-stat=""
+      className={cx(ui.card, "flex items-center gap-4 px-4.5 py-4 text-left cursor-pointer hover:border-line-strong hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2")}
+      onClick={onClick}
+    >
+      <span data-stat-tile="" className={cx("flex-none grid place-items-center w-14 h-14 rounded-[12px] text-3xl", toneBg[tone])} aria-hidden="true">
+        <Icon name={icon} />
       </span>
-      <span className="ld-stat-body">
-        <span className="ld-stat-label">{label}</span>
-        <span className="ld-stat-value">{value}</span>
-        <span className="ld-stat-note">{note}</span>
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-sm text-fg-muted">{label}</span>
+        <span data-stat-value="" className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{value}</span>
+        <span className="text-sm text-fg-muted">{note}</span>
       </span>
     </button>
   );

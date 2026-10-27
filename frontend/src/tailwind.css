@@ -5,6 +5,21 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --tone-crit-soft: #fde8e8; --tone-crit: #b42318;
+    --tone-warn-soft: #fff4de; --tone-warn: #8a4b00;
+    --tone-ok-soft: #e7f7ee; --tone-ok: #137a3f;
+    --tone-info-soft: #e6efff; --tone-info: #1d4fb8;
+    --tone-purple-soft: #efe9ff; --tone-purple: #5b21b6;
+  }
+  [data-theme="dark"] {
+    --tone-crit-soft: rgba(239, 68, 68, 0.16); --tone-crit: #fca5a5;
+    --tone-warn-soft: rgba(245, 158, 11, 0.16); --tone-warn: #fcd34d;
+    --tone-ok-soft: rgba(16, 185, 129, 0.16); --tone-ok: #6ee7b7;
+    --tone-info-soft: rgba(59, 130, 246, 0.16); --tone-info: #93c5fd;
+    --tone-purple-soft: rgba(139, 92, 246, 0.18); --tone-purple: #c4b5fd;
+  }
+
   /* Preflight is off (styles.css has its own reset); border utilities need a
      border style to show. Width stays 0 so nothing changes until a utility sets it. */
   *, ::before, ::after { border-style: solid; border-width: 0; border-color: var(--border); }
