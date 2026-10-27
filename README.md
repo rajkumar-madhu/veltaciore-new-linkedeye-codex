@@ -55,8 +55,12 @@ docker compose up --build
 ## Live monitoring data (Prometheus + Loki)
 
 Device, server and VM charts, processes, services, iDRAC / iLO and event logs
-read your own Prometheus and Loki. Until they are connected those panels say
-"not connected" instead of drawing anything.
+read your own Prometheus and Loki. In development (`DJANGO_DEBUG=1`) with no
+`PROMETHEUS_URL` / `LOKI_URL` set, they draw generated sample values so every
+panel has something to show; each one is labelled "Sample data". Samples switch
+off as soon as the URL is set, and are never used in production
+(`METRICS_SAMPLE_DATA=0` turns them off in development too). A configured
+source that is down still says "not connected".
 
 1. `cp .env.example .env` and set `PROMETHEUS_URL` (plus `PROMETHEUS_TOKEN` if
    it needs one) and `LOKI_URL` / `LOKI_HOST_LABEL`. `.env` is git-ignored;

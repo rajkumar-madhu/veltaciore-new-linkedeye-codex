@@ -64,7 +64,7 @@ class CatalogTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             prom.resolve_window("2026-01-01T00:00:00Z", "2026-10-01T00:00:00Z", None)
 
-    @override_settings(PROMETHEUS_URL="")
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured_prometheus_reports_unavailable_not_fake_data(self):
         out = prom.device_timeseries(FakeDevice())
         self.assertEqual(out["source"], "unavailable")

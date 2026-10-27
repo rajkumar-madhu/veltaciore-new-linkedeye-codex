@@ -192,6 +192,10 @@ PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "")  # e.g. https://fs-le-dev-
 PROMETHEUS_TOKEN = os.environ.get("PROMETHEUS_TOKEN", "")
 PROMETHEUS_TENANT_LABEL = os.environ.get("PROMETHEUS_TENANT_LABEL", "")
 PROMETHEUS_TIMEOUT = float(os.environ.get("PROMETHEUS_TIMEOUT", "10"))
+# Sample charts / tables (labelled "Sample data" in the UI) while Prometheus
+# or Loki is not configured. Default on in DEBUG, off in production; a set
+# PROMETHEUS_URL / LOKI_URL always wins.
+METRICS_SAMPLE_DATA = os.environ.get("METRICS_SAMPLE_DATA", "1" if DEBUG else "0") == "1"
 
 # Logs (Windows Event Logs, syslog, journald) from the provisioned Loki.
 LOKI_URL = os.environ.get("LOKI_URL", "")  # e.g. https://fs-le-dev-loki.finspot.in

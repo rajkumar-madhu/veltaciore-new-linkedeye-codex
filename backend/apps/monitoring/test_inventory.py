@@ -67,7 +67,7 @@ class InventoryTests(SimpleTestCase):
         out = prom.device_inventory(FakeDevice(device_type="switch", agent="snmp"))
         self.assertEqual(out["source"], "unsupported")
 
-    @override_settings(PROMETHEUS_URL="")
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         out = prom.device_inventory(FakeDevice())
         self.assertEqual(out["source"], "unavailable")
@@ -84,7 +84,7 @@ class LokiTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             loki.stream_selector(FakeDevice())
 
-    @override_settings(LOKI_URL="")
+    @override_settings(LOKI_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         self.assertEqual(loki.device_logs(FakeDevice())["source"], "unavailable")
 
@@ -151,7 +151,7 @@ class HardwareApiTests(TestCase):
             res = self.client.get(f"/api/infra/devices/{self.server.pk}/inventory/", {"top": "x"},
                                   HTTP_X_TENANT_ID=self.server.tenant_id)
         self.assertEqual(res.status_code, 400)
-        with override_settings(LOKI_URL=""):
+        with override_settings(LOKI_URL="", METRICS_SAMPLE_DATA=False):
             res = self.client.get(f"/api/infra/devices/{self.server.pk}/logs/", HTTP_X_TENANT_ID=self.server.tenant_id)
         self.assertEqual(res.json()["source"], "unavailable")
 
@@ -198,7 +198,7 @@ class VmInventoryTests(SimpleTestCase):
             out = prom.vm_inventory(FakeVm())
         self.assertEqual((out["source"], out["found"]), ("prometheus", False))
 
-    @override_settings(PROMETHEUS_URL="")
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         self.assertEqual(prom.vm_inventory(FakeVm())["source"], "unavailable")
 
@@ -234,6 +234,6 @@ class FleetLoadTests(SimpleTestCase):
             prom.fleet_load([FakeDevice(ip="10.0.0.1")])
         self.assertIn('tenant=~"fyers"', get.call_args_list[0].kwargs["params"]["query"])
 
-    @override_settings(PROMETHEUS_URL="")
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         self.assertEqual(prom.fleet_load([FakeDevice()])["source"], "unavailable")

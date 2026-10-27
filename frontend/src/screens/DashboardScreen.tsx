@@ -373,7 +373,8 @@ export default function DashboardScreen() {
         </Panel>
         <Panel title="Busiest Devices" action={{ label: "View All", onClick: () => setRoute("infra-assets") }}>
           <p className="ld-muted ld-small ld-load-src">
-            {liveCount ? <><span className="ld-live"><span className="ld-pill-dot" /> Live</span> from Prometheus for {liveCount} of {busiest.length}; others from the inventory.</>
+            {load?.sample ? <><Pill tone="muted">Sample data</Pill> Generated CPU / memory; set PROMETHEUS_URL on the API for live values.</>
+              : liveCount ? <><span className="ld-live"><span className="ld-pill-dot" /> Live</span> from Prometheus for {liveCount} of {busiest.length}; others from the inventory.</>
               : load?.source === "prometheus" ? "No live samples for these devices yet; values from the inventory."
               : "Prometheus not connected; values from the inventory."}
           </p>

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import requests
 from django.conf import settings
 
+from . import sample
 from .prometheus import _LABEL_NAME, _escape, resolve_window
 
 MAX_LINES = 500
@@ -68,6 +69,8 @@ def device_logs(device, *, start=None, end=None, search="", level="", limit=200)
     limit = max(1, min(int(limit or 200), MAX_LINES))
     query = build_query(device, search)
     base = {"start": t_start.isoformat(), "end": t_end.isoformat(), "query": query}
+    if sample.loki_sample_mode():
+        return sample.logs(device, t_start, t_end, search, level, limit, query)
     url = getattr(settings, "LOKI_URL", "")
     if not url:
         return {**base, "source": "unavailable", "message": "LOKI_URL is not configured.", "entries": []}

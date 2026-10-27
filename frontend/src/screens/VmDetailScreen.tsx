@@ -15,7 +15,7 @@ import { useDevice, useInfraAlerts, useVmInventory, useVmMetrics, useVms } from 
 import { DEVICES, VMS } from "@/data/infra";
 import { Empty, Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
-import { LiveButton, MetricsBody, RangeSelect, TimeChart, fmtValue, rangeLabel } from "@/components/MetricCharts";
+import { LiveButton, MetricsBody, RangeSelect, TimeChart, fmtValue, rangeLabel, SampleNotice } from "@/components/MetricCharts";
 import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
 import { NetworkPath } from "@/components/DeviceFamily";
 import { EventLogs, fmtBytes } from "@/components/HostPanels";
@@ -253,6 +253,7 @@ export default function VmDetailScreen() {
         </div>
       </div>
 
+      {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
           <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />

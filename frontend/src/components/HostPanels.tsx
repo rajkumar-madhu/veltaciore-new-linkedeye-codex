@@ -9,7 +9,7 @@ import { useDeviceLogs, type BmcController, type DeviceHardware, type DeviceInve
 import { useTimeRange } from "@/store/timeRange";
 import { Donut, Empty, Legend, Panel, Pill } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
-import { Sparkline, TimeChart, fmtValue } from "@/components/MetricCharts";
+import { SampleNotice, Sparkline, TimeChart, fmtValue } from "@/components/MetricCharts";
 
 export function fmtBytes(b: number | null | undefined) {
   if (b == null) return "—";
@@ -29,12 +29,19 @@ function inventoryGap(inv: DeviceInventory | undefined, loading: boolean): strin
   return null;
 }
 
+/** One-line marker on a panel whose rows are generated sample values. */
+function SampleLine({ sample, setting = "PROMETHEUS_URL" }: { sample?: boolean; setting?: string }) {
+  if (!sample) return null;
+  return <p className="ld-muted ld-small ld-sample-line"><Pill tone="muted">Sample data</Pill> Generated rows, not from this device. Set {setting} on the API for live data.</p>;
+}
+
 // ── Processes ───────────────────────────────────────────────────────────────
 export function ProcessTable({ inv, loading, limit, onViewAll }: { inv?: DeviceInventory; loading: boolean; limit?: number; onViewAll?: () => void }) {
   const gap = inventoryGap(inv, loading);
   const rows = (inv?.processes ?? []).slice(0, limit);
   return (
     <Panel title="Top Processes (by CPU)" action={onViewAll ? { label: "View all", onClick: onViewAll } : undefined}>
+      <SampleLine sample={inv?.sample} />
       {gap ? <Empty>{gap}</Empty> : rows.length ? (
         <div className="ld-table-wrap">
           <table className="ld-table">
@@ -76,6 +83,7 @@ export function ServicesPanel({ inv, loading }: { inv?: DeviceInventory; loading
   return (
     <div className="ld-grid ld-grid-2">
       <Panel title="Services">
+        <SampleLine sample={inv?.sample} />
         {gap ? <Empty>{gap}</Empty> : s && total ? (
           <div className="ld-donut-row">
             <Donut slices={serviceSlices(inv)} center={`${Math.round((s.running / total) * 100)}%`} sub="running" label={`${s.running} of ${total} services running`} />
@@ -117,6 +125,7 @@ export function FilesystemTable({ inv, loading }: { inv?: DeviceInventory; loadi
   const tone = (p: number | null): Tone => (p == null ? "muted" : p >= 90 ? "crit" : p >= 75 ? "warn" : "ok");
   return (
     <Panel title={`Disks / Volumes${rows.length ? ` (${rows.length})` : ""}`}>
+      <SampleLine sample={inv?.sample} />
       {gap ? <Empty>{gap}</Empty> : rows.length ? (
         <div className="ld-table-wrap">
           <table className="ld-table">
@@ -203,6 +212,7 @@ export function HardwareSection({ hw, loading, detailed, onDetails }: { hw?: Dev
   const startSec = Date.parse(hw.start) / 1000, endSec = Date.parse(hw.end) / 1000;
   return (
     <>
+      {hw.sample && <SampleNotice what="iDRAC / iLO readings" />}
       {hw.source === "unavailable" && (
         <div className="ld-card ld-metrics-off" role="status">
           <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
@@ -260,6 +270,7 @@ export function EventLogs({ deviceId, title = "Event Logs", kind = "devices", co
         </select>
         <button type="submit" className="ld-btn">Search</button>
       </form>}
+      <SampleLine sample={q.data?.sample} setting="LOKI_URL" />
       {q.isLoading ? <Empty>Loading logs…</Empty> : !q.data ? <Empty>The API is not reachable from this browser.</Empty> : q.data.source !== "loki" ? (
         <div className="ld-metrics-off" role="status">
           <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />

@@ -32,6 +32,8 @@ from datetime import datetime, timedelta, timezone
 import requests
 from django.conf import settings
 
+from . import sample
+
 
 class PrometheusUnavailable(RuntimeError):
     """Prometheus is not configured or did not answer."""
@@ -391,12 +393,17 @@ def device_timeseries(device, *, start=None, end=None, step=None, metrics=None) 
         return {"family": None, "source": "unsupported", "series": [], "step": t_step,
                 "start": t_start.isoformat(), "end": t_end.isoformat(),
                 "message": f"No metric catalog for device type '{device.device_type}' / agent '{device.agent}'."}
+    if sample.prometheus_sample_mode():
+        return sample.timeseries(CATALOG[family], family, device.id, t_start, t_end, t_step, metrics, record=device)
     sel, vmsel = device_selector(device, family)
     return timeseries_response(CATALOG[family], sel, vmsel, family, t_start, t_end, t_step, metrics)
 
 
 def vm_timeseries(vm, *, start=None, end=None, step=None, metrics=None) -> dict:
     t_start, t_end, t_step = resolve_window(start, end, step)
+    if sample.prometheus_sample_mode():
+        return sample.timeseries(VMWARE_VM, "vmware-vm", vm.id, t_start, t_end, t_step, metrics,
+                                 record=type("R", (), {"cpu": vm.cpu_use, "mem": vm.mem_use})())
     sel = vm_selector(vm)
     return timeseries_response(VMWARE_VM, sel, sel, "vmware-vm", t_start, t_end, t_step, metrics)
 
@@ -461,9 +468,11 @@ def device_inventory(device, *, top: int = 10) -> dict:
         return {"family": family, "source": "unsupported",
                 "message": "Processes, services and filesystems are collected for Linux and Windows servers.",
                 "processes": [], "services": None, "filesystems": []}
+    n = max(1, min(int(top), MAX_PROCESSES))
+    if sample.prometheus_sample_mode():
+        return sample.inventory(device, family, n)
     q = INVENTORY[family]
     sel, _ = device_selector(device, family)
-    n = max(1, min(int(top), MAX_PROCESSES))
     try:
         label = q["proc_label"]
         cpu = _query(q["proc_cpu"].format(sel=sel, n=n))
@@ -525,6 +534,8 @@ def device_hardware(device, *, start=None, end=None, step=None) -> dict:
     if not bmcs:
         return {**base, "source": "none", "controllers": [],
                 "message": "No iDRAC / iLO is linked to this device."}
+    if sample.prometheus_sample_mode():
+        return sample.hardware(bmcs, t_start, t_end, t_step, REDFISH)
     controllers = []
     try:
         for b in bmcs:
@@ -552,6 +563,8 @@ def device_hardware(device, *, start=None, end=None, step=None) -> dict:
 # pryorda/vmware_exporter: VM series carry vm_name, host_name, ds_name,
 # cluster_name and dc_name labels; datastore series are keyed by ds_name.
 def vm_inventory(vm) -> dict:
+    if sample.prometheus_sample_mode():
+        return sample.vm_inventory(vm)
     sel = vm_selector(vm)
     tenant = _tenant_labels(vm.tenant_id)
     try:
@@ -634,6 +647,8 @@ def fleet_load(devices) -> dict:
     when it is set; others by IP. Families without a fleet query (SNMP,
     VMware) are left out — the caller keeps their inventory values.
     """
+    if sample.prometheus_sample_mode():
+        return sample.fleet_load(devices, family_for_device)
     if not getattr(settings, "PROMETHEUS_URL", ""):
         return {"source": "unavailable", "message": "PROMETHEUS_URL is not configured.", "devices": []}
     by_family: dict[str, dict[str, list]] = {}

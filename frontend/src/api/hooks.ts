@@ -479,6 +479,8 @@ export interface MetricSeries {
 }
 
 export interface MetricsResponse {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   family: string | null;
   /** "prometheus" = real data; "unavailable" / "unsupported" = no data, see message */
   source: "prometheus" | "unavailable" | "unsupported";
@@ -573,6 +575,8 @@ export function useDeviceRelationships(deviceId?: string) {
 export interface DeviceProcess { name: string; cpu: number; mem_bytes: number | null; threads: number | null }
 
 export interface DeviceInventory {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   family: string | null;
   source: "prometheus" | "unavailable" | "unsupported";
   message?: string;
@@ -607,6 +611,8 @@ export interface BmcController {
 }
 
 export interface DeviceHardware {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "prometheus" | "unavailable" | "none";
   message?: string;
   start: string;
@@ -630,6 +636,8 @@ export function useDeviceHardware(deviceId: string | undefined, preset: string, 
 export interface LogEntry { ts: string; level: "critical" | "error" | "warning" | "info" | "debug"; source: string; event_id?: string | number | null; message: string }
 
 export interface DeviceLogs {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "loki" | "unavailable";
   message?: string;
   query: string;
@@ -650,6 +658,8 @@ export function useDeviceLogs(deviceId: string | undefined, preset: string, from
 // ── VM inventory: VMware Tools, snapshots, guest disks, datastore ──────────
 
 export interface VmInventory {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "prometheus" | "unavailable";
   message?: string;
   found?: boolean;
@@ -703,6 +713,8 @@ export function useCrossClientSummary() {
 // ── Fleet load: live CPU / memory per server from Prometheus ───────────────
 
 export interface FleetLoad {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "prometheus" | "unavailable";
   message?: string;
   devices: { id: string; cpu: number | null; mem: number | null }[];

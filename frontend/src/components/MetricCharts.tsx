@@ -5,7 +5,20 @@
 import React from "react";
 import { useDeviceMetrics, useVmMetrics, type MetricSeries, type MetricsResponse } from "@/api/hooks";
 import { MAX_RANGE_DAYS, PRESETS, useTimeRange } from "@/store/timeRange";
-import { Empty, Panel } from "@/components/ld";
+import { Empty, Panel, Pill } from "@/components/ld";
+
+/** Banner for pages drawing generated sample values (dev with no Prometheus / Loki). */
+export function SampleNotice({ what = "graphs and cards", setting = "PROMETHEUS_URL" }: { what?: string; setting?: string }) {
+  return (
+    <div className="ld-card ld-metrics-off ld-sample-note" role="status">
+      <i className="fa-solid fa-flask" aria-hidden="true" />
+      <div>
+        <b>Sample data</b>
+        <p className="ld-muted ld-small">These {what} show generated values, not measurements from this device. Set {setting} on the API to see live data.</p>
+      </div>
+    </div>
+  );
+}
 
 export const COLORS = ["#2f6bff", "#16a34a", "#f5a524", "#7c4dff", "#e5383b", "#0ea5e9"];
 
@@ -389,6 +402,8 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
   const groups = (only ? only.filter((g) => present.has(g)) : [...present]).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
   if (!groups.length) return <div className="ld-card"><Empty>No metrics of this kind for this device.</Empty></div>;
   return (
+    <>
+    {data.sample && !quietWhenOff && <SampleNotice what="graphs" />}
     <div className="ld-grid ld-chart-grid">
       {groups.map((g) => {
         const inGroup = data.series.filter((s) => s.group === g);
@@ -406,7 +421,7 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
         return compact ? (
           <section key={g} className="ld-card ld-chart-card" aria-label={GROUP_TITLE[g] ?? g}>
             <header>
-              <h3>{GROUP_TITLE[g] ?? g}{CHART_NOTE[g] && <span className="ld-muted"> {CHART_NOTE[g]}</span>}</h3>
+              <h3>{GROUP_TITLE[g] ?? g}{CHART_NOTE[g] && <span className="ld-muted"> {CHART_NOTE[g]}</span>}{data.sample && <> <Pill tone="muted">Sample</Pill></>}</h3>
               <span className="ld-muted ld-small"><i className="fa-regular fa-clock" aria-hidden="true" /> {rangeLabel(rangePreset, rangeFrom, rangeTo)}</span>
             </header>
             {chart}
@@ -416,6 +431,7 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
         );
       })}
     </div>
+    </>
   );
 }
 

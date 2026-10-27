@@ -16,7 +16,7 @@ import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import { Donut, Empty, Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
-import { LiveButton, MetricsBody, RangeSelect, fmtValue } from "@/components/MetricCharts";
+import { LiveButton, MetricsBody, RangeSelect, fmtValue, SampleNotice } from "@/components/MetricCharts";
 import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
 import { DeviceFamily } from "@/components/DeviceFamily";
 import { EventLogs, FilesystemTable, HardwareSection, ProcessTable, ServicesPanel, serviceSlices } from "@/components/HostPanels";
@@ -134,7 +134,7 @@ export default function ServerDetailScreen() {
         <dl className="ld-dl">
           <dt>Agent</dt><dd>{d.agent || "—"}</dd>
           <dt>Metric family</dt><dd>{m?.family ?? "—"}</dd>
-          <dt>Metrics source</dt><dd>{connected ? <Pill tone="ok">Prometheus · connected</Pill> : <Pill tone="muted">{m?.source === "unsupported" ? "Not supported" : "Not connected"}</Pill>}</dd>
+          <dt>Metrics source</dt><dd>{m?.sample ? <Pill tone="muted">Sample data</Pill> : connected ? <Pill tone="ok">Prometheus · connected</Pill> : <Pill tone="muted">{m?.source === "unsupported" ? "Not supported" : "Not connected"}</Pill>}</dd>
           <dt>Out-of-band</dt><dd>{controllers.length ? controllers.map((c) => c.id).join(", ") : "None linked"}</dd>
           <dt>Uptime</dt><dd>{d.uptime || "—"}</dd>
           <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
@@ -192,6 +192,7 @@ export default function ServerDetailScreen() {
         </div>
       </div>
 
+      {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
         <div className="ld-card ld-metrics-off" role="status">
           <i className="fa-solid fa-plug-circle-xmark" aria-hidden="true" />
