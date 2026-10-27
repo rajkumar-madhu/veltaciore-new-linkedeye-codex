@@ -4,32 +4,35 @@
 // generic device monitoring page) with { deviceId }.
 import React from "react";
 import { deviceRoute } from "@/lib/deviceRoute";
-import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
 import { useDevices } from "@/api/hooks";
 import { SITES, DEVICE_KINDS } from "@/data/infra";
-import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import type { DeviceKind } from "@/lib/types";
-
-
-
+import { Button, Card, Crumbs, Page, PageHead, SearchBox, Select, Table, TextButton, cx, ui } from "@/components/ui";
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FileSpreadsheetIcon, LayersIcon, PlusIcon, SearchCodeIcon, SearchIcon } from "lucide-react";
+import { FileSpreadsheetIcon, LayersIcon, PlusIcon, SearchCodeIcon, SearchIcon } from "lucide-react";
+// mono id link: the link's 13px must give way to mono 12px
+const monoLink = "font-mono !text-xs font-semibold";
 const statusTone = (s: string): Tone => (s === "ok" ? "ok" : s === "warn" ? "warn" : s === "critical" || s === "down" ? "crit" : "muted");
 const statusLabel = (s: string) => (s === "ok" ? "Healthy" : s === "warn" ? "Warning" : s === "down" ? "Down" : s === "critical" ? "Critical" : "Unknown");
 const usageTone = (v: number): Tone => (v > 80 ? "crit" : v > 65 ? "warn" : "ok");
 const barColor = (t: Tone) => (t === "crit" ? "#e5383b" : t === "warn" ? "#f5a524" : "#16a34a");
 const siteTone = (h: number): Tone => (h > 95 ? "ok" : h > 90 ? "warn" : "crit");
 
+const chip = "inline-flex flex-col items-center justify-center gap-1 min-w-[104px] min-h-[76px] px-3 py-2.5 border rounded-lg cursor-pointer shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 [&_.ld-icon]:text-2xl";
+const chipClass = (active: boolean) => cx(chip, active ? "bg-accent border-accent text-white [&_.ld-icon]:text-white" : "bg-bg-raised border-line text-fg hover:border-line-strong [&_.ld-icon]:text-accent");
+const chipLabel = (active: boolean) => cx("text-sm", active ? "text-white" : "text-fg-muted");
+
 function Usage({ v, label }: { v: number; label: string }) {
-  if (!(v > 0)) return <span className="ld-muted">—</span>;
+  if (!(v > 0)) return <span className="text-fg-muted">—</span>;
   return (
-    <span className="ld-infra-usage">
-      <span className="ld-bar-track ld-bar-inline" role="img" aria-label={`${label} ${v}%`}>
-        <span className="ld-bar-fill" style={{ width: `${Math.min(100, v)}%`, background: barColor(usageTone(v)) }} />
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-block align-middle w-16 h-2 rounded-[5px] bg-bg-muted overflow-hidden" role="img" aria-label={`${label} ${v}%`}>
+        <span className={ui.barFill} style={{ width: `${Math.min(100, v)}%`, background: barColor(usageTone(v)) }} />
       </span>
-      <b>{v}%</b>
+      <b className="text-xs font-semibold min-w-[34px]">{v}%</b>
     </span>
   );
 }
@@ -56,35 +59,29 @@ export default function InfraAssetsScreen() {
     (q === "" || (d.id + d.model + d.role + d.ip).toLowerCase().includes(q.toLowerCase()))
   );
   const kindMeta = (id: string) => (DEVICE_KINDS.find(k => k.id === id) || {}) as Partial<DeviceKind>;
-  const iconOf = (k: Partial<DeviceKind>) => `${k.iconBrand ? "fa-brands" : "fa-solid"} ${k.icon ?? "fa-cube"}`;
+  const iconOf = (k: Partial<DeviceKind>) => k.icon ?? "fa-cube";
 
   const healthy = devices.filter(d => d.status === "ok").length;
   const warning = devices.filter(d => d.status === "warn").length;
   const critical = devices.filter(d => d.status === "critical" || d.status === "down").length;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Asset Inventory</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Asset Inventory" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Asset Inventory</h1>
-          <p>Every monitored device across sites and device classes</p>
-        </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={FileSpreadsheetIcon} /> Export</button>
-          <button type="button" className="ld-btn"><Icon icon={SearchCodeIcon} /> Discovery</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> Onboard</button>
-        </div>
-      </div>
+      <PageHead
+        title="Asset Inventory"
+        subtitle="Every monitored device across sites and device classes"
+        actions={
+          <>
+            <Button><Icon icon={FileSpreadsheetIcon} /> Export</Button>
+            <Button><Icon icon={SearchCodeIcon} /> Discovery</Button>
+            <Button variant="primary"><Icon icon={PlusIcon} /> Onboard</Button>
+          </>
+        }
+      />
 
-      <div className="ld-grid ld-grid-stats ld-grid-6">
+      <div className={cx(ui.grid, ui.cols[6])}>
         <StatCard icon="fa-boxes-stacked" tone="info" label="Total" value={fmt(devices.length)} note="all assets" onClick={() => setKind("all")} />
         <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(healthy)} note="reporting OK" />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(warning)} note="thresholds breached" />
@@ -93,50 +90,46 @@ export default function InfraAssetsScreen() {
         <StatCard icon="fa-building" tone="muted" label="Sites" value={fmt(SITES.length)} note="datacenters" onClick={() => setSite("all")} />
       </div>
 
-      <div className="ld-chips" role="group" aria-label="Filter by device kind">
-        <button type="button" className={`ld-chip${kind === "all" ? " active" : ""}`} aria-pressed={kind === "all"} onClick={() => setKind("all")}>
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="Filter by device kind">
+        <button type="button" className={chipClass(kind === "all")} aria-pressed={kind === "all"} onClick={() => setKind("all")}>
           <Icon icon={LayersIcon} />
-          <span className="ld-chip-label">All</span>
-          <span className="ld-chip-count">{devices.length}</span>
+          <span className={chipLabel(kind === "all")}>All</span>
+          <span className="text-md font-bold">{devices.length}</span>
         </button>
         {DEVICE_KINDS.map(k => {
           const n = devices.filter(d => d.kind === k.id).length;
           if (n === 0) return null;
           return (
-            <button key={k.id} type="button" className={`ld-chip${kind === k.id ? " active" : ""}`} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
-              <Icon className={iconOf(k)} />
-              <span className="ld-chip-label">{k.label}</span>
-              <span className="ld-chip-count">{n}</span>
+            <button key={k.id} type="button" className={chipClass(kind === k.id)} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
+              <Icon name={iconOf(k)} />
+              <span className={chipLabel(kind === k.id)}>{k.label}</span>
+              <span className="text-md font-bold">{n}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby="assets-h">
-          <div className="ld-panel-head">
-            <h2 id="assets-h">Inventory ({fmt(filtered.length)})</h2>
+      <div className={ui.split}>
+        <Card as="section" className={ui.panel} aria-labelledby="assets-h">
+          <div className={ui.panelHead}>
+            <h2 id="assets-h" className={ui.panelTitle}>Inventory ({fmt(filtered.length)})</h2>
           </div>
-          <div className="ld-toolbar">
+          <div className={ui.toolbar}>
             <label htmlFor="assets-search" className="sr-only">Search devices</label>
-            <span className="ld-search ld-field-grow">
-              <Icon icon={SearchIcon} />
-              <input id="assets-search" type="search" placeholder="Search hostname, IP, model, role…" value={q} onChange={e => setQ(e.target.value)} />
-            </span>
+            <SearchBox className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id="assets-search" type="search" placeholder="Search hostname, IP, model, role…" value={q} onChange={e => setQ(e.target.value)} />
             <label htmlFor="assets-kind" className="sr-only">Device kind</label>
-            <select id="assets-kind" className="ld-select" value={kind} onChange={e => setKind(e.target.value)}>
+            <Select id="assets-kind" value={kind} onChange={e => setKind(e.target.value)}>
               <option value="all">All kinds</option>
               {DEVICE_KINDS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
-            </select>
+            </Select>
             <label htmlFor="assets-site" className="sr-only">Site</label>
-            <select id="assets-site" className="ld-select" value={site} onChange={e => setSite(e.target.value)}>
+            <Select id="assets-site" value={site} onChange={e => setSite(e.target.value)}>
               <option value="all">All sites</option>
               {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            </Select>
           </div>
           {filtered.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+              <Table>
                 <thead>
                   <tr>
                     <th scope="col">Device</th>
@@ -157,37 +150,36 @@ export default function InfraAssetsScreen() {
                     return (
                       <tr key={d.id}>
                         <td>
-                          <div className="ld-infra-cell">
-                            <span className="ld-infra-kind" aria-hidden="true"><Icon className={iconOf(k)} /></span>
-                            <div>
-                              <button type="button" className="ld-link ld-mono" onClick={() => setRoute(deviceRoute(d.kind), { deviceId: d.id })}>{d.id}</button>
-                              <span className="ld-sub">{d.role}</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex-none w-7 h-7 rounded grid place-items-center text-xs bg-bg-muted text-accent" aria-hidden="true"><Icon name={iconOf(k)} /></span>
+                            <div className="min-w-0">
+                              <TextButton className={monoLink} onClick={() => setRoute(deviceRoute(d.kind), { deviceId: d.id })}>{d.id}</TextButton>
+                              <span className={ui.sub}>{d.role}</span>
                             </div>
                           </div>
                         </td>
                         <td><input type="checkbox" aria-label={`Select ${d.id}`} /></td>
                         <td><Pill tone="muted">{k.label ?? d.kind}</Pill></td>
-                        <td className="ld-muted ld-mono">{d.site}</td>
-                        <td className="ld-mono">{d.ip}</td>
-                        <td>{d.os}<span className="ld-sub">up {d.uptime}</span></td>
+                        <td className="font-mono font-semibold">{d.site}</td>
+                        <td className="font-mono font-semibold">{d.ip}</td>
+                        <td>{d.os}<span className={ui.sub}>up {d.uptime}</span></td>
                         <td><Usage v={d.cpu} label="CPU" /></td>
                         <td><Usage v={d.mem} label="Memory" /></td>
-                        <td><Pill tone={statusTone(d.status)}><span className="ld-pill-dot" />{statusLabel(d.status)}</Pill></td>
-                        <td className="ld-muted ld-nowrap">{d.lastSeen}</td>
+                        <td><Pill tone={statusTone(d.status)}><PillDot />{statusLabel(d.status)}</Pill></td>
+                        <td className="whitespace-nowrap">{d.lastSeen}</td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>{devices.length ? "No devices match these filters." : "No devices reported yet."}</Empty>
           )}
-        </section>
+        </Card>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Site Summary">
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               {SITES.map(s => (
                 <React.Fragment key={s.id}>
                   <dt>{s.name}</dt>
@@ -197,16 +189,16 @@ export default function InfraAssetsScreen() {
             </dl>
           </Panel>
           <Panel title="Quick Actions">
-            <div className="ld-infra-actions">
+            <div className="grid grid-cols-2 gap-2">
               {QUICK_ACTIONS.map(([ic, l, route]) => (
-                <button key={l} type="button" className="ld-btn ld-btn-sm" onClick={() => { if (route) setRoute(route); }}>
-                  <Icon className={`fa-solid ${ic}`} /> {l}
-                </button>
+                <Button key={l} size="sm" className="!justify-start" onClick={() => { if (route) setRoute(route); }}>
+                  <Icon name={ic} /> {l}
+                </Button>
               ))}
             </div>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

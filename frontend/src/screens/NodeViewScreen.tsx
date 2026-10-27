@@ -6,16 +6,20 @@
 // processes are generated sample data, and the page is labelled as such.
 // Live per-host charts live on the server detail page (server-detail).
 import React from "react";
-import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
-import { Panel, Pill, StatCard } from "@/components/ld";
+import { Panel, Pill, PillDot, StatCard } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import { TimeChart } from "@/components/MetricCharts";
 import type { MetricSeries } from "@/api/hooks";
 import { wave as sharedWave } from "@/lib/series";
-
+import { Button, Card, Crumbs, Page, Table, cx, ui } from "@/components/ui";
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, ClockIcon, CpuIcon, FlaskConicalIcon, RefreshCwIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react";
+import { ClockIcon, CpuIcon, FlaskConicalIcon, RefreshCwIcon, SquareTerminalIcon, TerminalIcon } from "lucide-react";
+// Table cells kept the cell's 13px / colour over mono size and (light) status colour.
+const cellMono = "font-mono font-semibold";
+const cellCrit = "font-semibold dark:text-tone-crit";
+// Entity sub-line: items separated by a "|" (inherits the page-head paragraph style).
+const entityMeta = "text-base text-fg-muted mt-1 flex flex-wrap gap-x-3.5 gap-y-1 [&_span+span]:before:content-['|'] [&_span+span]:before:mr-3.5 [&_span+span]:before:text-line-strong";
 const wave = (seed: number, base: number, amp: number, n?: number) => sharedWave(seed, base, amp, { n, f1: 0.7, f2: 1.6, floor: true });
 
 const NODE = {
@@ -55,13 +59,13 @@ function toSeries(key: string, label: string, unit: string, group: string, value
 function SampleChart({ title, series, end }: { title: string; series: MetricSeries[]; end: number }) {
   const n = series[0]?.points.length ?? 1;
   return (
-    <section className="ld-card ld-panel" aria-label={`${title} (sample data)`}>
-      <div className="ld-panel-head">
-        <h2>{title}</h2>
+    <Card as="section" className={ui.panel} aria-label={`${title} (sample data)`}>
+      <div className={ui.panelHead}>
+        <h2 className={ui.panelTitle}>{title}</h2>
         <Pill tone="muted">Sample data</Pill>
       </div>
       <TimeChart series={series} startSec={end - (n - 1) * STEP} endSec={end} compact />
-    </section>
+    </Card>
   );
 }
 
@@ -86,60 +90,54 @@ export default function NodeViewScreen() {
   ];
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Node · {NODE.host}</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: `Node · ${NODE.host}` }]} />
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className="ld-os-logo ld-os-linux" aria-hidden="true"><Icon icon={TerminalIcon} /></span>
+      <div className={cx(ui.head, "!items-start")}>
+        <div className="flex items-center gap-3.5 min-w-0">
+          <span className="flex-none w-[60px] h-[60px] grid place-items-center text-[46px] text-[#1f2328] dark:text-[#e6edf3]" aria-hidden="true"><Icon icon={TerminalIcon} /></span>
           <div>
-            <h1 className="ld-entity-title">
+            <h1 className={cx(ui.h1, "flex items-center gap-2.5 flex-wrap")}>
               {NODE.host}
               <Pill tone="muted">Sample data</Pill>
             </h1>
-            <p className="ld-entity-meta">
-              <span className="ld-mono">{NODE.ip}</span>
+            <p className={entityMeta}>
+              <span className={ui.mono}>{NODE.ip}</span>
               <span>{NODE.role}</span>
               <span>{NODE.os}</span>
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><Icon icon={SquareTerminalIcon} /> SSH</button>
-            <button type="button" className="ld-btn"><Icon icon={RefreshCwIcon} /> 1s refresh</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button><Icon icon={SquareTerminalIcon} /> SSH</Button>
+            <Button><Icon icon={RefreshCwIcon} /> 1s refresh</Button>
           </div>
-          <ul className="ld-tags" aria-label="Tags">
-            <li className="ld-tag"><Icon icon={CpuIcon} /> {NODE.cores} cores</li>
-            <li className="ld-tag"><Icon icon={ClockIcon} /> up {NODE.uptime}</li>
+          <ul className={ui.tags} aria-label="Tags">
+            <li className={ui.tag}><Icon icon={CpuIcon} /> {NODE.cores} cores</li>
+            <li className={ui.tag}><Icon icon={ClockIcon} /> up {NODE.uptime}</li>
           </ul>
         </div>
       </div>
 
-      <div className="ld-card ld-infra-sample" role="note">
+      <Card className="flex items-start gap-3 px-4 py-3 [&_.ld-icon]:text-2xl [&_.ld-icon]:text-fg-muted [&_.ld-icon]:mt-0.5 [&_b]:text-fg" role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">This node view is a layout preview with generated values. Open a server from the asset inventory for live Prometheus charts.</p>
+          <p className="text-fg-muted text-xs">This node view is a layout preview with generated values. Open a server from the asset inventory for live Prometheus charts.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-microchip" tone={cpuNow > 80 ? "crit" : "warn"} label="CPU (sample)" value={`${cpuNow}%`} note={`${NODE.cores} cores · load ${load[load.length - 1]}`} />
         <StatCard icon="fa-memory" tone="warn" label="Memory (sample)" value={`${mem[mem.length - 1]}%`} note={`of ${NODE.ramGb} GB`} />
         <StatCard icon="fa-hard-drive" tone="info" label="Disk I/O (sample)" value={`${Math.round(diskR[diskR.length - 1] + diskW[diskW.length - 1])} MB/s`} note="read + write" />
         <StatCard icon="fa-network-wired" tone="ok" label="Network (sample)" value={`${netIn[netIn.length - 1]} MB/s`} note={`in · ${netOut[netOut.length - 1]} out`} />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
-          <div className="ld-chart-grid ld-grid">
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <div className={cx(ui.grid, "grid-cols-[minmax(0,1fr)] min-[900px]:grid-cols-2")}>
             <SampleChart title="CPU utilization" end={end} series={[
               toSeries("cpu_user", "user", "%", "cpu", cpuUser, end),
               toSeries("cpu_system", "system", "%", "cpu", cpuSys, end),
@@ -156,60 +154,58 @@ export default function NodeViewScreen() {
             ]} />
           </div>
 
-          <section className="ld-card ld-panel" aria-labelledby="procs-h">
-            <div className="ld-panel-head">
-              <h2 id="procs-h">Top processes</h2>
+          <Card as="section" className={ui.panel} aria-labelledby="procs-h">
+            <div className={ui.panelHead}>
+              <h2 id="procs-h" className={ui.panelTitle}>Top processes</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr><th scope="col">PID</th><th scope="col">Command</th><th scope="col">CPU %</th><th scope="col">Mem %</th><th scope="col">RSS</th></tr>
                 </thead>
                 <tbody>
                   {PROCS.map((p) => (
                     <tr key={p.pid}>
-                      <td className="ld-mono ld-muted">{p.pid}</td>
-                      <td className="ld-mono">{p.cmd}</td>
-                      <td className={p.cpu > 100 ? "ld-text-crit" : undefined}>{p.cpu}</td>
-                      <td className="ld-muted">{p.mem}</td>
-                      <td className="ld-muted">{p.rss}</td>
+                      <td className={cellMono}>{p.pid}</td>
+                      <td className={cellMono}>{p.cmd}</td>
+                      <td className={p.cpu > 100 ? cellCrit : undefined}>{p.cpu}</td>
+                      <td>{p.mem}</td>
+                      <td>{p.rss}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-          </section>
+              </Table>
+          </Card>
         </div>
 
-        <div className="ld-rail">
-          <section className="ld-card ld-panel" aria-labelledby="alarms-h">
-            <div className="ld-panel-head">
-              <h2 id="alarms-h">Node alarms</h2>
+        <div className={ui.rail}>
+          <Card as="section" className={ui.panel} aria-labelledby="alarms-h">
+            <div className={ui.panelHead}>
+              <h2 id="alarms-h" className={ui.panelTitle}>Node alarms</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {ALARMS.map(([id, label, tone]) => (
-                <li key={id}>
-                  <Pill tone={tone}><span className="ld-pill-dot" /><span className="sr-only">{tone}</span></Pill>
-                  <span className="ld-activity-text">{label}</span>
-                  <span className="ld-mono ld-muted">{id}</span>
+                <li key={id} className={ui.activityItem}>
+                  <Pill tone={tone}><PillDot /><span className="sr-only">{tone}</span></Pill>
+                  <span className={ui.activityText}>{label}</span>
+                  <span className={cx(ui.mono, "text-fg-muted")}>{id}</span>
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
 
           <Panel title="System">
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               {facts.map(([l, v]) => (
                 <React.Fragment key={l}>
-                  <dt>{l}</dt><dd className="ld-mono">{v}</dd>
+                  <dt>{l}</dt><dd className={ui.mono}>{v}</dd>
                 </React.Fragment>
               ))}
             </dl>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }

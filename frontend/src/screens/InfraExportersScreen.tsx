@@ -5,12 +5,16 @@
 import React from "react";
 import { useExporters } from "@/api/hooks";
 import { EXPORTERS } from "@/data/infra";
-import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Donut, Empty, Legend, PALETTE, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
 import type { Slice } from "@/components/ld";
 import type { Exporter } from "@/lib/types";
-
+import { Card, Page, PageHead, SearchBox, Select, Table, buttonClass, cx, ui } from "@/components/ui";
 import { Icon } from "@/components/Icon";
 import { BookIcon, LayersIcon, SearchIcon, TriangleAlertIcon } from "lucide-react";
+const chip = "inline-flex flex-col items-center justify-center gap-1 min-w-[104px] min-h-[76px] px-3 py-2.5 border rounded-lg cursor-pointer shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 [&_.ld-icon]:text-2xl";
+const chipClass = (active: boolean) => cx(chip, active ? "bg-accent border-accent text-white [&_.ld-icon]:text-white" : "bg-bg-raised border-line text-fg hover:border-line-strong [&_.ld-icon]:text-accent");
+const chipLabel = (active: boolean) => cx("text-sm", active ? "text-white" : "text-fg-muted");
+
 interface Category {
   id: string;
   label: string;
@@ -75,18 +79,14 @@ export default function InfraExportersScreen() {
   const topMax = top[0]?.hosts || 1;
 
   return (
-    <div className="ld-dash">
-      <div className="ld-head">
-        <div>
-          <h1>All Exporters</h1>
-          <p>Prometheus-compatible exporters collecting metrics from your infrastructure, network, databases and services</p>
-        </div>
-        <div className="ld-head-actions">
-          <a className="ld-btn" href="#install-snippet"><Icon icon={BookIcon} /> Install docs</a>
-        </div>
-      </div>
+    <Page>
+      <PageHead
+        title="All Exporters"
+        subtitle="Prometheus-compatible exporters collecting metrics from your infrastructure, network, databases and services"
+        actions={<a className={buttonClass()} href="#install-snippet"><Icon icon={BookIcon} /> Install docs</a>}
+      />
 
-      <div className="ld-grid ld-grid-stats ld-grid-6">
+      <div className={cx(ui.grid, ui.cols[6])}>
         <StatCard icon="fa-tower-broadcast" tone="purple" label="Exporter types" value={fmt(exporters.length)} note="in the catalog" onClick={() => { setCat("all"); setStatus(""); }} />
         <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(healthy)} note={exporters.length ? `${Math.round((healthy / exporters.length) * 100)}% reporting normally` : "—"} onClick={() => setStatus("ok")} />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Degraded" value={fmt(degraded)} note={degraded ? "needs a check" : "all clear"} onClick={() => setStatus("degraded")} />
@@ -95,42 +95,38 @@ export default function InfraExportersScreen() {
         <StatCard icon="fa-clock" tone={avgLag > 5 ? "warn" : "ok"} label="Average lag" value={`${avgLag.toFixed(1)}s`} note="scrape to ingest" />
       </div>
 
-      <div className="ld-chips" role="group" aria-label="Filter by category">
-        <button type="button" className={`ld-chip${cat === "all" ? " active" : ""}`} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="Filter by category">
+        <button type="button" className={chipClass(cat === "all")} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
           <Icon icon={LayersIcon} />
-          <span className="ld-chip-label">All</span>
-          <span className="ld-chip-count">{exporters.length}</span>
+          <span className={chipLabel(cat === "all")}>All</span>
+          <span className="text-md font-bold">{exporters.length}</span>
         </button>
         {usedCats.map((c) => (
-          <button key={c.id} type="button" className={`ld-chip${cat === c.id ? " active" : ""}`} aria-pressed={cat === c.id} onClick={() => setCat(c.id)}>
-            <Icon className={`fa-solid ${c.icon}`} />
-            <span className="ld-chip-label">{c.label}</span>
-            <span className="ld-chip-count">{countIn(c.id)}</span>
+          <button key={c.id} type="button" className={chipClass(cat === c.id)} aria-pressed={cat === c.id} onClick={() => setCat(c.id)}>
+            <Icon name={c.icon} />
+            <span className={chipLabel(cat === c.id)}>{c.label}</span>
+            <span className="text-md font-bold">{countIn(c.id)}</span>
           </button>
         ))}
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby="exp-h">
-          <div className="ld-panel-head">
-            <h2 id="exp-h">Exporters ({fmt(visible.length)})</h2>
+      <div className={ui.split}>
+        <Card as="section" className={ui.panel} aria-labelledby="exp-h">
+          <div className={ui.panelHead}>
+            <h2 id="exp-h" className={ui.panelTitle}>Exporters ({fmt(visible.length)})</h2>
           </div>
-          <div className="ld-toolbar">
+          <div className={ui.toolbar}>
             <label htmlFor="exp-search" className="sr-only">Search exporters</label>
-            <span className="ld-search ld-field-grow">
-              <Icon icon={SearchIcon} />
-              <input id="exp-search" type="search" placeholder="Search by name, protocol or site…" value={query} onChange={(e) => setQuery(e.target.value)} />
-            </span>
+            <SearchBox className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id="exp-search" type="search" placeholder="Search by name, protocol or site…" value={query} onChange={(e) => setQuery(e.target.value)} />
             <label htmlFor="exp-status" className="sr-only">Status</label>
-            <select id="exp-status" className="ld-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <Select id="exp-status" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All statuses</option>
               <option value="ok">Healthy</option>
               <option value="degraded">Degraded</option>
-            </select>
+            </Select>
           </div>
           {visible.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">Exporter</th>
@@ -149,30 +145,30 @@ export default function InfraExportersScreen() {
                     return (
                       <tr key={e.name}>
                         <td>
-                          <span className="ld-strong ld-mono-name">{e.name}</span>
-                          <span className="ld-sub">{c.label} · {e.port ? `:${e.port}/metrics` : "/metrics"}</span>
+                          <span className="font-medium font-mono text-[12.5px] text-accent">{e.name}</span>
+                          <span className={ui.sub}>{c.label} · {e.port ? `:${e.port}/metrics` : "/metrics"}</span>
                           {e.note && (
-                            <span className="ld-sub ld-note" title={e.note}><Icon icon={TriangleAlertIcon} /> {e.note}</span>
+                            <span className="block text-xs text-tone-warn max-w-[240px] overflow-hidden text-ellipsis whitespace-nowrap" title={e.note}><Icon icon={TriangleAlertIcon} /> {e.note}</span>
                           )}
                         </td>
-                        <td className="ld-muted">
+                        <td>
                           {e.protocol ?? "—"}
-                          <span className="ld-sub">v{e.version}</span>
+                          <span className={ui.sub}>v{e.version}</span>
                         </td>
-                        <td className="ld-strong">{fmt(e.hosts)}</td>
-                        <td className="ld-muted ld-wrap">
+                        <td className="font-medium">{fmt(e.hosts)}</td>
+                        <td className={ui.cellWrap}>
                           {e.sites.map((site, i) => (
                             <React.Fragment key={site}>
-                              <span className="ld-nowrap">{site}</span>
+                              <span className="whitespace-nowrap">{site}</span>
                               {i < e.sites.length - 1 ? ", " : ""}
                             </React.Fragment>
                           ))}
                         </td>
                         <td>{e.scrapes}</td>
-                        <td className={lagHigh ? "ld-text-warn" : undefined}>{e.lag}</td>
+                        <td className={lagHigh ? "font-semibold dark:text-tone-warn" : undefined}>{e.lag}</td>
                         <td>
                           <Pill tone={e.status === "ok" ? "ok" : "warn"}>
-                            <span className="ld-pill-dot" />
+                            <PillDot />
                             {e.status === "ok" ? "Healthy" : "Degraded"}
                           </Pill>
                         </td>
@@ -180,29 +176,28 @@ export default function InfraExportersScreen() {
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </Table>
           ) : (
             <Empty>No exporters match these filters.</Empty>
           )}
-        </section>
+        </Card>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Exporter Health">
-            <div className="ld-donut-row">
+            <div className="flex flex-wrap items-center gap-4.5">
               <Donut slices={healthSlices} center={fmt(exporters.length)} sub="Exporters" label={`${healthy} healthy and ${degraded} degraded exporters`} />
               <Legend slices={healthSlices} />
             </div>
           </Panel>
           <Panel title="Top Exporters by Installs">
-            <ul className="ld-bars">
+            <ul className={ui.bars}>
               {top.map((e, i) => (
-                <li key={e.name}>
-                  <span className="ld-bar-label">{e.name}</span>
-                  <span className="ld-bar-track">
-                    <span className="ld-bar-fill" style={{ width: `${(e.hosts / topMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                <li key={e.name} className={ui.barItem}>
+                  <span className={ui.barLabel}>{e.name}</span>
+                  <span className={ui.barTrack}>
+                    <span className={ui.barFill} style={{ width: `${(e.hosts / topMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
                   </span>
-                  <span className="ld-bar-value">{fmt(e.hosts)}</span>
+                  <span className={ui.barValue}>{fmt(e.hosts)}</span>
                 </li>
               ))}
             </ul>
@@ -210,11 +205,11 @@ export default function InfraExportersScreen() {
         </div>
       </div>
 
-      <section id="install-snippet" className="ld-card ld-panel" aria-labelledby="install-h">
-        <div className="ld-panel-head">
-          <h2 id="install-h">Install the agent · node-exporter on Linux</h2>
+      <Card as="section" id="install-snippet" className={ui.panel} aria-labelledby="install-h">
+        <div className={ui.panelHead}>
+          <h2 id="install-h" className={ui.panelTitle}>Install the agent · node-exporter on Linux</h2>
         </div>
-        <pre className="ld-code">
+        <pre className="m-0 px-4 py-3.5 rounded bg-[#0b1220] text-[#e2e8f0] font-mono text-[12.5px] leading-[1.7] overflow-x-auto whitespace-pre">
 {`$ curl -sSL https://linkedeye.in/agent/install.sh \\
     | sudo TENANT=<tenant> ROLE=linux-host sh
   ✓ verified signature
@@ -223,7 +218,7 @@ export default function InfraExportersScreen() {
 $ systemctl status linkedeye-agent
   ● active (running)`}
         </pre>
-      </section>
-    </div>
+      </Card>
+    </Page>
   );
 }

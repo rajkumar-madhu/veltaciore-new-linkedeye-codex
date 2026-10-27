@@ -5,12 +5,22 @@
 // The fleet below is generated sample data (no host-metrics API feeds this
 // screen yet), so the page is labelled "Sample data" throughout.
 import React from "react";
-import "@/styles/infra.css";
 import { useNav } from "@/hooks/useNav";
-import { Panel, Pill, StatCard } from "@/components/ld";
-
+import { Empty, Panel, Pill, StatCard } from "@/components/ld";
+import { Card, Crumbs, Page, PageHead, cx, ui } from "@/components/ui";
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, FlaskConicalIcon, HexagonIcon } from "lucide-react";
+import { FlaskConicalIcon, HexagonIcon } from "lucide-react";
+// Segmented toggle (aria-pressed buttons).
+const seg = "inline-flex border border-line-strong rounded overflow-hidden bg-bg-raised";
+const segBtn = "border-0 bg-transparent text-sm font-semibold text-fg-muted px-3 min-h-9 cursor-pointer [button+&]:border-l [button+&]:border-line aria-pressed:bg-accent aria-pressed:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2";
+const hexBtn = cx(
+  "block w-full aspect-square p-0 border-0 bg-transparent cursor-pointer rounded-[6px]",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1",
+  "[&_svg]:block [&_svg]:w-full [&_svg]:h-full",
+  "[&_polygon]:stroke-bg-raised [&_polygon]:[stroke-width:2] [&_polygon]:hover:stroke-fg [&_polygon]:hover:[stroke-width:5] [&_polygon]:aria-pressed:stroke-fg [&_polygon]:aria-pressed:[stroke-width:5]",
+  "[&_text]:fill-white [&_text]:text-3xl [&_text]:font-bold",
+);
+
 interface Host {
   name: string;
   dc: string;
@@ -76,63 +86,57 @@ export default function HostMapScreen() {
   const avg = Math.round(HOSTS.reduce((s, h) => s + val(h), 0) / HOSTS.length * 10) / 10;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Host Map</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Host Map" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Host Map · {METRIC_LABEL[metric]}</h1>
-          <p>Fleet health across {DCS.length} datacenters, filled by {METRIC_LABEL[metric].toLowerCase()} and grouped by {groupBy === "dc" ? "datacenter" : "role"}</p>
-        </div>
-        <div className="ld-head-actions">
-          <div className="ld-infra-seg" role="group" aria-label="Fill by metric">
-            {(["cpu", "mem", "load"] as Metric[]).map((m) => (
-              <button key={m} type="button" aria-pressed={metric === m} onClick={() => setMetric(m)}>{METRIC_LABEL[m]}</button>
-            ))}
-          </div>
-          <div className="ld-infra-seg" role="group" aria-label="Group by">
-            {(["dc", "role"] as const).map((g) => (
-              <button key={g} type="button" aria-pressed={groupBy === g} onClick={() => setGroupBy(g)}>{g === "dc" ? "Datacenter" : "Role"}</button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <PageHead
+        title={`Host Map · ${METRIC_LABEL[metric]}`}
+        subtitle={`Fleet health across ${DCS.length} datacenters, filled by ${METRIC_LABEL[metric].toLowerCase()} and grouped by ${groupBy === "dc" ? "datacenter" : "role"}`}
+        actions={
+          <>
+            <div className={seg} role="group" aria-label="Fill by metric">
+              {(["cpu", "mem", "load"] as Metric[]).map((m) => (
+                <button key={m} type="button" className={segBtn} aria-pressed={metric === m} onClick={() => setMetric(m)}>{METRIC_LABEL[m]}</button>
+              ))}
+            </div>
+            <div className={seg} role="group" aria-label="Group by">
+              {(["dc", "role"] as const).map((g) => (
+                <button key={g} type="button" className={segBtn} aria-pressed={groupBy === g} onClick={() => setGroupBy(g)}>{g === "dc" ? "Datacenter" : "Role"}</button>
+              ))}
+            </div>
+          </>
+        }
+      />
 
-      <div className="ld-card ld-infra-sample" role="note">
+      <Card className="flex items-start gap-3 px-4 py-3 [&_.ld-icon]:text-2xl [&_.ld-icon]:text-fg-muted [&_.ld-icon]:mt-0.5 [&_b]:text-fg" role="note">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">This map shows a generated fleet to demonstrate the layout. It is not connected to live host metrics yet.</p>
+          <p className="text-fg-muted text-xs">This map shows a generated fleet to demonstrate the layout. It is not connected to live host metrics yet.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-server" tone="info" label="Hosts (sample)" value={HOSTS.length} note={`${DCS.length} datacenters`} />
         <StatCard icon="fa-gauge-high" tone={avg > 75 ? "warn" : "ok"} label={`Avg ${METRIC_LABEL[metric].toLowerCase()} (sample)`} value={`${avg}${unit}`} note="across fleet" />
         <StatCard icon="fa-fire" tone="crit" label="Critical (sample)" value={crit} note="needs attention" />
         <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning (sample)" value={warn} note="elevated" />
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby="hexmap-h">
-          <div className="ld-panel-head">
-            <h2 id="hexmap-h">Hosts by {groupBy === "dc" ? "datacenter" : "role"}</h2>
+      <div className={ui.split}>
+        <Card as="section" className={ui.panel} aria-labelledby="hexmap-h">
+          <div className={ui.panelHead}>
+            <h2 id="hexmap-h" className={ui.panelTitle}>Hosts by {groupBy === "dc" ? "datacenter" : "role"}</h2>
             <Pill tone="muted">Sample data</Pill>
           </div>
           {groups.map((g) => {
             const members = HOSTS.filter((h) => (groupBy === "dc" ? h.dc : h.role) === g);
             return (
-              <div key={g} className="ld-infra-hexgroup">
-                <h3><Icon className={`fa-solid ${groupBy === "dc" ? "fa-warehouse" : "fa-layer-group"}`} /> {g} <span className="ld-muted ld-small">· {members.length} hosts</span></h3>
-                <div className="ld-infra-hexes">
+              <div key={g} className="[&+&]:mt-4.5">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-fg m-0 mb-2 [&_.ld-icon]:text-accent"><Icon name={groupBy === "dc" ? "warehouse" : "layer-group"} /> {g} <span className="text-fg-muted text-xs">· {members.length} hosts</span></h3>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(44px,1fr))] gap-1 max-w-full">
                   {members.map((h) => (
-                    <button key={h.name} type="button" className="ld-infra-hex" aria-pressed={hover?.name === h.name}
+                    <button key={h.name} type="button" className={hexBtn} aria-pressed={hover?.name === h.name}
                       aria-label={`${h.name}: ${METRIC_LABEL[metric]} ${val(h)}${unit}, ${STATUS[h.status].label}`}
                       onMouseEnter={() => setHover(h)} onMouseLeave={() => setHover(null)}
                       onFocus={() => setHover(h)} onBlur={() => setHover(null)}>
@@ -146,36 +150,36 @@ export default function HostMapScreen() {
               </div>
             );
           })}
-          <div className="ld-infra-scale" aria-hidden="true">
+          <div className="flex items-center flex-wrap gap-1.5 text-xs text-fg-muted" aria-hidden="true">
             <span>low</span>
-            {SCALE.map((c) => <span key={c} className="sw" style={{ background: c }} />)}
+            {SCALE.map((c) => <span key={c} className="w-[26px] h-2.5 rounded-[2px]" style={{ background: c }} />)}
             <span>high {METRIC_LABEL[metric].toLowerCase()}{unit}</span>
           </div>
-        </section>
+        </Card>
 
-        <div className="ld-rail ld-infra-sticky">
+        <div className={cx(ui.rail, "sticky top-4")}>
           <Panel title={hover ? hover.name : "Host details"}>
             {hover ? (
               <div aria-live="polite">
-                <p className="ld-muted ld-small">{hover.dc} · {hover.role}</p>
+                <p className="text-fg-muted text-xs">{hover.dc} · {hover.role}</p>
                 {([["CPU", hover.cpu, "%", 100], ["Memory", hover.mem, "%", 100], ["Load 1m", hover.load, "", 6]] as const).map(([l, v, u, max]) => (
-                  <div key={l} className="ld-infra-meter">
-                    <div><span>{l}</span><b>{v}{u}</b></div>
-                    <span className="ld-bar-track">
-                      <span className="ld-bar-fill" style={{ width: `${Math.min(100, (v / max) * 100)}%`, background: fill(v, max) }} />
+                  <div key={l} className="[&+&]:mt-2.5">
+                    <div className="flex justify-between text-sm mb-1 text-fg-muted"><span>{l}</span><b className="text-fg">{v}{u}</b></div>
+                    <span className={cx(ui.barTrack, "block")}>
+                      <span className={ui.barFill} style={{ width: `${Math.min(100, (v / max) * 100)}%`, background: fill(v, max) }} />
                     </span>
                   </div>
                 ))}
-                <p className="ld-small ld-infra-meter-foot">Status: <Pill tone={STATUS[hover.status].tone}>{STATUS[hover.status].label}</Pill></p>
+                <p className="text-xs mt-3">Status: <Pill tone={STATUS[hover.status].tone}>{STATUS[hover.status].label}</Pill></p>
               </div>
             ) : (
-              <div className="ld-empty">
+              <Empty>
                 <Icon icon={HexagonIcon} /> Hover or focus a hex to inspect a host.
-              </div>
+              </Empty>
             )}
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
