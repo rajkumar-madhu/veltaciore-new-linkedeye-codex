@@ -92,7 +92,7 @@ export const ui = {
   select: cx("min-h-[38px] px-2.5 border border-line-strong rounded bg-bg-raised text-fg text-sm", focusRing),
   textarea: cx("min-h-[76px] px-2.5 py-2 border border-line-strong rounded bg-bg-raised text-fg text-sm resize-y leading-[1.4]", "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-1"),
   search: "flex items-center gap-2 min-h-[38px] px-3 border border-line-strong rounded bg-bg-raised text-fg-muted focus-within:outline focus-within:outline-2 focus-within:outline-accent focus-within:outline-offset-2",
-  searchInput: "flex-1 min-w-0 border-0 bg-transparent text-sm text-fg outline-none",
+  searchInput: "flex-1 min-w-0 border-0 bg-transparent text-sm text-fg outline-none focus:outline-none",
   // lists
   dl: "grid grid-cols-[minmax(110px,140px)_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm [:where(&)_dt]:text-fg-muted [:where(&)_dd]:text-fg [:where(&)_dd]:m-0 [:where(&)_dd]:[overflow-wrap:anywhere]",
   activity: "list-none flex flex-col gap-2.5",

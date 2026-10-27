@@ -3,16 +3,18 @@
 // individual devices. Shared domains are read-only unless the all-clients
 // view is selected (the API enforces the same).
 import React from "react";
-import "@/styles/infra.css"; // ld-dom-* form pieces shared with the Domains page
 import { useDeleteServiceDomain, useSaveServiceDomain } from "@/api/hooks";
 import type { ServiceDomain, ServiceDomainInput } from "@/api/hooks";
 import { apiErrorText } from "@/api/client";
 import { NO_TENANT, useUiStore } from "@/store/ui";
 import type { Device, Service } from "@/lib/types";
 import { Empty } from "@/components/ld";
+import { Button, Card, Input, SearchBox, Select, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
 import { SearchIcon, Trash2Icon } from "lucide-react";
+/** The global input:focus outline colour beats SearchBox's outline-none; keep the inner input unringed (the box shows the ring). */
+const searchInputFix = "focus:outline-none";
 const ICONS: [string, string][] = [
   ["fa-layer-group", "Layers"], ["fa-chart-line", "Trading / chart"], ["fa-cubes", "Applications"],
   ["fa-network-wired", "Network"], ["fa-server", "Servers"], ["fa-database", "Databases"],
@@ -20,6 +22,19 @@ const ICONS: [string, string][] = [
   ["fa-building-columns", "Exchange / bank"], ["fa-tower-broadcast", "Monitoring"], ["fa-cloud", "Cloud"],
 ];
 const DEVICE_LIST_LIMIT = 60;
+
+/** Heatmap side panel, its h2 and the note right under it. */
+const heatPanel = "p-4 flex flex-col gap-3";
+const heatPanelTitle = "m-0 text-2xl";
+const heatPanelNote = "-mt-2 text-fg-muted text-xs";
+/** Error line and action row. */
+const formError = "m-0 px-3 py-2 rounded bg-critical-bg text-critical text-sm";
+const formActions = "flex flex-wrap gap-2 items-center";
+/** Checkbox picker fieldsets: box, legend, list and option label. */
+const pick = "border border-line rounded px-3 pt-2 pb-2.5 m-0 flex flex-col gap-2 min-w-0";
+const pickLegend = "text-xs text-fg-muted px-1";
+const pickList = "list-none m-0 p-0 grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-3 gap-y-1 max-h-[220px] overflow-auto";
+const pickLabel = "flex items-center gap-1.5 text-sm text-fg cursor-pointer";
 
 export function DomainEditor({ domain, services, devices, kindLabel, onDone }: {
   domain?: ServiceDomain;
@@ -56,85 +71,82 @@ export function DomainEditor({ domain, services, devices, kindLabel, onDone }: {
   };
 
   return (
-    <section className="ld-card ld-heat-panel" aria-labelledby={`${uid}-h`}>
-      <h2 id={`${uid}-h`}>{domain ? `Edit domain — ${domain.name}` : "Add domain"}</h2>
-      <p className="ld-muted ld-small">Group the services and devices that make up a business domain, such as Trading.</p>
-      {readOnly && <p className="ld-muted ld-small">Shared domain: visible to every client, editable from the all-clients view.</p>}
-      <form className="ld-form" onSubmit={submit}>
-        <fieldset className="ld-heat-fields" disabled={readOnly}>
-          <label className="ld-form-field" htmlFor={`${uid}-name`}>
+    <Card as="section" className={heatPanel} aria-labelledby={`${uid}-h`}>
+      <h2 id={`${uid}-h`} className={heatPanelTitle}>{domain ? `Edit domain — ${domain.name}` : "Add domain"}</h2>
+      <p className={heatPanelNote}>Group the services and devices that make up a business domain, such as Trading.</p>
+      {readOnly && <p className={heatPanelNote}>Shared domain: visible to every client, editable from the all-clients view.</p>}
+      <form className={ui.form} onSubmit={submit}>
+        <fieldset className="border-0 p-0 m-0 flex flex-col gap-2.5 min-w-0" disabled={readOnly}>
+          <label className={ui.field} htmlFor={`${uid}-name`}>
             Name *
-            <input id={`${uid}-name`} className="ld-input" required maxLength={128} value={f.name} placeholder="Trading" onChange={(e) => set("name", e.target.value)} />
+            <Input id={`${uid}-name`} required maxLength={128} value={f.name} placeholder="Trading" onChange={(e) => set("name", e.target.value)} />
           </label>
-          <label className="ld-form-field" htmlFor={`${uid}-desc`}>
+          <label className={ui.field} htmlFor={`${uid}-desc`}>
             Description
-            <input id={`${uid}-desc`} className="ld-input" maxLength={500} value={f.description} placeholder="Trading and order management systems" onChange={(e) => set("description", e.target.value)} />
+            <Input id={`${uid}-desc`} maxLength={500} value={f.description} placeholder="Trading and order management systems" onChange={(e) => set("description", e.target.value)} />
           </label>
-          <label className="ld-form-field" htmlFor={`${uid}-icon`}>
+          <label className={ui.field} htmlFor={`${uid}-icon`}>
             Icon
-            <select id={`${uid}-icon`} className="ld-select" value={f.icon} onChange={(e) => set("icon", e.target.value)}>
+            <Select id={`${uid}-icon`} value={f.icon} onChange={(e) => set("icon", e.target.value)}>
               {ICONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
+            </Select>
           </label>
 
-          <fieldset className="ld-heat-pick">
-            <legend>Services ({f.services.length} selected)</legend>
+          <fieldset className={pick}>
+            <legend className={pickLegend}>Services ({f.services.length} selected)</legend>
             {services.length ? (
-              <ul>
+              <ul className={pickList}>
                 {services.map((x) => (
-                  <li key={x.name}><label><input type="checkbox" checked={f.services.includes(x.name)} onChange={() => toggle("services", x.name)} /> {x.name}</label></li>
+                  <li key={x.name}><label className={pickLabel}><input type="checkbox" checked={f.services.includes(x.name)} onChange={() => toggle("services", x.name)} /> {x.name}</label></li>
                 ))}
               </ul>
             ) : <Empty>No APM services yet.</Empty>}
           </fieldset>
 
-          <fieldset className="ld-heat-pick">
-            <legend>Whole device kinds ({f.device_kinds.length} selected)</legend>
+          <fieldset className={pick}>
+            <legend className={pickLegend}>Whole device kinds ({f.device_kinds.length} selected)</legend>
             {kinds.length ? (
-              <ul>
+              <ul className={pickList}>
                 {kinds.map((k) => (
                   <li key={k}>
-                    <label><input type="checkbox" checked={f.device_kinds.includes(k)} onChange={() => toggle("device_kinds", k)} /> {kindLabel[k] ?? k}{" "}
-                      <span className="ld-muted ld-small">({devices.filter((d) => d.kind === k).length})</span></label>
+                    <label className={pickLabel}><input type="checkbox" checked={f.device_kinds.includes(k)} onChange={() => toggle("device_kinds", k)} /> {kindLabel[k] ?? k}{" "}
+                      <span className="text-fg-muted text-xs">({devices.filter((d) => d.kind === k).length})</span></label>
                   </li>
                 ))}
               </ul>
             ) : <Empty>No devices yet.</Empty>}
           </fieldset>
 
-          <fieldset className="ld-heat-pick">
-            <legend>Individual devices ({f.devices.filter((id) => !byKind.has(devices.find((d) => d.id === id)?.kind ?? "")).length} selected)</legend>
+          <fieldset className={pick}>
+            <legend className={pickLegend}>Individual devices ({f.devices.filter((id) => !byKind.has(devices.find((d) => d.id === id)?.kind ?? "")).length} selected)</legend>
             <label className="sr-only" htmlFor={`${uid}-dev-q`}>Search devices</label>
-            <span className="ld-search">
-              <Icon icon={SearchIcon} />
-              <input id={`${uid}-dev-q`} value={devSearch} onChange={(e) => setDevSearch(e.target.value)} placeholder="Device id or role…" />
-            </span>
+            <SearchBox inputClassName={searchInputFix} icon={<Icon icon={SearchIcon} />} id={`${uid}-dev-q`} value={devSearch} onChange={(e) => setDevSearch(e.target.value)} placeholder="Device id or role…" />
             {shown.length ? (
-              <ul>
+              <ul className={pickList}>
                 {shown.map((d) => (
                   <li key={d.id}>
-                    <label><input type="checkbox" checked={f.devices.includes(d.id)} onChange={() => toggle("devices", d.id)} />{" "}
-                      <span className="ld-mono">{d.id}</span> <span className="ld-muted ld-small">{kindLabel[d.kind] ?? d.kind}{d.role ? ` · ${d.role}` : ""}</span></label>
+                    <label className={pickLabel}><input type="checkbox" checked={f.devices.includes(d.id)} onChange={() => toggle("devices", d.id)} />{" "}
+                      <span className={ui.mono}>{d.id}</span> <span className="text-fg-muted text-xs">{kindLabel[d.kind] ?? d.kind}{d.role ? ` · ${d.role}` : ""}</span></label>
                   </li>
                 ))}
               </ul>
             ) : <Empty>{q ? "No devices match." : "Every device is covered by a selected kind."}</Empty>}
-            {devMatches.length > shown.length && <p className="ld-muted ld-small">Showing {shown.length} of {devMatches.length}; search to narrow.</p>}
+            {devMatches.length > shown.length && <p className="text-fg-muted text-xs">Showing {shown.length} of {devMatches.length}; search to narrow.</p>}
           </fieldset>
         </fieldset>
 
-        {(save.error || del.error) && <p className="ld-dom-error" role="alert">{apiErrorText(save.error ?? del.error)}</p>}
-        <div className="ld-dom-actions">
-          {!readOnly && <button type="submit" className="ld-btn ld-btn-primary" disabled={save.isPending}>{save.isPending ? "Saving…" : domain ? "Save changes" : "Add domain"}</button>}
-          <button type="button" className="ld-btn" onClick={() => onDone()}>{readOnly ? "Close" : "Cancel"}</button>
+        {(save.error || del.error) && <p className={formError} role="alert">{apiErrorText(save.error ?? del.error)}</p>}
+        <div className={formActions}>
+          {!readOnly && <Button type="submit" variant="primary" disabled={save.isPending}>{save.isPending ? "Saving…" : domain ? "Save changes" : "Add domain"}</Button>}
+          <Button onClick={() => onDone()}>{readOnly ? "Close" : "Cancel"}</Button>
           {domain && !readOnly && (
-            <button type="button" className="ld-btn ld-heat-delete" disabled={del.isPending}
+            <Button className="ml-auto !text-critical" disabled={del.isPending}
               onClick={() => { if (window.confirm(`Delete the ${domain.name} domain? Its services and devices are not affected.`)) del.mutate(domain.id, { onSuccess: () => onDone() }); }}>
               <Icon icon={Trash2Icon} /> Delete
-            </button>
+            </Button>
           )}
         </div>
       </form>
-    </section>
+    </Card>
   );
 }

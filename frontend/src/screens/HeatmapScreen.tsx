@@ -5,18 +5,20 @@
 // defined, services form an Applications domain and devices are grouped by
 // kind. Every cell is live API data; a signal with no source is grey.
 import React from "react";
-import "@/styles/observe.css";
 import { useNav } from "@/hooks/useNav";
 import { useAllDevices, useAllServices, useDeviceLoad, useInfraAlerts, useServiceDomains } from "@/api/hooks";
 import type { ServiceDomain } from "@/api/hooks";
 import { DomainEditor } from "@/components/ServiceDomainEditor";
 import type { Device, InfraAlert, Service } from "@/lib/types";
 import { deviceRoute } from "@/lib/deviceRoute";
-import { Empty, Pill, fmt } from "@/components/ld";
+import { Empty, Pill, PillDot, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
 import { Icon } from "@/components/Icon";
-import { ArrowRightIcon, ChevronRightIcon, ListIcon, NetworkIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { Button, Card, Crumbs, Page, PageHead, SearchBox, Select, Tab, Table, Tabs, TextButton, Tile, cx, ui } from "@/components/ui";
+import { ArrowRightIcon, ListIcon, NetworkIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
+/** The global input:focus outline colour beats SearchBox's outline-none; keep the inner input unringed (the box shows the ring). */
+const searchInputFix = "focus:outline-none";
 type Health = "ok" | "warn" | "crit" | "unknown";
 type ColKey = "health" | "availability" | "response" | "errors" | "alerts" | "cpu" | "memory";
 
@@ -69,6 +71,24 @@ const worst = (hs: Health[]): Health => hs.reduce<Health>((w, h) => (RANK[h] > R
 const NONE: Cell = { health: "unknown", value: "No data" };
 const TONE: Record<Health, Tone> = { ok: "ok", warn: "warn", crit: "crit", unknown: "muted" };
 const LABEL: Record<Health, string> = { ok: "Healthy", warn: "Warning", crit: "Critical", unknown: "Unknown" };
+/** Heat cell and legend swatch colour per health. */
+const HEAT: Record<Health, string> = {
+  ok: "bg-[#5fcf80] text-[#064e2b]",
+  warn: "bg-warning text-[#4a2a00]",
+  crit: "bg-critical text-white",
+  unknown: "bg-line text-fg-muted",
+};
+const heatTh = "text-xs font-semibold text-fg px-0.5 py-1.5 whitespace-nowrap";
+/** Highlighted (selected) table row. */
+const heatSelected = "[&>*]:bg-bg-raised";
+/** Side panels, their h2 and the note right under it. */
+const heatPanel = "p-4 flex flex-col gap-3";
+const heatPanelTitle = "m-0 text-2xl";
+const heatPanelNote = "-mt-2 text-fg-muted text-xs";
+/** A device id link (monospace). */
+const monoLink = "font-mono !text-xs font-semibold";
+/** A tab-styled link to another screen (looks like a Tab, without the tab role). */
+const navTab = "border-0 border-b-2 border-transparent bg-transparent text-base text-fg-muted px-3.5 py-2.5 -mb-px cursor-pointer hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2";
 
 function statusHealth(s: string): Health {
   const v = s.toLowerCase();
@@ -231,74 +251,63 @@ export default function HeatmapScreen() {
   const toggle = (domainId: string) => setCollapsed((s) => { const n = new Set(s); n.has(domainId) ? n.delete(domainId) : n.add(domainId); return n; });
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>Heatmap</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Heatmap" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Heatmap</h1>
-          <p>Service and infrastructure health at a glance</p>
-        </div>
-        <div className="ld-head-actions">
+      <PageHead
+        title="Heatmap"
+        subtitle="Service and infrastructure health at a glance"
+        actions={<>
           {updatedAt > 0 && (
-            <span className="ld-muted ld-small"><span className="ld-live"><span className="ld-pill-dot" /> Live</span> Updated {new Date(updatedAt).toLocaleTimeString("en-GB")}</span>
+            <span className="text-fg-muted text-xs"><span className={ui.live}><PillDot /> Live</span> Updated {new Date(updatedAt).toLocaleTimeString("en-GB")}</span>
           )}
-          <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}>
+          <Button onClick={() => setRoute("infra-topology")}>
             <Icon icon={NetworkIcon} /> View Topology
-          </button>
-          <button type="button" className="ld-btn ld-btn-primary" onClick={() => setEditing("new")}>
+          </Button>
+          <Button variant="primary" onClick={() => setEditing("new")}>
             <Icon icon={PlusIcon} /> Add Domain
-          </button>
-        </div>
-      </div>
+          </Button>
+        </>}
+      />
 
-      <div className="ld-card ld-filters ld-heat-filters">
-        <label className="ld-field" htmlFor={`${id}-dom`}>
+      <Card className="flex flex-wrap items-end gap-3 px-4 py-3">
+        <label className={ui.filterField} htmlFor={`${id}-dom`}>
           Domain
-          <select id={`${id}-dom`} className="ld-select" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
+          <Select id={`${id}-dom`} value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)}>
             <option value="">All domains</option>
             {domains.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          </Select>
         </label>
-        <label className="ld-field ld-field-grow" htmlFor={`${id}-q`}>
+        <label className={cx(ui.filterField, ui.fieldGrow)} htmlFor={`${id}-q`}>
           Search
-          <span className="ld-search">
-            <Icon icon={SearchIcon} />
-            <input id={`${id}-q`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Service, device kind or device id…" />
-          </span>
+          <SearchBox inputClassName={searchInputFix} id={`${id}-q`} icon={<Icon icon={SearchIcon} />} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Service, device kind or device id…" />
         </label>
-        <ul className="ld-heat-legend" aria-label="Legend">
+        <ul className="list-none flex flex-wrap gap-3.5 mt-0 mr-auto mb-2 ml-0 p-0 text-sm text-fg-muted" aria-label="Legend">
           {(["ok", "warn", "crit", "unknown"] as Health[]).map((h) => (
-            <li key={h}><span className={`ld-heat-swatch ld-heat-${h}`} aria-hidden="true" /> {h === "unknown" ? "No data" : LABEL[h]}</li>
+            <li key={h} className="flex items-center gap-1.5"><span className={cx("w-3 h-3 rounded-full inline-block", HEAT[h])} aria-hidden="true" /> {h === "unknown" ? "No data" : LABEL[h]}</li>
           ))}
         </ul>
-        <button type="button" className={`ld-btn${showValues ? " ld-btn-primary" : ""}`} aria-pressed={showValues} onClick={() => setShowValues((v) => !v)}>
+        <Button variant={showValues ? "primary" : "default"} aria-pressed={showValues} onClick={() => setShowValues((v) => !v)}>
           <Icon icon={ListIcon} /> {showValues ? "Show colours" : "Show values"}
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       {loading ? (
-        <div className="ld-card"><Empty>Loading…</Empty></div>
+        <Card><Empty>Loading…</Empty></Card>
       ) : unreachable ? (
-        <div className="ld-card"><Empty>The API is not reachable from this browser.</Empty></div>
+        <Card><Empty>The API is not reachable from this browser.</Empty></Card>
       ) : !domains.length ? (
-        <div className="ld-card"><Empty>No services or devices are monitored for this client yet.</Empty></div>
+        <Card><Empty>No services or devices are monitored for this client yet.</Empty></Card>
       ) : (
-        <div className="ld-heat-layout">
-          <section className="ld-card ld-heat-grid" aria-label="Health heatmap">
+        <div className="grid grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-4 items-start [@media(max-width:1200px)]:grid-cols-1">
+          <Card as="section" className="px-3 pt-2 pb-3" aria-label="Health heatmap">
             {visible.length ? (
-              <div className="ld-table-wrap">
-                <table className={`ld-heat${showValues ? " ld-heat-values" : ""}`}>
+              <div className={ui.tableWrap}>
+                <table className="w-full border-separate [border-spacing:4px_3px] text-sm">
                   <thead>
                     <tr>
-                      <th scope="col">Domain / Service</th>
-                      {COLS.map((c) => <th key={c.key} scope="col" title={c.hint}>{c.label}</th>)}
+                      <th scope="col" className={cx(heatTh, "text-left")}>Domain / Service</th>
+                      {COLS.map((c) => <th key={c.key} scope="col" title={c.hint} className={cx(heatTh, "text-center")}>{c.label}</th>)}
                     </tr>
                   </thead>
                   {visible.map((d) => {
@@ -306,26 +315,26 @@ export default function HeatmapScreen() {
                     const dh = domainHealth(d);
                     return (
                       <tbody key={d.id}>
-                        <tr className="ld-heat-domain">
-                          <th scope="rowgroup" colSpan={COLS.length + 1}>
-                            <button type="button" className="ld-heat-toggle" aria-expanded={open} onClick={() => toggle(d.id)}>
+                        <tr>
+                          <th scope="rowgroup" colSpan={COLS.length + 1} className="text-left pt-3 pb-1 px-0 [&>*]:mr-2 [&>*]:align-middle">
+                            <button type="button" className="bg-transparent border-0 p-0 font-bold text-base text-fg cursor-pointer inline-flex items-center gap-2 [&_.ld-icon]:text-2xs [&_.ld-icon]:text-fg-muted [&_.ld-icon]:w-3" aria-expanded={open} onClick={() => toggle(d.id)}>
                               <Icon className={`fa-solid ${open ? "fa-chevron-down" : "fa-chevron-right"}`} />
                               {d.name}
                             </button>
                             <Pill tone={TONE[dh]}>{LABEL[dh]}</Pill>
-                            <button type="button" className="ld-link ld-small" onClick={() => pick(d.id)}>Details</button>
+                            <TextButton className="!text-xs" onClick={() => pick(d.id)}>Details</TextButton>
                           </th>
                         </tr>
                         {open && d.rows.map((r) => (
-                          <tr key={r.id} className={selectedRow === r.id ? "ld-heat-selected" : undefined}>
-                            <th scope="row">
-                              <button type="button" className="ld-link" onClick={() => pick(d.id, r.id)}>{r.name}</button>
+                          <tr key={r.id} className={selectedRow === r.id ? heatSelected : undefined}>
+                            <th scope="row" className="text-left font-normal pl-6 pr-1.5 py-0.5 whitespace-nowrap">
+                              <TextButton onClick={() => pick(d.id, r.id)}>{r.name}</TextButton>
                             </th>
                             {COLS.map((c) => {
                               const cell = r.cells[c.key];
                               return (
-                                <td key={c.key}>
-                                  <span className={`ld-heat-cell ld-heat-${cell.health}`} title={`${r.name} · ${c.label}: ${cell.value}`}>
+                                <td key={c.key} className="p-0 min-w-[38px]">
+                                  <span className={cx("flex items-center justify-center rounded-[4px] text-2xs font-semibold whitespace-nowrap px-1", showValues ? "min-h-[22px]" : "h-5", HEAT[cell.health])} title={`${r.name} · ${c.label}: ${cell.value}`}>
                                     {showValues ? cell.value : <span className="sr-only">{c.label}: {cell.value} ({LABEL[cell.health]})</span>}
                                   </span>
                                 </td>
@@ -341,58 +350,56 @@ export default function HeatmapScreen() {
             ) : (
               <Empty>Nothing matches these filters.</Empty>
             )}
-            <p className="ld-muted ld-small ld-heat-note">
+            <p className="text-fg-muted text-xs mt-3 mx-1 mb-0">
               Grey means the signal has no source for that row: APM gives services availability, response and errors; devices give status, alerts and CPU / memory ({liveLoad ? "live from Prometheus where reported, otherwise the last inventory values" : "last inventory values"}).
             </p>
-          </section>
+          </Card>
 
-          <div className="ld-heat-side">
-            <section className="ld-card ld-heat-panel" aria-labelledby={`${id}-domains`}>
-              <h2 id={`${id}-domains`}>Domains</h2>
-              <p className="ld-muted ld-small">Business and infrastructure domains and their health</p>
-              <ul className="ld-heat-stats">
+          <div className="flex flex-col gap-4 min-w-0">
+            <Card as="section" className={heatPanel} aria-labelledby={`${id}-domains`}>
+              <h2 id={`${id}-domains`} className={heatPanelTitle}>Domains</h2>
+              <p className={heatPanelNote}>Business and infrastructure domains and their health</p>
+              <ul className="list-none m-0 p-0 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2.5">
                 {([
                   ["fa-layer-group", "info", "Total domains", domains.length],
                   ["fa-circle-check", "ok", "Healthy", counts.ok],
                   ["fa-triangle-exclamation", "warn", "Warning", counts.warn],
                   ["fa-circle-xmark", "crit", "Critical", counts.crit],
                 ] as const).map(([icon, tone, label, n]) => (
-                  <li key={label} className="ld-heat-stat">
-                    <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
-                    <span><span className="ld-muted ld-small">{label}</span><b>{fmt(n)}</b></span>
+                  <li key={label} className="flex items-center gap-2.5 px-3 py-2.5 border border-line rounded-[10px]">
+                    <Tile tone={tone}><Icon className={`fa-solid ${icon}`} /></Tile>
+                    <span className="flex flex-col"><span className="text-fg-muted text-xs">{label}</span><b className="text-[20px] leading-[1.2]">{fmt(n)}</b></span>
                   </li>
                 ))}
               </ul>
-              <div className="ld-table-wrap">
-                <table className="ld-table">
-                  <thead>
-                    <tr><th scope="col">Domain</th><th scope="col">Health</th><th scope="col">Availability</th><th scope="col">Error rate</th><th scope="col">p95</th></tr>
-                  </thead>
-                  <tbody>
-                    {domains.map((d) => {
-                      const h = domainHealth(d);
-                      const a = avg(d.rows.map((r) => r.availability));
-                      const e = avg(d.rows.map((r) => r.errRate));
-                      const p = d.rows.map((r) => r.p95ms).filter((v): v is number => v != null);
-                      return (
-                        <tr key={d.id} className={current?.id === d.id ? "ld-heat-selected" : undefined}>
-                          <td>
-                            <button type="button" className="ld-link ld-strong" onClick={() => pick(d.id)}>
-                              <Icon className={`fa-solid ${d.icon}`} /> {d.name}
-                            </button>
-                            <span className="ld-sub">{d.rows.length} {d.rows.every((r) => r.service) ? "service" : d.rows.every((r) => !r.service) ? "device kind" : "row"}{d.rows.length === 1 ? "" : "s"}</span>
-                          </td>
-                          <td><Pill tone={TONE[h]}><span className="ld-pill-dot" />{LABEL[h]}</Pill></td>
-                          <td>{a == null ? "—" : pct(a)}</td>
-                          <td>{e == null ? "—" : pct(e)}</td>
-                          <td>{p.length ? fmtMs(Math.max(...p)) : "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+              <Table>
+                <thead>
+                  <tr><th scope="col">Domain</th><th scope="col">Health</th><th scope="col">Availability</th><th scope="col">Error rate</th><th scope="col">p95</th></tr>
+                </thead>
+                <tbody>
+                  {domains.map((d) => {
+                    const h = domainHealth(d);
+                    const a = avg(d.rows.map((r) => r.availability));
+                    const e = avg(d.rows.map((r) => r.errRate));
+                    const p = d.rows.map((r) => r.p95ms).filter((v): v is number => v != null);
+                    return (
+                      <tr key={d.id} className={current?.id === d.id ? heatSelected : undefined}>
+                        <td>
+                          <TextButton className="font-medium" onClick={() => pick(d.id)}>
+                            <Icon className={`fa-solid ${d.icon}`} /> {d.name}
+                          </TextButton>
+                          <span className={ui.sub}>{d.rows.length} {d.rows.every((r) => r.service) ? "service" : d.rows.every((r) => !r.service) ? "device kind" : "row"}{d.rows.length === 1 ? "" : "s"}</span>
+                        </td>
+                        <td><Pill tone={TONE[h]}><PillDot />{LABEL[h]}</Pill></td>
+                        <td>{a == null ? "—" : pct(a)}</td>
+                        <td>{e == null ? "—" : pct(e)}</td>
+                        <td>{p.length ? fmtMs(Math.max(...p)) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </Card>
 
             {editing != null ? (
               <DomainEditor
@@ -410,7 +417,7 @@ export default function HeatmapScreen() {
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }
 
@@ -429,83 +436,79 @@ function DomainDetails({ domain, rowId, tab, setTab, onRow, onEdit }: {
   const tabs = [{ id: "overview" as const, label: "Overview" }, ...(hasDevices ? [{ id: "alerts" as const, label: `Alerts (${alerts.length})` }] : [])];
 
   return (
-    <section className="ld-card ld-heat-panel" aria-labelledby="ld-heat-detail">
-      <div className="ld-heat-detail-head">
-        <h2 id="ld-heat-detail">Domain details — {domain.name}</h2>
-        <Pill tone={TONE[h]}><span className="ld-pill-dot" />{LABEL[h]}</Pill>
-        {onEdit && <button type="button" className="ld-btn ld-btn-sm ld-heat-edit" onClick={onEdit}><Icon icon={PencilIcon} /> Edit domain</button>}
+    <Card as="section" className={heatPanel} aria-labelledby="ld-heat-detail">
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <h2 id="ld-heat-detail" className={heatPanelTitle}>Domain details — {domain.name}</h2>
+        <Pill tone={TONE[h]}><PillDot />{LABEL[h]}</Pill>
+        {onEdit && <Button size="sm" className="ml-auto" onClick={onEdit}><Icon icon={PencilIcon} /> Edit domain</Button>}
       </div>
-      <div className="ld-tabs" role="tablist">
+      <Tabs>
         {tabs.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>{t.label}</button>
+          <Tab key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</Tab>
         ))}
-        {hasServices && <button type="button" className="ld-tab" onClick={() => setRoute("apm")}>APM <Icon icon={ArrowRightIcon} /></button>}
-        {hasDevices && <button type="button" className="ld-tab" onClick={() => setRoute("infra-assets")}>Assets <Icon icon={ArrowRightIcon} /></button>}
-      </div>
+        {hasServices && <button type="button" className={navTab} onClick={() => setRoute("apm")}>APM <Icon icon={ArrowRightIcon} /></button>}
+        {hasDevices && <button type="button" className={navTab} onClick={() => setRoute("infra-assets")}>Assets <Icon icon={ArrowRightIcon} /></button>}
+      </Tabs>
 
       {tab === "alerts" && hasDevices ? (
         alerts.length ? (
-          <ul className="ld-activity">
+          <ul className={ui.activity}>
             {alerts.slice(0, 8).map((x) => (
-              <li key={x.id}>
+              <li key={x.id} className={ui.activityItem}>
                 <Pill tone={x.sev === "critical" ? "crit" : x.sev === "info" ? "info" : "warn"}>{x.sev}</Pill>{" "}
-                <button type="button" className="ld-link ld-mono" onClick={() => setRoute(deviceRoute(x.deviceKind), { deviceId: x.device })}>{x.device}</button>{" "}
-                {x.title} <span className="ld-muted ld-small">· {x.since}</span>
+                <TextButton className={monoLink} onClick={() => setRoute(deviceRoute(x.deviceKind), { deviceId: x.device })}>{x.device}</TextButton>{" "}
+                {x.title} <span className="text-fg-muted text-xs">· {x.since}</span>
               </li>
             ))}
           </ul>
         ) : <Empty>No open alerts in this domain.</Empty>
       ) : (
         <>
-          <div className="ld-heat-summary">
+          <div className="flex items-center gap-3.5 p-3 border border-line rounded-[10px] [&>.ld-icon]:text-5xl [&>.ld-icon]:text-accent">
             <Icon className={`fa-solid ${domain.icon}`} />
-            <div><b>{domain.name}</b><p className="ld-muted ld-small">{domain.description}</p></div>
-            <div className="ld-heat-summary-val"><b>{a == null ? "—" : pct(a)}</b><span className="ld-muted ld-small">Availability</span></div>
+            <div><b>{domain.name}</b><p className="text-fg-muted text-xs mt-0.5">{domain.description}</p></div>
+            <div className="ml-auto text-right flex flex-col"><b className="text-[20px]">{a == null ? "—" : pct(a)}</b><span className="text-fg-muted text-xs">Availability</span></div>
           </div>
-          <div className="ld-table-wrap">
-            <table className="ld-table">
-              <thead>
-                <tr>
-                  <th scope="col">{hasServices && hasDevices ? "Service / device kind" : hasServices ? "Service" : "Device kind"}</th><th scope="col">Health</th><th scope="col">Availability</th>
-                  <th scope="col">{hasServices && hasDevices ? "Errors / alerts" : hasServices ? "Error rate" : "Alerts"}</th><th scope="col">{hasServices && hasDevices ? "p95 / CPU" : hasServices ? "p95" : "CPU"}</th>
+          <Table>
+            <thead>
+              <tr>
+                <th scope="col">{hasServices && hasDevices ? "Service / device kind" : hasServices ? "Service" : "Device kind"}</th><th scope="col">Health</th><th scope="col">Availability</th>
+                <th scope="col">{hasServices && hasDevices ? "Errors / alerts" : hasServices ? "Error rate" : "Alerts"}</th><th scope="col">{hasServices && hasDevices ? "p95 / CPU" : hasServices ? "p95" : "CPU"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...domain.rows].sort((x, y) => RANK[y.cells.health.health] - RANK[x.cells.health.health]).map((r) => (
+                <tr key={r.id} className={r.id === rowId ? heatSelected : undefined}>
+                  <td><TextButton onClick={() => (r.service ? setRoute("apm") : onRow(r.id))}>{r.name}</TextButton></td>
+                  <td><Pill tone={TONE[r.cells.health.health]}>{r.service ? r.cells.health.value : LABEL[r.cells.health.health]}</Pill></td>
+                  <td>{r.cells.availability.value}</td>
+                  <td>{r.service ? r.cells.errors.value : r.cells.alerts.value}</td>
+                  <td>{r.service ? r.cells.response.value : r.cells.cpu.value}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {[...domain.rows].sort((x, y) => RANK[y.cells.health.health] - RANK[x.cells.health.health]).map((r) => (
-                  <tr key={r.id} className={r.id === rowId ? "ld-heat-selected" : undefined}>
-                    <td><button type="button" className="ld-link" onClick={() => (r.service ? setRoute("apm") : onRow(r.id))}>{r.name}</button></td>
-                    <td><Pill tone={TONE[r.cells.health.health]}>{r.service ? r.cells.health.value : LABEL[r.cells.health.health]}</Pill></td>
-                    <td>{r.cells.availability.value}</td>
-                    <td>{r.service ? r.cells.errors.value : r.cells.alerts.value}</td>
-                    <td>{r.service ? r.cells.response.value : r.cells.cpu.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </Table>
           {row && row.devices.length > 0 && (
             <>
-              <h3 className="ld-heat-sub">{row.name} ({row.devices.length})</h3>
-              <div className="ld-table-wrap">
-                <table className="ld-table">
-                  <thead><tr><th scope="col">Device</th><th scope="col">Status</th><th scope="col">Site</th><th scope="col">CPU</th><th scope="col">Memory</th></tr></thead>
-                  <tbody>
-                    {[...row.devices].sort((x, y) => RANK[statusHealth(y.status)] - RANK[statusHealth(x.status)]).map((d) => (
-                      <tr key={d.id}>
-                        <td><button type="button" className="ld-link ld-mono" onClick={() => setRoute(deviceRoute(d.kind), { deviceId: d.id })}>{d.id}</button><span className="ld-sub">{d.role}</span></td>
-                        <td><Pill tone={TONE[statusHealth(d.status)]}><span className="ld-pill-dot" />{d.status}</Pill></td>
-                        <td className="ld-muted">{d.site}</td>
-                        <td>{row.usage.get(d.id)?.cpu ?? "—"}{row.usage.get(d.id)?.cpu != null && "%"}</td>
-                        <td>{row.usage.get(d.id)?.mem ?? "—"}{row.usage.get(d.id)?.mem != null && "%"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <h3 className="mt-1 mb-0 text-base">{row.name} ({row.devices.length})</h3>
+              <Table>
+                <thead><tr><th scope="col">Device</th><th scope="col">Status</th><th scope="col">Site</th><th scope="col">CPU</th><th scope="col">Memory</th></tr></thead>
+                <tbody>
+                  {[...row.devices].sort((x, y) => RANK[statusHealth(y.status)] - RANK[statusHealth(x.status)]).map((d) => (
+                    <tr key={d.id}>
+                      <td><TextButton className={monoLink} onClick={() => setRoute(deviceRoute(d.kind), { deviceId: d.id })}>{d.id}</TextButton><span className={ui.sub}>{d.role}</span></td>
+                      <td><Pill tone={TONE[statusHealth(d.status)]}><PillDot />{d.status}</Pill></td>
+                      <td>{d.site}</td>
+                      <td>{row.usage.get(d.id)?.cpu ?? "—"}{row.usage.get(d.id)?.cpu != null && "%"}</td>
+                      <td>{row.usage.get(d.id)?.mem ?? "—"}{row.usage.get(d.id)?.mem != null && "%"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
             </>
           )}
         </>
       )}
-    </section>
+    </Card>
   );
 }
