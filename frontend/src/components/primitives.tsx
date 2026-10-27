@@ -4,16 +4,33 @@ import React from "react";
 import { USERS } from "@/data/core";
 
 import { Icon } from "@/components/Icon";
+import { cx } from "@/components/ui";
+
+const AVATAR_BG: Record<string, string> = {
+  amber: "bg-[linear-gradient(135deg,#f59e0b,#ef4444)]",
+  green: "bg-[linear-gradient(135deg,#10b981,#059669)]",
+  purple: "bg-[linear-gradient(135deg,#8b5cf6,#6366f1)]",
+  pink: "bg-[linear-gradient(135deg,#ec4899,#8b5cf6)]",
+  teal: "bg-[linear-gradient(135deg,#14b8a6,#0891b2)]",
+  slate: "bg-[linear-gradient(135deg,#64748b,#475569)]",
+};
+
 export const Avatar = ({ name, color = "slate", size }: { name: string; color?: string; size?: string }) => {
   const initials = name.split(" ").map((n) => n[0]).slice(0, 2).join("");
-  return <div className={`avatar ${color}${size ? " " + size : ""}`}>{initials}</div>;
+  return (
+    <div className={cx(
+      "rounded-[50%] grid place-items-center text-white font-semibold shrink-0",
+      size === "sm" ? "w-[22px] h-[22px] text-[9.5px]" : "w-7 h-7 text-2xs",
+      AVATAR_BG[color] ?? "bg-[linear-gradient(135deg,#2563eb,#8b5cf6)]",
+    )}>{initials}</div>
+  );
 };
 
 export const UserById = ({ id, showName = true, size = "sm" }: { id: string | null | undefined; showName?: boolean; size?: string }) => {
   const u = USERS.find((x) => x.id === id);
-  if (!u) return <span className="text-mute" style={{ fontStyle: "italic" }}>Unassigned</span>;
+  if (!u) return <span className="text-fg-subtle" style={{ fontStyle: "italic" }}>Unassigned</span>;
   return (
-    <div className="row row-8">
+    <div className="flex items-center gap-2">
       <Avatar name={u.name} color={u.color} size={size} />
       {showName && (
         <div style={{ minWidth: 0 }}>
@@ -37,27 +54,51 @@ export const Sparkline = ({ data, color = "var(--accent)", w = 80, h = 30, area 
   const d = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
   const areaD = `${d} L${w},${h} L0,${h} Z`;
   return (
-    <svg width={w} height={h} className="mini-chart" style={{ color, display: "block" }}>
-      {area && <path className="spark-area" d={areaD} />}
-      <path className="spark-line" d={d} />
+    <svg width={w} height={h} className="w-full h-[60px] block" style={{ color, display: "block" }}>
+      {area && <path className="fill-current opacity-[.12]" d={areaD} />}
+      <path className="stroke-current fill-none stroke-[1.5]" d={d} />
     </svg>
   );
 };
 
+const PILL_KIND: Record<string, string> = {
+  success: "bg-[#ecfdf3] text-[#027a48] dark:bg-[rgba(16,185,129,.15)] dark:text-[#6ee7b7]",
+  warning: "bg-[#fffaeb] text-[#b54708] dark:bg-[rgba(245,158,11,.15)] dark:text-[#fcd34d]",
+  critical: "bg-[#fef3f2] text-[#b42318] dark:bg-[rgba(239,68,68,.15)] dark:text-[#fca5a5]",
+  info: "bg-[#eff8ff] text-[#175cd3] dark:bg-[rgba(59,130,246,.15)] dark:text-[#93c5fd]",
+  purple: "bg-[#f4ebff] text-[#6941c6]",
+  neutral: "bg-bg-muted text-fg-muted",
+  ghost: "bg-transparent border border-line text-fg-muted",
+};
+
 export const Pill = ({ kind = "neutral", children, noDot }: { kind?: string; children: React.ReactNode; noDot?: boolean }) => (
-  <span className={`pill ${kind}${noDot ? " no-dot" : ""}`}>{children}</span>
+  <span className={cx(
+    "inline-flex items-center gap-[5px] py-0.5 px-2 text-2xs font-semibold rounded-[4px] tracking-[0.005em] whitespace-nowrap leading-[1.6]",
+    !noDot && "before:content-[''] before:w-[5px] before:h-[5px] before:rounded-[50%] before:bg-current",
+    PILL_KIND[kind],
+  )}>{children}</span>
 );
 
+const SEV_KIND: Record<number, string> = {
+  1: "bg-critical text-white",
+  2: "bg-[#ea580c] text-white",
+  3: "bg-warning text-[#7c2d12]",
+  4: "bg-info text-white",
+  5: "bg-bg-muted text-fg-muted",
+};
+
 export const Sev = ({ n }: { n: number }) => (
-  <span className={`sev sev-${n}`}>SEV {n}</span>
+  <span className={cx("inline-flex items-center gap-1.5 text-2xs font-semibold py-0.5 px-2 rounded-[4px] uppercase tracking-[0.04em] [font-family:var(--font-mono)]", SEV_KIND[n])}>SEV {n}</span>
 );
 
 export const SLAIndicator = ({ pct, label }: { pct: number; label?: string }) => {
   const kind = pct < 0.4 ? "bad" : pct < 0.7 ? "warn" : "good";
   return (
-    <div className="sla">
-      <div className="sla-bar"><div className={`sla-fill ${kind}`} style={{ width: `${pct * 100}%` }} /></div>
-      <span className="sla-text">{label || `${Math.round(pct * 100)}%`}</span>
+    <div className="flex items-center gap-2 min-w-[120px]">
+      <div className="flex-1 h-1 bg-bg-muted rounded-[2px] overflow-hidden min-w-[40px]">
+        <div className={cx("h-full rounded-[2px] [transition:width_0.3s]", kind === "bad" ? "bg-critical" : kind === "warn" ? "bg-warning" : "bg-success")} style={{ width: `${pct * 100}%` }} />
+      </div>
+      <span className="text-2xs text-fg-subtle tabular-nums min-w-[36px]">{label || `${Math.round(pct * 100)}%`}</span>
     </div>
   );
 };
@@ -69,8 +110,8 @@ export const Gauge = ({ value, size = 100, stroke = 10, color = "var(--accent)" 
   const cy = size / 2 + r / 2;
   return (
     <svg width={size} height={size / 2 + stroke} style={{ overflow: "visible" }}>
-      <path className="arc-bg" d={`M ${stroke / 2} ${cy} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${cy}`} strokeWidth={stroke} />
-      <path className="arc-fg" d={`M ${stroke / 2} ${cy} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${cy}`}
+      <path className="stroke-bg-muted fill-none" d={`M ${stroke / 2} ${cy} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${cy}`} strokeWidth={stroke} />
+      <path className="fill-none [stroke-linecap:round] [transition:stroke-dashoffset_0.5s]" d={`M ${stroke / 2} ${cy} A ${r} ${r} 0 0 1 ${size - stroke / 2} ${cy}`}
         strokeWidth={stroke} stroke={color}
         strokeDasharray={c} strokeDashoffset={offset} />
     </svg>
@@ -144,16 +185,16 @@ export const KPI = ({ label, value, unit, delta, deltaKind = "up", sparkData, sp
   icon?: string;
   showSpark?: boolean;
 }) => (
-  <div className="kpi">
-    <div className="kpi-label">{icon && <Icon className={`fa-solid ${icon}`} style={{ fontSize: 11 }} />} {label}</div>
-    <div className="kpi-value">{value}{unit && <span className="unit">{unit}</span>}</div>
+  <div className="py-4 px-4.5 relative overflow-hidden [[data-density=compact]_&]:py-3 [[data-density=compact]_&]:px-3.5 [[data-density=comfy]_&]:py-5 [[data-density=comfy]_&]:px-5.5">
+    <div className="text-2xs font-semibold text-fg-subtle uppercase tracking-[0.05em] mb-1.5 flex items-center gap-1.5">{icon && <Icon className={`fa-solid ${icon}`} style={{ fontSize: 11 }} />} {label}</div>
+    <div className="text-5xl font-semibold tracking-[-0.025em] text-fg mt-1.5 leading-[1.1] tabular-nums [[data-density=compact]_&]:text-3xl [[data-density=comfy]_&]:text-[30px]">{value}{unit && <span className="text-base text-fg-subtle font-medium ml-0.5">{unit}</span>}</div>
     {delta != null && (
-      <div className={`kpi-delta ${deltaKind}`}>
+      <div className={cx("mt-1 text-[11.5px] font-medium inline-flex items-center gap-1", deltaKind === "down" ? "text-critical" : "text-success")}>
         <Icon className={`fa-solid ${deltaKind === "up" ? "fa-arrow-trend-up" : deltaKind === "down" ? "fa-arrow-trend-down" : "fa-minus"}`} />
         {delta}
       </div>
     )}
-    {showSpark && sparkData && <div className="kpi-spark"><Sparkline data={sparkData} color={sparkColor} w={80} h={30} /></div>}
+    {showSpark && sparkData && <div className="absolute right-4 top-4 w-20 h-[30px] pointer-events-none"><Sparkline data={sparkData} color={sparkColor} w={80} h={30} /></div>}
   </div>
 );
 
@@ -168,38 +209,46 @@ export function FormSection({ id, title, badge, collapsed, onToggle, children }:
   children?: React.ReactNode;
 }) {
   return (
-    <div className="sn-form-section">
-      <div className="sn-section-header" onClick={() => onToggle && onToggle(id)}>
-        <Icon className={`fa-solid fa-chevron-${collapsed ? "right" : "down"}`} />
-        <span className="sn-section-title">{title}</span>
-        {badge && <span className="sn-section-badge">{badge}</span>}
+    <div className="bg-white border border-[#d2d6dc] rounded-[3px] overflow-hidden dark:bg-bg-raised dark:border-line">
+      <div className="bg-[linear-gradient(180deg,#fafbfc_0%,#f4f6f9_100%)] py-2.5 px-3.5 border-b border-[#d2d6dc] flex items-center gap-2 cursor-pointer select-none text-sm font-semibold text-black hover:bg-[#eaf0f7] dark:bg-bg-muted dark:text-fg" onClick={() => onToggle && onToggle(id)}>
+        <Icon className={cx(`fa-solid fa-chevron-${collapsed ? "right" : "down"}`, "text-[10px] text-fg-muted w-3")} />
+        <span className="flex-1">{title}</span>
+        {badge && <span className="text-[10.5px] font-medium text-fg-muted bg-white border border-[#d2d6dc] py-px px-2 rounded-[10px]">{badge}</span>}
       </div>
-      {!collapsed && <div className="sn-section-content">{children}</div>}
+      {!collapsed && <div className="py-1 px-0">{children}</div>}
     </div>
   );
 }
 
 export function FormRow({ children }: { children?: React.ReactNode }) {
-  return <div className="sn-form-row">{children}</div>;
+  return <div className="grid grid-cols-[1fr_1fr] gap-0 border-b border-[#e5e8eb] last:border-b-0">{children}</div>;
 }
 
 export function Field({ label, value, required }: { label: React.ReactNode; value: React.ReactNode; required?: boolean }) {
   return (
-    <div className="sn-form-group">
-      <div className={`sn-field-label${required ? " required" : ""}`}>{label}</div>
-      <div className="sn-field-value">{value}</div>
+    <div className="grid grid-cols-[140px_1fr] items-center min-h-8 first:border-r first:border-[#e5e8eb]">
+      <div className={cx("py-2 px-3 text-xs text-[#424952] bg-[#fafbfc] border-r border-[#e5e8eb] h-full flex items-center dark:bg-bg-muted", required && "after:content-['_*'] after:text-[#c62828]")}>{label}</div>
+      <div className="py-2 px-3 text-[12.5px] text-black dark:text-fg [&_.mono]:text-[11.5px]">{value}</div>
     </div>
   );
 }
 
 // ── KPI strip tile (from incidents.jsx) ─────────────────────────────────────
 
+// [tile colour, value colour] per tone (was sn-kpi tone-*)
+const KPI_TONE: Record<string, [string, string]> = {
+  crit: ["text-[#c62828]", "text-[#c62828]"],
+  warn: ["text-[#ef6c00]", "text-[#ef6c00]"],
+  ok: ["text-[#2e7d32]", "text-[#2e7d32]"],
+  neutral: ["text-fg-muted", ""],
+};
+
 export function Kpi({ l, v, s, tone }: { l: React.ReactNode; v: React.ReactNode; s?: React.ReactNode; tone?: string }) {
   return (
-    <div className={`sn-kpi tone-${tone}`}>
-      <div className="sn-kpi-l">{l}</div>
-      <div className="sn-kpi-v">{v}</div>
-      <div className="sn-kpi-s">{s}</div>
+    <div className={cx("bg-white py-3.5 px-4 dark:bg-bg-raised dark:border-line", tone && KPI_TONE[tone]?.[0])}>
+      <div className="text-[10.5px] font-semibold text-fg-subtle uppercase tracking-[0.04em] mb-1.5">{l}</div>
+      <div className={cx("text-3xl font-semibold tracking-[-0.02em] tabular-nums leading-[1.1]", (tone && KPI_TONE[tone]?.[1]) || "text-black dark:text-fg")}>{v}</div>
+      <div className="text-2xs text-fg-subtle mt-[3px]">{s}</div>
     </div>
   );
 }
