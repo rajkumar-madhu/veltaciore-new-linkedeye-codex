@@ -1,5 +1,4 @@
-/* Tailwind entry. Loaded after styles.css so utilities win over the legacy
-   ld-* rules while screens move across. */
+/* Tailwind entry, loaded after base.css (tokens, reset, keyframes). */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -20,7 +19,7 @@
     --tone-purple-soft: rgba(139, 92, 246, 0.18); --tone-purple: #c4b5fd;
   }
 
-  /* Preflight is off (styles.css has its own reset); border utilities need a
+  /* Preflight is off (base.css has its own reset); border utilities need a
      border style to show. Width stays 0 so nothing changes until a utility sets it. */
   *, ::before, ::after { border-style: solid; border-width: 0; border-color: var(--border); }
 }

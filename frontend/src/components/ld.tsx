@@ -102,7 +102,7 @@ export function Donut({ slices, center, sub, label }: { slices: Slice[]; center:
   const total = slices.reduce((s, x) => s + x.value, 0);
   let acc = 0;
   return (
-    <svg width="150" height="150" viewBox="0 0 160 160" role="img" aria-label={label} className="ld-donut">
+    <svg width="150" height="150" viewBox="0 0 160 160" role="img" aria-label={label} className="flex-none">
       <circle cx="80" cy="80" r={r} fill="none" stroke="var(--border-subtle)" strokeWidth="22" />
       <g transform="rotate(-90 80 80)" fill="none" strokeWidth="22">
         {total > 0 &&
@@ -123,11 +123,11 @@ export function Donut({ slices, center, sub, label }: { slices: Slice[]; center:
             return el;
           })}
       </g>
-      <text x="80" y={sub ? 80 : 90} textAnchor="middle" className="ld-donut-center">
+      <text x="80" y={sub ? 80 : 90} textAnchor="middle" className="text-4xl font-bold fill-fg font-sans">
         {center}
       </text>
       {sub && (
-        <text x="80" y="100" textAnchor="middle" className="ld-donut-sub">
+        <text x="80" y="100" textAnchor="middle" className="text-xs fill-fg-muted font-sans">
           {sub}
         </text>
       )}
@@ -137,12 +137,12 @@ export function Donut({ slices, center, sub, label }: { slices: Slice[]; center:
 
 export function Legend({ slices }: { slices: Slice[] }) {
   return (
-    <ul className="ld-legend">
+    <ul className="list-none flex-[1_1_140px] flex flex-col gap-2">
       {slices.map((s) => (
-        <li key={s.label}>
-          <span className="ld-swatch" style={{ background: s.color }} />
-          <span className="ld-legend-label">{s.label}</span>
-          <span className="ld-legend-value">{fmt(s.value)}</span>
+        <li key={s.label} className="flex items-center gap-2 text-sm">
+          <span className="w-2.5 h-2.5 rounded-[3px] flex-none" style={{ background: s.color }} />
+          <span className="flex-1 text-fg-muted">{s.label}</span>
+          <span className="font-semibold text-fg">{fmt(s.value)}</span>
         </li>
       ))}
     </ul>
@@ -172,19 +172,19 @@ export function TrendChart({ days }: { days: { label: string; opened: number; re
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label={`Tickets opened per day over the last ${days.length} days: ${totalOpened} opened, ${totalResolved} of them since resolved.`}
-      className="ld-trend"
+      className="w-full h-auto block"
     >
       {[0, 1, 2, 3, 4].map((g) => (
         <g key={g}>
-          <line x1={left} x2={right} y1={y(g * step)} y2={y(g * step)} className="ld-gridline" />
-          <text x={left - 8} y={y(g * step) + 4} textAnchor="end" className="ld-axis">
+          <line x1={left} x2={right} y1={y(g * step)} y2={y(g * step)} className="stroke-line-subtle [stroke-width:1]" />
+          <text x={left - 8} y={y(g * step) + 4} textAnchor="end" className="text-xs fill-fg-muted font-sans">
             {g * step}
           </text>
         </g>
       ))}
       {days.map((d, i) =>
         (i % labelEvery === 0 && i < days.length - labelEvery + 1) || i === days.length - 1 ? (
-          <text key={d.label} x={x(i)} y={H - 14} textAnchor={i === days.length - 1 ? "end" : i === 0 ? "start" : "middle"} className="ld-axis">
+          <text key={d.label} x={x(i)} y={H - 14} textAnchor={i === days.length - 1 ? "end" : i === 0 ? "start" : "middle"} className="text-xs fill-fg-muted font-sans">
             {d.label}
           </text>
         ) : null,

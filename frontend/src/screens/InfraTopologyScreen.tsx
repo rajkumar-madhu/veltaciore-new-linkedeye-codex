@@ -10,7 +10,6 @@
 // utilisation, error rates and port counters need the SNMP exporter and are
 // shown on the device pages' live charts instead.
 // devices.css is kept only for the flowing-link keyframes (animation name below).
-import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useDevices, useInfraAlerts, useTopology } from "@/api/hooks";

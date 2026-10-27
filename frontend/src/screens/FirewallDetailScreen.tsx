@@ -7,7 +7,6 @@
 // Live numbers come from Prometheus via the metrics API; card values shown
 // without it come from the device record. Security / HA panels have no data
 // source yet and are labelled as sample data.
-import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";

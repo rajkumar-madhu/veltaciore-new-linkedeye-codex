@@ -7,7 +7,6 @@
 // without it come from the device record. Virtual servers / pools / SSL have
 // no data source yet (iControl / iStats integration) and are labelled as
 // sample data.
-import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";

@@ -7,7 +7,6 @@
 // without it come from the device record (capacity is read from its role,
 // e.g. "Block · 187 TB used / 280 TB"). Volumes and controller sensors have no
 // data source yet (array exporter) and are labelled as sample data.
-import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";

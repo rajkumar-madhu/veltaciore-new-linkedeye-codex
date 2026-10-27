@@ -1,6 +1,5 @@
 // Knowledge base (article list + article view).
 // Ported from screens/knowledge.jsx; LinkedEye layout.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { Empty, Panel, Pill, PillDot, countBy, fmt } from "@/components/ld";

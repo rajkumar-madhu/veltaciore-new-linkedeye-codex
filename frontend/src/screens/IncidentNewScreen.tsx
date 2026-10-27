@@ -1,6 +1,5 @@
 // New Incident form
 // Ported from screens/incident-new.jsx; LinkedEye form layout.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { TENANTS, USERS, SERVICES } from "@/data/core";

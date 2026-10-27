@@ -1,6 +1,5 @@
 // Incident detail — war room
 // Ported from screens/incident-detail.jsx; LinkedEye entity-detail layout.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useUiStore } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";

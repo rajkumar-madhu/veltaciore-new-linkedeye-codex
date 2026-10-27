@@ -1,6 +1,5 @@
 // Problem detail.
 // Ported from screens/problem-detail.jsx; LinkedEye entity-detail layout.
-import "@/styles/servicedesk.css";
 import { useNav } from "@/hooks/useNav";
 import { INCIDENTS, USERS } from "@/data/core";
 import { Panel, Pill, PillDot } from "@/components/ld";

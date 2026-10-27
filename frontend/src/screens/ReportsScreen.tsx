@@ -2,7 +2,6 @@
 // summaries derived from the loaded problems and incidents, plus a sample
 // list of scheduled reports. SLAScreen: SLA inventory with compliance bars and
 // breach summary, all derived from the loaded SLA definitions.
-import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { useIncidents, useProblems, useSlas } from "@/api/hooks";
 import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";

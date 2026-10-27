@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
-import "./styles.css";
+import "./base.css";
 import "./tailwind.css";
 
 // A route chunk failed to preload, usually because a newer deploy replaced the

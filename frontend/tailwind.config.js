@@ -1,6 +1,6 @@
-/** Tailwind theme = the LinkedEye design tokens (CSS variables in src/styles.css),
+/** Tailwind theme = the LinkedEye design tokens (CSS variables in src/base.css),
  * so utilities follow light / dark mode (body[data-theme]) and the accent tweak.
- * Preflight is off: src/styles.css keeps its own reset; base.css only adds the
+ * Preflight is off: src/base.css keeps its own reset; tailwind.css only adds the
  * border-style default Tailwind's border utilities expect. */
 const v = (name) => `var(--${name})`;
 

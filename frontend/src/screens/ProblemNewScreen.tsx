@@ -1,6 +1,5 @@
 // New Problem form.
 // Ported from screens/problem-new.jsx; LinkedEye form layout.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { INCIDENTS, SERVICES, USERS } from "@/data/core";

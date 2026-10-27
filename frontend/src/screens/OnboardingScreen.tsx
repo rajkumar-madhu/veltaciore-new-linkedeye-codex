@@ -37,10 +37,10 @@ export default function OnboardingScreen() {
               <div key={i} className="flex items-center gap-2.5 relative">
                 <div className={cx(
                   "w-[22px] h-[22px] rounded-[50%] border-[1.5px] text-2xs font-semibold grid place-items-center shrink-0",
-                  done ? "bg-success border-success text-white before:content-[''] before:[font-family:'Font_Awesome_6_Free'] before:font-black"
+                  done ? "bg-success border-success text-white"
                     : active ? "bg-accent border-accent text-white [box-shadow:0_0_0_4px_rgba(37,99,235,0.15)]"
                     : "bg-bg-raised border-line-strong text-fg-subtle",
-                )}><i className={cx(done && "hidden")}>{n}</i></div>
+                )}>{done ? <Icon icon={CheckIcon} strokeWidth={3} /> : <i>{n}</i>}</div>
                 <div className={cx("text-[11.5px]", active ? "text-fg font-semibold" : done ? "text-fg font-medium" : "text-fg-subtle font-medium")}>{s}</div>
               </div>
             );

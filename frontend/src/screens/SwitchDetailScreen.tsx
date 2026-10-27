@@ -6,7 +6,6 @@
 //
 // Live numbers come from Prometheus via the metrics API. Values shown when
 // Prometheus is not connected come from the device record only.
-import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";

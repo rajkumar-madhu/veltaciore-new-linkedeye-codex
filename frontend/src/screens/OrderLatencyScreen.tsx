@@ -626,8 +626,8 @@ export default function OrderLatencyScreen() {
             </div>
 
             <Panel title="End-to-end pipeline — Argus / Celery">
-              {/* The separator between steps is the old Font Awesome arrow glyph (\f061), kept as it renders. */}
-              <ol className="list-none flex flex-wrap items-stretch gap-2.5 [&>li+li]:before:content-['\f061'] [&>li+li]:before:[font-family:'Font_Awesome_6_Free'] [&>li+li]:before:font-black [&>li+li]:before:text-xs [&>li+li]:before:text-fg-faint max-sm:[&>li+li]:before:hidden" aria-label="Order latency pipeline">
+              {/* An arrow between pipeline steps (hidden on phones, where the steps stack). */}
+              <ol className="list-none flex flex-wrap items-stretch gap-2.5 [&>li+li]:before:content-['→'] [&>li+li]:before:font-semibold [&>li+li]:before:text-sm [&>li+li]:before:self-center [&>li+li]:before:text-fg-faint max-sm:[&>li+li]:before:hidden" aria-label="Order latency pipeline">
                 {([
                   ["fa-file-lines", "Noren OMS log", "orders_YYYYMMDD.log", false],
                   ["fa-magnifying-glass", "parser.py", "auto-detect format", true],

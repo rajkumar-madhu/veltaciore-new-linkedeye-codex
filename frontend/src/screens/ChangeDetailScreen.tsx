@@ -1,6 +1,5 @@
 // Change detail (CAB review).
 // Ported from screens/change-detail.jsx; LinkedEye entity-detail layout.
-import "@/styles/servicedesk.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
 import { Panel, Pill } from "@/components/ld";

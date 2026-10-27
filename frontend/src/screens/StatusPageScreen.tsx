@@ -2,7 +2,6 @@
 // PagerDuty / Statuspage.io concept: components, posted updates, subscribers, scheduled maintenance.
 // Ported from screens/status-page.jsx; LinkedEye layout. No status-page
 // provider is wired up yet, so everything here is labelled as sample data.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, fmt } from "@/components/ld";

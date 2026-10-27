@@ -101,11 +101,6 @@ export function getLinkColor(
   return STATUS_COLORS.ok;
 }
 
-// Existing pill classes in styles.css mapped to normalized status
-export function getStatusBadgeClass(status: unknown): string {
-  return { ok: "svc-healthy", warn: "state-mitigating", crit: "state-active", unknown: "state-neutral" }[normalizeStatus(status)];
-}
-
 export function getStatusLabel(status: unknown): string {
   const s = String(status || "").toLowerCase();
   if (s === "down") return "Down";

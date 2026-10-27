@@ -1,6 +1,5 @@
 // Service catalog (browse + request form).
 // Ported from screens/catalog.jsx (CatalogScreen + CatalogRequestScreen); LinkedEye layout.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { CATALOG_CATEGORIES, CATALOG_ITEMS } from "@/data/itsm";

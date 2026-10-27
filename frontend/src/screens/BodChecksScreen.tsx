@@ -176,8 +176,8 @@ export default function BodChecksScreen() {
       </div>
 
       <Panel title="BOD pipeline">
-        {/* The separator between steps is the old Font Awesome arrow glyph (\f061), kept as it renders. */}
-        <ol className="list-none flex flex-wrap items-stretch gap-2.5 [&>li+li]:before:content-['\f061'] [&>li+li]:before:[font-family:'Font_Awesome_6_Free'] [&>li+li]:before:font-black [&>li+li]:before:text-xs [&>li+li]:before:text-fg-faint max-sm:[&>li+li]:before:hidden" aria-label="BOD result pipeline">
+        {/* An arrow between pipeline steps (hidden on phones, where the steps stack). */}
+        <ol className="list-none flex flex-wrap items-stretch gap-2.5 [&>li+li]:before:content-['→'] [&>li+li]:before:font-semibold [&>li+li]:before:text-sm [&>li+li]:before:self-center [&>li+li]:before:text-fg-faint max-sm:[&>li+li]:before:hidden" aria-label="BOD result pipeline">
           {flow.map(([ic, k, v]) => (
             <li key={k} className="flex items-center gap-2.5 max-sm:flex-[1_1_100%]">
               <div className="flex items-center gap-2.5 px-3 py-2 border border-line rounded bg-bg-muted min-w-0 max-sm:flex-1">

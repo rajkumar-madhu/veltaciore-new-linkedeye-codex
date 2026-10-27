@@ -6,7 +6,6 @@
 // read from the device record's role ("Row A · 142 kW load · 87% load").
 // Battery, runtime and outlet groups need the UPS-MIB metrics, which are not
 // collected yet, so those panels are labelled as sample data.
-import "@/styles/devices.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";

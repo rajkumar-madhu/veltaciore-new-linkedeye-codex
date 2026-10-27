@@ -1,7 +1,6 @@
 // Post-incident review / retrospective (postmortem)
 // PagerDuty / Datadog concept: blameless timeline, root cause, action items, review workflow.
 // Ported from screens/retro.jsx; LinkedEye entity-detail layout.
-import "@/styles/servicedesk.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
 import { Panel, Pill, PillDot } from "@/components/ld";

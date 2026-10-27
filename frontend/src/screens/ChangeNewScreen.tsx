@@ -1,6 +1,5 @@
 // New Change form — the change-create flow, mirroring the incident/problem
 // create forms. LinkedEye form layout.
-import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { SERVICES, USERS } from "@/data/core";

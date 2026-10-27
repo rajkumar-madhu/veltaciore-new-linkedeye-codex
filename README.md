@@ -14,7 +14,7 @@ for the Finspot/LinkedEye estate.
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite, TanStack Query, Zustand, React Router, custom design system (`src/styles.css`, ported from the prototype) |
+| Frontend | React 18 + TypeScript + Vite, Tailwind CSS (LinkedEye theme, `docs/ui-conventions.md`), Lucide icons, TanStack Query, Zustand, React Router |
 | Backend | Django 5 + DRF, django-filter, Gunicorn/Uvicorn |
 | Workers | Celery + Redis 7 (SNMP/node-exporter/blackbox polling, alert rules, EOD `L_ORDERLATENCY*.csv` batch) |
 | Database | PostgreSQL 16 (SQLite fallback for zero-config dev) |
