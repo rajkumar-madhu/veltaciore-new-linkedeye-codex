@@ -15,14 +15,15 @@ import { useDevice, useDeviceHardware, useDeviceInventory, useDeviceMetrics, use
 import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
 import { Donut, Empty, Panel, Pill } from "@/components/ld";
+import { Crumbs, Tab, Tabs, Table, buttonClass, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { LiveButton, MetricsBody, RangeSelect, fmtValue, SampleNotice } from "@/components/MetricCharts";
-import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
+import { Kpi, lastOf, node, seriesOf } from "@/components/KpiCard";
 import { DeviceFamily } from "@/components/DeviceFamily";
 import { EventLogs, FilesystemTable, HardwareSection, ProcessTable, ServicesPanel, serviceSlices } from "@/components/HostPanels";
 
 import { Icon } from "@/components/Icon";
-import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, CircleCheckIcon, FileTextIcon, NetworkIcon, UnplugIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CircleCheckIcon, FileTextIcon, NetworkIcon, UnplugIcon } from "lucide-react";
 const SERVER_KINDS = ["hypervisor", "phys-srv", "linux-srv", "win-srv"];
 
 const STATUS: Record<string, { label: string; tone: Tone }> = {
@@ -38,9 +39,9 @@ const sevLabel = (s: string) => (s === "critical" ? "Critical" : s === "warning"
 
 function osOf(d: Device) {
   const os = `${d.os} ${d.kind}`.toLowerCase();
-  if (os.includes("windows") || d.kind === "win-srv") return { name: "Windows", icon: "fa-brands fa-windows", cls: "ld-os-win" };
-  if (d.kind === "hypervisor" || os.includes("esxi")) return { name: "VMware ESXi", icon: "fa-solid fa-server", cls: "ld-os-esx" };
-  return { name: "Linux", icon: "fa-brands fa-linux", cls: "ld-os-linux" };
+  if (os.includes("windows") || d.kind === "win-srv") return { name: "Windows", icon: "fa-brands fa-windows", cls: "text-[#0078d4] text-[46px]" };
+  if (d.kind === "hypervisor" || os.includes("esxi")) return { name: "VMware ESXi", icon: "fa-solid fa-server", cls: "text-[#607078] text-[38px]" };
+  return { name: "Linux", icon: "fa-brands fa-linux", cls: "text-[#1f2328] dark:text-[#e6edf3] text-[46px]" };
 }
 
 const isVirtual = (d: Device) => /^vm\b/i.test(d.model || "") || d.kind === "vm";
@@ -97,21 +98,19 @@ export default function ServerDetailScreen() {
   const alertsTable = (limit?: number) => (
     <Panel title="Recent Alerts" action={limit ? { label: "View all alerts", onClick: () => goTab("Alerts") } : { label: "Open alert console", onClick: () => setRoute("alerts") }}>
       {alerts.length ? (
-        <div className="ld-table-wrap">
-          <table className="ld-table">
+        <Table>
             <thead><tr><th scope="col">Time</th><th scope="col">Severity</th><th scope="col">Source</th><th scope="col">Message</th></tr></thead>
             <tbody>
               {alerts.slice(0, limit).map((a) => (
                 <tr key={a.id}>
-                  <td className="ld-nowrap ld-muted">{a.since}</td>
+                  <td>{a.since}</td>
                   <td><Pill tone={sevTone(a.sev)}><Icon className={`fa-solid ${a.sev === "critical" ? "fa-circle-xmark" : a.sev === "warning" || a.sev === "warn" ? "fa-triangle-exclamation" : "fa-circle-info"}`} /> {sevLabel(a.sev)}</Pill></td>
-                  <td className="ld-muted">{a.detail || a.device}</td>
-                  <td className="ld-wrap">{a.title}</td>
+                  <td>{a.detail || a.device}</td>
+                  <td className={ui.cellWrap}>{a.title}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
       ) : (
         <Empty>No active alerts on {d.id}.</Empty>
       )}
@@ -119,21 +118,21 @@ export default function ServerDetailScreen() {
   );
 
   const configPanel = (
-    <div className="ld-grid ld-grid-2">
+    <div className={cx(ui.grid, ui.cols[2])}>
       <Panel title="Device Information">
-        <dl className="ld-dl">
+        <dl className={ui.dl}>
           <dt>Hostname</dt><dd>{d.hostname || d.id}</dd>
-          <dt>IP address</dt><dd className="ld-mono">{d.ip || "—"}</dd>
+          <dt>IP address</dt><dd className={ui.mono}>{d.ip || "—"}</dd>
           <dt>Model</dt><dd>{d.model || "—"}</dd>
           <dt>Vendor</dt><dd>{d.vendor || "—"}</dd>
-          <dt>Serial number</dt><dd className="ld-mono">{d.serial_number || "—"}</dd>
+          <dt>Serial number</dt><dd className={ui.mono}>{d.serial_number || "—"}</dd>
           <dt>Operating system</dt><dd>{d.os || "—"}</dd>
           <dt>Site / location</dt><dd>{d.site}{d.location ? ` · ${d.location}` : ""}</dd>
           <dt>Role</dt><dd>{d.role || "—"}</dd>
         </dl>
       </Panel>
       <Panel title="Monitoring">
-        <dl className="ld-dl">
+        <dl className={ui.dl}>
           <dt>Agent</dt><dd>{d.agent || "—"}</dd>
           <dt>Metric family</dt><dd>{m?.family ?? "—"}</dd>
           <dt>Metrics source</dt><dd>{m?.sample ? <Pill tone="muted">Sample data</Pill> : connected ? <Pill tone="ok">Prometheus · connected</Pill> : <Pill tone="muted">{m?.source === "unsupported" ? "Not supported" : "Not connected"}</Pill>}</dd>
@@ -149,46 +148,38 @@ export default function ServerDetailScreen() {
   const memGroup = m?.series.some((s) => s.group === "memory_gb" && s.points.length) ? "memory_gb" : "memory";
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra-assets")}>Nodes</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>{d.id}</span>
-      </nav>
+    <div className={ui.page}>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Nodes", onClick: () => setRoute("infra-assets") }, { label: d.id }]} />
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className={`ld-os-logo ${os.cls}`} aria-hidden="true"><Icon className={os.icon} /></span>
+      <div className={node.head}>
+        <div className={node.entity}>
+          <span className={cx("flex-none w-[60px] h-[60px] grid place-items-center", os.cls)} aria-hidden="true"><Icon className={os.icon} /></span>
           <div>
-            <h1 className="ld-entity-title">
+            <h1 className={node.title}>
               {d.hostname || d.id}
               <Pill tone={st.tone}><Icon icon={CircleCheckIcon} /> {st.label}</Pill>
             </h1>
-            <p className="ld-entity-meta">
+            <p className={node.meta}>
               <span>{d.os || os.name}</span>
-              <span className="ld-mono">{d.ip}</span>
+              <span className={ui.mono}>{d.ip}</span>
               <span>Uptime: <b>{d.uptime || "—"}</b></span>
             </p>
-            <p className="ld-entity-meta">
+            <p className={node.meta}>
               <span>{d.agent || "No agent"}</span>
               <span>Last seen: {d.lastSeen || "—"}</span>
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
             <RangeSelect />
             <LiveButton />
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
-            <button type="button" className="ld-btn" onClick={() => goTab("Event Logs")}><Icon icon={FileTextIcon} /> Logs</button>
+            <button type="button" className={buttonClass()} onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
+            <button type="button" className={buttonClass()} onClick={() => goTab("Event Logs")}><Icon icon={FileTextIcon} /> Logs</button>
           </div>
-          <ul className="ld-tags" aria-label="Tags">
+          <ul className={ui.tags} aria-label="Tags">
             {tags.map((t) => (
-              <li key={t.label} className="ld-tag"><Icon className={t.icon} /> {t.label}</li>
+              <li key={t.label} className={ui.tag}><Icon className={t.icon} /> {t.label}</li>
             ))}
           </ul>
         </div>
@@ -196,16 +187,16 @@ export default function ServerDetailScreen() {
 
       {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
-        <div className="ld-card ld-metrics-off" role="status">
+        <div className={cx(ui.card, ui.notice)} role="status">
           <Icon icon={UnplugIcon} />
           <div>
             <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
-            <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards and charts fill in once the exporter is scraped.</p>
+            <p className="text-fg-muted text-xs">{m?.message ?? "The metrics API is not reachable from this browser."} Cards and charts fill in once the exporter is scraped.</p>
           </div>
         </div>
       )}
 
-      <div className="ld-kpis">
+      <div className={node.kpis}>
         <Kpi icon="fa-microchip" tone="info" label="CPU Usage" value={cpu ? fmtValue(lastOf(cpu)!, "%") : na} points={cpu?.points} lowerIsBetter />
         <Kpi icon="fa-memory" tone="ok" label="Memory Usage" value={mem ? fmtValue(lastOf(mem)!, "%") : na}
           sub={memUsed != null && memTotal != null ? `${memUsed.toFixed(1)} / ${memTotal.toFixed(0)} GB` : undefined}
@@ -219,31 +210,31 @@ export default function ServerDetailScreen() {
         <Kpi icon="fa-cubes" tone="purple" label="Services">
           {svc && svcTotal ? (
             <>
-              <div className="ld-kpi-value"><b>{Math.round((svc.running / svcTotal) * 100)}% running</b></div>
-              <div className="ld-kpi-donut">
+              <div className={node.kpiValue}><b>{Math.round((svc.running / svcTotal) * 100)}% running</b></div>
+              <div className="flex items-center justify-start gap-3 mt-1 [&>svg]:flex-none [&>svg]:w-[58px] [&>svg]:h-[58px]">
                 <Donut slices={serviceSlices(inv)} center="" label={`${svc.running} of ${svcTotal} services running`} />
-                <ul className="ld-kpi-legend">
-                  {serviceSlices(inv).map((s) => <li key={s.label}><span className="ld-dot" style={{ background: s.color }} /> {s.label} <b>{s.value}</b></li>)}
+                <ul className="list-none m-0 p-0 text-xs text-fg-muted grid gap-0.5 [&>li]:flex [&>li]:items-center [&>li]:gap-1 [&_b]:text-fg [&_b]:ml-auto [&_b]:pl-2">
+                  {serviceSlices(inv).map((s) => <li key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label} <b>{s.value}</b></li>)}
                 </ul>
               </div>
             </>
           ) : (
-            <div className="ld-kpi-value"><b>{na}</b><span className="ld-kpi-sub">{inv?.source === "unsupported" ? "not collected" : inventory.isLoading ? "loading" : "no data"}</span></div>
+            <div className={node.kpiValue}><b>{na}</b><span className={node.kpiSub}>{inv?.source === "unsupported" ? "not collected" : inventory.isLoading ? "loading" : "no data"}</span></div>
           )}
         </Kpi>
       </div>
 
-      <div className="ld-tabs" role="tablist" aria-label={`${d.id} sections`}>
+      <Tabs aria-label={`${d.id} sections`}>
         {tabs.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} className={`ld-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>{t}</button>
+          <Tab key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Tab>
         ))}
-      </div>
+      </Tabs>
 
       {is("Overview") && (
         <>
           {charts(["cpu", memGroup, "disk_io", "network"])}
           <HardwareSection hw={hardware.data} loading={hardware.isLoading} onDetails={() => goTab("Hardware")} />
-          <div className="ld-grid ld-grid-2">
+          <div className={cx(ui.grid, ui.cols[2])}>
             {alertsTable(5)}
             <ProcessTable inv={inv} loading={inventory.isLoading} limit={5} onViewAll={() => goTab("Processes")} />
           </div>

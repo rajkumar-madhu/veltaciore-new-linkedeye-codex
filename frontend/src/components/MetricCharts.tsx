@@ -5,20 +5,21 @@
 import React from "react";
 import { useDeviceMetrics, useVmMetrics, type MetricSeries, type MetricsResponse } from "@/api/hooks";
 import { MAX_RANGE_DAYS, PRESETS, useTimeRange } from "@/store/timeRange";
-import { Empty, Panel, Pill } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot } from "@/components/ld";
+import { Button, Card, Input, buttonClass, cx, toneText, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
 import { CalendarDaysIcon, CheckIcon, ChevronDownIcon, ClockIcon, FlaskConicalIcon, UnplugIcon } from "lucide-react";
 /** Banner for pages drawing generated sample values (dev with no Prometheus / Loki). */
 export function SampleNotice({ what = "graphs and cards", setting = "PROMETHEUS_URL" }: { what?: string; setting?: string }) {
   return (
-    <div className="ld-card ld-metrics-off ld-sample-note" role="status">
+    <Card className={ui.notice} role="status">
       <Icon icon={FlaskConicalIcon} />
       <div>
         <b>Sample data</b>
-        <p className="ld-muted ld-small">These {what} show generated values, not measurements from this device. Set {setting} on the API to see live data.</p>
+        <p className="text-fg-muted text-xs">These {what} show generated values, not measurements from this device. Set {setting} on the API to see live data.</p>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -94,7 +95,7 @@ export function rangeLabel(preset: string, from: number | null, to: number | nul
 }
 
 /** Start/end form shared by both pickers; validates against the API's limits. */
-function CustomRangeForm({ id, onDone }: { id: string; onDone: () => void }) {
+function CustomRangeForm({ id, onDone, inMenu = false }: { id: string; onDone: () => void; /** inside the RangeSelect menu: static, no shadow */ inMenu?: boolean }) {
   const { from, to, setCustom } = useTimeRange();
   const now = Date.now();
   const [start, setStart] = React.useState(toLocalInput(from ?? now - 86400_000));
@@ -113,17 +114,24 @@ function CustomRangeForm({ id, onDone }: { id: string; onDone: () => void }) {
     onDone();
   };
   return (
-    <form id={`${id}-custom`} className="ld-card ld-range-custom" onSubmit={apply}>
-      <div className="ld-form-field">
+    <form
+      id={`${id}-custom`}
+      className={cx(
+        "bg-bg-raised border border-line rounded-lg z-20 mt-1.5 flex flex-wrap items-end gap-2.5",
+        inMenu ? "static shadow-none w-[290px] p-2" : "absolute top-full right-0 p-3 shadow-lg w-[min(560px,calc(100vw-32px))]",
+      )}
+      onSubmit={apply}
+    >
+      <div className={cx(ui.field, "flex-[1_1_180px]")}>
         <label htmlFor={`${id}-start`}>Start</label>
-        <input id={`${id}-start`} className="ld-input" type="datetime-local" value={start} max={end} onChange={(e) => setStart(e.target.value)} required />
+        <Input id={`${id}-start`} type="datetime-local" value={start} max={end} onChange={(e) => setStart(e.target.value)} required />
       </div>
-      <div className="ld-form-field">
+      <div className={cx(ui.field, "flex-[1_1_180px]")}>
         <label htmlFor={`${id}-end`}>End</label>
-        <input id={`${id}-end`} className="ld-input" type="datetime-local" value={end} min={start} max={toLocalInput(Date.now())} onChange={(e) => setEnd(e.target.value)} required />
+        <Input id={`${id}-end`} type="datetime-local" value={end} min={start} max={toLocalInput(Date.now())} onChange={(e) => setEnd(e.target.value)} required />
       </div>
-      <button type="submit" className="ld-btn ld-btn-primary">Apply</button>
-      {error && <p className="ld-text-crit ld-small" role="alert">{error}</p>}
+      <Button type="submit" variant="primary">Apply</Button>
+      {error && <p className={cx(toneText.crit, "text-xs basis-full")} role="alert">{error}</p>}
     </form>
   );
 }
@@ -133,25 +141,30 @@ export function TimeRangePicker() {
   const [open, setOpen] = React.useState(false);
   const id = React.useId();
   return (
-    <div className="ld-range">
-      <div className="ld-range-presets" role="group" aria-label="Time range">
+    <div className="relative flex flex-col items-end gap-1">
+      <div className="flex flex-wrap gap-1 justify-end" role="group" aria-label="Time range">
         {PRESETS.map((p) => (
-          <button key={p.id} type="button" className={`ld-btn ld-btn-sm${preset === p.id ? " ld-btn-primary" : ""}`} aria-pressed={preset === p.id} onClick={() => { setPreset(p.id); setOpen(false); }}>
+          <Button key={p.id} size="sm" variant={preset === p.id ? "primary" : "default"} aria-pressed={preset === p.id} onClick={() => { setPreset(p.id); setOpen(false); }}>
             {p.id}
-          </button>
+          </Button>
         ))}
-        <button type="button" className={`ld-btn ld-btn-sm${preset === "custom" ? " ld-btn-primary" : ""}`} aria-expanded={open} aria-controls={`${id}-custom`} onClick={() => setOpen(!open)}>
+        <Button size="sm" variant={preset === "custom" ? "primary" : "default"} aria-expanded={open} aria-controls={`${id}-custom`} onClick={() => setOpen(!open)}>
           <Icon icon={CalendarDaysIcon} /> Custom
-        </button>
+        </Button>
       </div>
-      <span className="ld-muted ld-small" aria-live="polite">
+      <span className="text-fg-muted text-xs" aria-live="polite">
         {rangeLabel(preset, from, to)}
-        {preset !== "custom" && <span className="ld-live"><span className="ld-pill-dot" /> Live · refresh 30s</span>}
+        {preset !== "custom" && <span className="inline-flex items-center gap-1 ml-2 text-[#137a3f]"><PillDot /> Live · refresh 30s</span>}
       </span>
       {open && <CustomRangeForm id={id} onDone={() => setOpen(false)} />}
     </div>
   );
 }
+
+const menuItem = (on: boolean) => cx(
+  "flex items-center justify-between gap-2.5 py-2 px-2.5 border-0 rounded-[6px] bg-transparent text-sm text-left hover:bg-bg-hover",
+  on && "text-accent font-semibold",
+);
 
 /** Compact header control: "Last 1 hour ▾" with presets and a custom range. */
 export function RangeSelect() {
@@ -169,25 +182,25 @@ export function RangeSelect() {
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
   }, [open]);
   return (
-    <div className="ld-rangesel" ref={ref}>
-      <button type="button" className="ld-btn" aria-haspopup="true" aria-expanded={open} aria-controls={`${id}-menu`} onClick={() => setOpen(!open)}>
+    <div className="relative" ref={ref}>
+      <button type="button" className={buttonClass()} aria-haspopup="true" aria-expanded={open} aria-controls={`${id}-menu`} onClick={() => setOpen(!open)}>
         <Icon icon={ClockIcon} />
-        <span className="ld-rangesel-label">{preset === "custom" ? "Custom range" : rangeLabel(preset, from, to)}</span>
-        <Icon icon={ChevronDownIcon} className="ld-small" />
+        <span>{preset === "custom" ? "Custom range" : rangeLabel(preset, from, to)}</span>
+        <Icon icon={ChevronDownIcon} className="text-xs" />
       </button>
       {open && (
-        <div id={`${id}-menu`} className="ld-rangesel-menu">
+        <div id={`${id}-menu`} className="absolute right-0 top-[calc(100%+6px)] z-[60] min-w-[230px] p-1.5 bg-bg-raised border border-line rounded-[10px] shadow-[0_12px_28px_rgba(15,23,42,0.16)] flex flex-col">
           {PRESETS.map((p) => (
-            <button key={p.id} type="button" aria-pressed={preset === p.id} className={preset === p.id ? "on" : ""}
+            <button key={p.id} type="button" aria-pressed={preset === p.id} className={menuItem(preset === p.id)}
               onClick={() => { setPreset(p.id); setOpen(false); setCustomOpen(false); }}>
               {p.label}{preset === p.id && <Icon icon={CheckIcon} />}
             </button>
           ))}
-          <button type="button" aria-expanded={custom} className={preset === "custom" ? "on" : ""} onClick={() => setCustomOpen(!custom)}>
+          <button type="button" aria-expanded={custom} className={menuItem(preset === "custom")} onClick={() => setCustomOpen(!custom)}>
             Custom range…{preset === "custom" && <Icon icon={CheckIcon} />}
           </button>
-          {preset === "custom" && from != null && to != null && <span className="ld-muted ld-small ld-rangesel-now">{rangeLabel(preset, from, to)}</span>}
-          {custom && <CustomRangeForm id={id} onDone={() => { setOpen(false); setCustomOpen(false); }} />}
+          {preset === "custom" && from != null && to != null && <span className="text-fg-muted text-xs pt-0.5 px-2.5 pb-1.5">{rangeLabel(preset, from, to)}</span>}
+          {custom && <CustomRangeForm id={id} inMenu onDone={() => { setOpen(false); setCustomOpen(false); }} />}
         </div>
       )}
     </div>
@@ -199,15 +212,19 @@ export function LiveButton() {
   const { preset, setPreset } = useTimeRange();
   const live = preset !== "custom";
   return (
-    <button type="button" className={`ld-btn ld-live-btn${live ? " on" : ""}`} aria-pressed={live}
+    <Button
+      // aria-pressed carries the "on" colour so it outranks the button's own text colour
+      className="aria-pressed:text-[#137a3f] dark:aria-pressed:text-[#6ee7b7]"
+      aria-pressed={live}
       title={live ? "Refreshing every 30 seconds" : "Return to the last hour, refreshing live"}
       onClick={() => { if (!live) setPreset("1h"); }}>
-      <span className="ld-pill-dot" aria-hidden="true" /> {live ? "Live" : "Go live"}
-    </button>
+      <span className={cx("w-[7px] h-[7px] rounded-full", live ? "bg-[#16a34a]" : "bg-fg-faint")} aria-hidden="true" /> {live ? "Live" : "Go live"}
+    </Button>
   );
 }
 
 // ── chart ───────────────────────────────────────────────────────────────────
+const axisClass = "text-xs fill-fg-muted font-sans";
 /** Stack series on shared timestamps: returns [t, lower, upper] per point. */
 function stackSeries(series: MetricSeries[]) {
   const base = new Map<number, number>();
@@ -263,7 +280,7 @@ export function TimeChart({ series, startSec, endSec, stacked = false, compact =
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className="ld-trend"
+        className="w-full h-auto block"
         role="img"
         aria-label={summary.map(({ s, last }) => `${s.label} ${last == null ? "no data" : fmtValue(last, s.unit)}`).join(", ")}
         onMouseMove={onMove}
@@ -271,13 +288,13 @@ export function TimeChart({ series, startSec, endSec, stacked = false, compact =
       >
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <g key={f}>
-            <line x1={L} x2={W - R} y1={y(yMax * f)} y2={y(yMax * f)} className="ld-gridline" />
-            <text x={L - 6} y={y(yMax * f) + 4} textAnchor="end" className="ld-axis">{fmtAxis(yMax * f, unit)}</text>
+            <line x1={L} x2={W - R} y1={y(yMax * f)} y2={y(yMax * f)} className="stroke-line-subtle [stroke-width:1]" />
+            <text x={L - 6} y={y(yMax * f) + 4} textAnchor="end" className={axisClass}>{fmtAxis(yMax * f, unit)}</text>
           </g>
         ))}
-        {unit !== "%" && unit !== "count" && <text x={4} y={11} className="ld-axis">{unit}</text>}
+        {unit !== "%" && unit !== "count" && <text x={4} y={11} className={axisClass}>{unit}</text>}
         {ticks.map((t, i) => (
-          <text key={t} x={x(t)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} className="ld-axis">{fmtTick(t, span)}</text>
+          <text key={t} x={x(t)} y={H - 8} textAnchor={i === 0 ? "start" : i === 4 ? "end" : "middle"} className={axisClass}>{fmtTick(t, span)}</text>
         ))}
         {bands
           ? bands.map((b, i) => (
@@ -315,32 +332,32 @@ export function TimeChart({ series, startSec, endSec, stacked = false, compact =
         )}
       </svg>
       {hover != null && (
-        <div className="ld-chart-tip ld-small">
+        <div className="flex flex-wrap gap-x-3.5 gap-y-1 items-center py-1.5 px-2 mt-1 bg-bg-muted rounded-sm text-fg text-xs [&_span]:inline-flex [&_span]:items-center [&_span]:gap-[5px]">
           <b>{new Date(hover * 1000).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</b>
           {series.map((s, i) => {
             const p = nearest(s, hover);
             return (
-              <span key={s.key}><span className="ld-dot" style={{ background: colorOf(s, i) }} /> {s.label} {p ? fmtValue(p[1], s.unit) : "—"}</span>
+              <span key={s.key}><span className={ui.dot} style={{ background: colorOf(s, i) }} /> {s.label} {p ? fmtValue(p[1], s.unit) : "—"}</span>
             );
           })}
         </div>
       )}
       {compact ? (
-        <ul className="ld-legend-inline">
+        <ul className="list-none m-0 mt-1 p-0 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-fg-muted [&>li]:inline-flex [&>li]:items-center [&>li]:gap-1.5 [&_b]:text-fg [&_b]:font-semibold">
           {[...summary, ...legendOnly.map((s) => ({ s, last: s.points.length ? s.points[s.points.length - 1][1] : null }))].map(({ s, last }, i) => (
             <li key={s.key}>
-              <span className="ld-dot" style={{ background: i < series.length ? colorOf(s, i) : SERIES_COLOR[s.key] ?? "var(--fg-faint)" }} />
+              <span className={ui.dot} style={{ background: i < series.length ? colorOf(s, i) : SERIES_COLOR[s.key] ?? "var(--fg-faint)" }} />
               {s.label} <b>{last == null ? "—" : fmtValue(last, s.unit)}</b>
             </li>
           ))}
         </ul>
       ) : (
-      <table className="ld-legend-table">
+      <table className="w-full border-collapse mt-1.5 text-xs [&_th]:text-left [&_th]:font-semibold [&_th]:text-fg-muted [&_th]:py-1 [&_th]:px-1.5 [&_td]:py-1 [&_td]:px-1.5 [&_td]:text-fg [&_td]:border-t [&_td]:border-line-subtle [&_td]:whitespace-nowrap [&_td:first-child]:flex [&_td:first-child]:items-center [&_td:first-child]:gap-1.5">
         <thead><tr><th scope="col">Series</th><th scope="col">Last</th><th scope="col">Avg</th><th scope="col">Max</th></tr></thead>
         <tbody>
           {summary.map(({ s, last, avg, max }, i) => (
             <tr key={s.key}>
-              <td><span className="ld-dot" style={{ background: colorOf(s, i) }} /> {s.label}</td>
+              <td><span className={ui.dot} style={{ background: colorOf(s, i) }} /> {s.label}</td>
               <td>{last == null ? "—" : fmtValue(last, s.unit)}</td>
               <td>{avg == null ? "—" : fmtValue(avg, s.unit)}</td>
               <td>{max == null ? "—" : fmtValue(max, s.unit)}</td>
@@ -353,10 +370,12 @@ export function TimeChart({ series, startSec, endSec, stacked = false, compact =
   );
 }
 
+const sparkClass = "block w-full h-[34px] mt-auto";
+
 /** Small trend line for a KPI card. */
 export function Sparkline({ points, color = COLORS[0], label }: { points: [number, number][]; color?: string; label: string }) {
   const W = 160, H = 34;
-  if (points.length < 2) return <svg className="ld-spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label}: no trend data`} />;
+  if (points.length < 2) return <svg className={sparkClass} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label}: no trend data`} />;
   const t0 = points[0][0], t1 = points[points.length - 1][0];
   const vals = points.map((p) => p[1]);
   const lo = Math.min(...vals), hi = Math.max(...vals);
@@ -364,12 +383,21 @@ export function Sparkline({ points, color = COLORS[0], label }: { points: [numbe
   const y = (v: number) => H - 3 - ((v - lo) / Math.max(1e-9, hi - lo)) * (H - 6);
   const line = points.map(([t, v]) => `${x(t).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   return (
-    <svg className="ld-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label} trend`}>
+    <svg className={sparkClass} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${label} trend`}>
       <polygon points={`0,${H} ${line} ${W},${H}`} fill={color} fillOpacity={0.12} />
       <polyline points={line} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
+
+/** Netdata-style chart card: title + range on one line, chart below. */
+export const chartCard = {
+  card: "pt-3.5 px-4 pb-2.5 min-w-0",
+  header: "flex items-baseline justify-between gap-2.5 mb-1",
+  title: "m-0 text-md font-bold",
+  /** muted note after the title, e.g. "(all disks)" */
+  note: "text-fg-muted font-medium text-sm",
+} as const;
 
 export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenOff, compact }: {
   data?: MetricsResponse; isLoading: boolean; isError: boolean; groups?: string[];
@@ -379,34 +407,35 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
   quietWhenOff?: boolean;
 }) {
   const { preset: rangePreset, from: rangeFrom, to: rangeTo } = useTimeRange();
-  if (isLoading) return <div className="ld-card"><Empty>Loading metrics…</Empty></div>;
+  if (isLoading) return <Card><Empty>Loading metrics…</Empty></Card>;
   if (isError || !data) {
-    return <div className="ld-card"><Empty>Metrics service is not reachable from this browser.</Empty></div>;
+    return <Card><Empty>Metrics service is not reachable from this browser.</Empty></Card>;
   }
   if (data.source !== "prometheus") {
     if (quietWhenOff) return null;
     return (
-      <div className="ld-card ld-metrics-off" role="status">
+      <Card className={ui.notice} role="status">
         <Icon icon={UnplugIcon} />
         <div>
           <b>{data.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
-          <p className="ld-muted ld-small">{data.message}</p>
+          <p className="text-fg-muted text-xs">{data.message}</p>
           {data.source === "unavailable" && (
-            <p className="ld-muted ld-small">Set PROMETHEUS_URL on the API to your Prometheus (for example fs-le-dev-prometheus) to see live graphs.</p>
+            <p className="text-fg-muted text-xs">Set PROMETHEUS_URL on the API to your Prometheus (for example fs-le-dev-prometheus) to see live graphs.</p>
           )}
         </div>
-      </div>
+      </Card>
     );
   }
   const startSec = Date.parse(data.start) / 1000;
   const endSec = Date.parse(data.end) / 1000;
   const present = new Set(data.series.map((s) => s.group));
   const groups = (only ? only.filter((g) => present.has(g)) : [...present]).sort((a, b) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b));
-  if (!groups.length) return <div className="ld-card"><Empty>No metrics of this kind for this device.</Empty></div>;
+  if (!groups.length) return <Card><Empty>No metrics of this kind for this device.</Empty></Card>;
   return (
     <>
     {data.sample && !quietWhenOff && <SampleNotice what="graphs" />}
-    <div className="ld-grid ld-chart-grid">
+    {/* data-chart-grid lets a narrow column (the VM page) force a single column */}
+    <div data-chart-grid="" className={cx(ui.grid, "grid-cols-[minmax(0,1fr)] min-[900px]:grid-cols-[repeat(2,minmax(0,1fr))]")}>
       {groups.map((g) => {
         const inGroup = data.series.filter((s) => s.group === g);
         // A group with mode breakdowns (CPU user/system/…/idle) is drawn as a
@@ -421,13 +450,13 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
           ? <TimeChart series={series} startSec={startSec} endSec={endSec} stacked={stacked} compact={compact} legendOnly={idle} />
           : <Empty>No samples in this range.</Empty>;
         return compact ? (
-          <section key={g} className="ld-card ld-chart-card" aria-label={GROUP_TITLE[g] ?? g}>
-            <header>
-              <h3>{GROUP_TITLE[g] ?? g}{CHART_NOTE[g] && <span className="ld-muted"> {CHART_NOTE[g]}</span>}{data.sample && <> <Pill tone="muted">Sample</Pill></>}</h3>
-              <span className="ld-muted ld-small"><Icon icon={ClockIcon} /> {rangeLabel(rangePreset, rangeFrom, rangeTo)}</span>
+          <Card as="section" key={g} className={chartCard.card} aria-label={GROUP_TITLE[g] ?? g}>
+            <header className={chartCard.header}>
+              <h3 className={chartCard.title}>{GROUP_TITLE[g] ?? g}{CHART_NOTE[g] && <span className={chartCard.note}> {CHART_NOTE[g]}</span>}{data.sample && <> <Pill tone="muted">Sample</Pill></>}</h3>
+              <span className="text-fg-muted text-xs"><Icon icon={ClockIcon} /> {rangeLabel(rangePreset, rangeFrom, rangeTo)}</span>
             </header>
             {chart}
-          </section>
+          </Card>
         ) : (
           <Panel key={g} title={GROUP_TITLE[g] ?? g}>{chart}</Panel>
         );
@@ -437,14 +466,21 @@ export function MetricsBody({ data, isLoading, isError, groups: only, quietWhenO
   );
 }
 
+/** Titled page section ("Performance", "Relationships"): heading left, controls right. */
+export const metricsSection = {
+  section: "flex flex-col gap-3",
+  head: "flex flex-wrap items-start justify-between gap-2.5",
+  title: "text-2xl font-bold text-fg",
+} as const;
+
 /** Live metrics section for a device page (server, switch, any InfraDevice). */
 export function DeviceMetrics({ deviceId, title = "Performance" }: { deviceId: string; title?: string }) {
   const { preset, from, to } = useTimeRange();
   const q = useDeviceMetrics(deviceId, preset, from, to);
   return (
-    <section className="ld-metrics" aria-label={`${title} metrics`}>
-      <div className="ld-metrics-head">
-        <h2>{title}</h2>
+    <section className={metricsSection.section} aria-label={`${title} metrics`}>
+      <div className={metricsSection.head}>
+        <h2 className={metricsSection.title}>{title}</h2>
         <TimeRangePicker />
       </div>
       <MetricsBody data={q.data} isLoading={q.isLoading} isError={q.isError} />
@@ -457,9 +493,9 @@ export function VmMetrics({ vmId, title = "Performance" }: { vmId: string; title
   const { preset, from, to } = useTimeRange();
   const q = useVmMetrics(vmId, preset, from, to);
   return (
-    <section className="ld-metrics" aria-label={`${title} metrics`}>
-      <div className="ld-metrics-head">
-        <h2>{title}</h2>
+    <section className={metricsSection.section} aria-label={`${title} metrics`}>
+      <div className={metricsSection.head}>
+        <h2 className={metricsSection.title}>{title}</h2>
         <TimeRangePicker />
       </div>
       <MetricsBody data={q.data} isLoading={q.isLoading} isError={q.isError} />

@@ -14,14 +14,15 @@ import { useTimeRange } from "@/store/timeRange";
 import { useDevice, useDeviceMetrics, useDeviceRelationships, useInfraAlerts, type MetricSeries, type NicLink, type PeerRef } from "@/api/hooks";
 import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
-import { Empty, Panel, Pill } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot } from "@/components/ld";
+import { Crumbs, Tab, Tabs, Table, buttonClass, cx, ui } from "@/components/ui";
 import type { Tone } from "@/components/ld";
 import { LiveButton, MetricsBody, RangeSelect, TimeChart, fmtValue, SampleNotice } from "@/components/MetricCharts";
-import { Kpi, lastOf, seriesOf } from "@/components/KpiCard";
+import { Kpi, lastOf, node, seriesOf } from "@/components/KpiCard";
 import { DeviceFamily } from "@/components/DeviceFamily";
 
 import { Icon } from "@/components/Icon";
-import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, ExternalLinkIcon, NetworkIcon, UnplugIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, ExternalLinkIcon, NetworkIcon, UnplugIcon } from "lucide-react";
 const STATUS: Record<string, { label: string; tone: Tone }> = {
   ok: { label: "Online", tone: "ok" },
   warn: { label: "Warning", tone: "warn" },
@@ -48,6 +49,21 @@ type PortState = "up" | "down" | "off";
 const portState = (n: NicLink): PortState => (n.oper_status === "up" ? "up" : n.admin_status === "down" ? "off" : "down");
 const PORT_LABEL: Record<PortState, string> = { up: "Up", down: "Down", off: "Admin down" };
 const PORT_TONE: Record<PortState, Tone> = { up: "ok", down: "crit", off: "muted" };
+
+// Port map: one small button per interface with a coloured "LED" on top.
+const SWATCH = "w-2.5 h-2.5 rounded-[3px]";
+const PORT_BASE = cx(
+  "flex flex-col items-center gap-[3px] min-w-0 pt-1.5 px-0.5 pb-[5px] border rounded-sm font-mono text-[10.5px] cursor-pointer",
+  "[&>span]:max-w-full [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap",
+  "before:content-[''] before:w-[18px] before:h-3 before:rounded-[2px]",
+  "hover:border-line-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+  "aria-pressed:outline aria-pressed:outline-2 aria-pressed:outline-accent aria-pressed:outline-offset-1",
+);
+const PORT_CLASS: Record<PortState, string> = {
+  up: "border-[color-mix(in_srgb,var(--success)_55%,transparent)] bg-success-bg text-fg before:bg-success",
+  down: "border-[color-mix(in_srgb,var(--critical)_55%,transparent)] bg-critical-bg text-fg before:bg-critical",
+  off: "border-line border-dashed bg-bg-muted text-fg-muted before:bg-fg-faint",
+};
 
 export default function SwitchDetailScreen() {
   const { setRoute } = useNav();
@@ -95,12 +111,12 @@ export default function SwitchDetailScreen() {
   // ── panels ────────────────────────────────────────────────────────────────
   const infoPanel = (
     <Panel title="Device Information">
-      <dl className="ld-dl">
+      <dl className={ui.dl}>
         <dt>Hostname</dt><dd>{d.hostname || d.id}</dd>
-        <dt>IP address</dt><dd className="ld-mono">{d.ip || "—"}</dd>
+        <dt>IP address</dt><dd className={ui.mono}>{d.ip || "—"}</dd>
         <dt>Model</dt><dd>{d.model || "—"}</dd>
         <dt>Vendor</dt><dd>{vendor || "—"}</dd>
-        <dt>Serial number</dt><dd className="ld-mono">{d.serial_number || "—"}</dd>
+        <dt>Serial number</dt><dd className={ui.mono}>{d.serial_number || "—"}</dd>
         <dt>OS version</dt><dd>{d.os || "—"}</dd>
         <dt>Site / location</dt><dd>{d.site}{d.location ? ` · ${d.location}` : ""}</dd>
         <dt>Role</dt><dd>{d.role || "—"}</dd>
@@ -118,32 +134,30 @@ export default function SwitchDetailScreen() {
       {errSeries.length ? (
         <TimeChart series={errSeries} startSec={Date.parse(m!.start) / 1000} endSec={Date.parse(m!.end) / 1000} compact />
       ) : (
-        <p className="ld-muted ld-small">
+        <p className="text-fg-muted text-xs">
           {connected ? "No error counters reported in this range." : "Error rates (ifInErrors / ifOutErrors) appear here once the SNMP exporter is scraped by Prometheus."}
         </p>
       )}
       {downPorts.length > 0 && (
-        <div className="ld-table-wrap">
-          <table className="ld-table">
+        <Table>
             <thead><tr><th scope="col">Interface</th><th scope="col">Status</th><th scope="col">Description</th></tr></thead>
             <tbody>
               {downPorts.slice(0, 5).map((n) => (
                 <tr key={n.name}>
-                  <td className="ld-mono">{n.name}</td>
-                  <td><Pill tone="crit"><span className="ld-pill-dot" />Down</Pill></td>
-                  <td className="ld-muted">{n.description || "—"}</td>
+                  <td className="font-mono font-semibold">{n.name}</td>
+                  <td><Pill tone="crit"><PillDot />Down</Pill></td>
+                  <td>{n.description || "—"}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
       )}
     </Panel>
   );
 
   const peerButton = (peer: PeerRef) => peer.restricted || !peer.id
-    ? <span className="ld-muted">Restricted device (other client)</span>
-    : <button type="button" className="ld-link" onClick={() => setRoute(PEER_ROUTE[peer.kind ?? ""] ?? "infra-device", { deviceId: peer.id })}>{peer.name ?? peer.id}</button>;
+    ? <span className="text-fg-muted">Restricted device (other client)</span>
+    : <button type="button" className={ui.link} onClick={() => setRoute(PEER_ROUTE[peer.kind ?? ""] ?? "infra-device", { deviceId: peer.id })}>{peer.name ?? peer.id}</button>;
 
   const neighbors = [
     ...nics.filter((n) => n.connected_to).map((n) => ({ key: n.name, peer: n.connected_to!.peer, local: n.name, remote: n.connected_to!.port, bw: n.connected_to!.bandwidth, status: n.connected_to!.status })),
@@ -152,22 +166,20 @@ export default function SwitchDetailScreen() {
   const neighborsPanel = (limit?: number) => (
     <Panel title="Neighbors (CDP/LLDP)" action={limit && neighbors.length > limit ? { label: "View all", onClick: () => goTab("Neighbors") } : undefined}>
       {rel.isLoading ? <Empty>Loading neighbours…</Empty> : neighbors.length ? (
-        <div className="ld-table-wrap">
-          <table className="ld-table">
+        <Table>
             <thead><tr><th scope="col">Neighbor device</th><th scope="col">Local port</th><th scope="col">Remote port</th><th scope="col">Bandwidth</th><th scope="col">Status</th></tr></thead>
             <tbody>
               {neighbors.slice(0, limit).map((r) => (
                 <tr key={r.key}>
                   <td>{peerButton(r.peer)}</td>
-                  <td className="ld-mono">{r.local || "—"}</td>
-                  <td className="ld-mono ld-muted">{r.remote || "—"}</td>
-                  <td className="ld-muted">{r.bw || "—"}</td>
-                  <td><Pill tone={r.status === "up" || r.status === "ok" ? "ok" : r.status ? "crit" : "muted"}><span className="ld-pill-dot" />{r.status || "unknown"}</Pill></td>
+                  <td className="font-mono font-semibold">{r.local || "—"}</td>
+                  <td className="font-mono font-semibold">{r.remote || "—"}</td>
+                  <td>{r.bw || "—"}</td>
+                  <td><Pill tone={r.status === "up" || r.status === "ok" ? "ok" : r.status ? "crit" : "muted"}><PillDot />{r.status || "unknown"}</Pill></td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
       ) : (
         <Empty>{rel.isError ? "Discovery data is not available for this switch." : "No CDP/LLDP neighbours discovered yet."}</Empty>
       )}
@@ -177,12 +189,12 @@ export default function SwitchDetailScreen() {
   const alertsPanel = (limit?: number) => (
     <Panel title="Recent Alerts" action={limit ? { label: "View all alerts", onClick: () => goTab("Alerts") } : { label: "Open alert console", onClick: () => setRoute("alerts") }}>
       {alerts.length ? (
-        <ul className="ld-activity">
+        <ul className={ui.activity}>
           {alerts.slice(0, limit).map((a) => (
-            <li key={a.id}>
+            <li key={a.id} className={ui.activityItem}>
               <Pill tone={sevTone(a.sev)}>{sevLabel(a.sev)}</Pill>
-              <span className="ld-activity-text">{a.title}{a.detail ? <span className="ld-muted"> · {a.detail}</span> : null}</span>
-              <span className="ld-muted ld-nowrap">{a.since}</span>
+              <span className={ui.activityText}>{a.title}{a.detail ? <span className="text-fg-muted"> · {a.detail}</span> : null}</span>
+              <span className="text-fg-muted whitespace-nowrap">{a.since}</span>
             </li>
           ))}
         </ul>
@@ -196,16 +208,16 @@ export default function SwitchDetailScreen() {
     <Panel title={`Port Map${nics.length ? ` (${nics.filter((n) => n.oper_status === "up").length} / ${nics.length} up)` : ""}`}>
       {rel.isLoading ? <Empty>Loading interfaces…</Empty> : nics.length ? (
         <>
-          <div className="ld-devices-legend" aria-hidden="true">
-            <span><span className="ld-devices-swatch is-up" /> Up</span>
-            <span><span className="ld-devices-swatch is-down" /> Down</span>
-            <span><span className="ld-devices-swatch" /> Admin down</span>
+          <div className="flex flex-wrap gap-x-3.5 gap-y-1.5 text-xs text-fg-muted [&_span]:inline-flex [&_span]:items-center [&_span]:gap-1.5" aria-hidden="true">
+            <span><span className={cx(SWATCH, "bg-success")} /> Up</span>
+            <span><span className={cx(SWATCH, "bg-critical")} /> Down</span>
+            <span><span className={cx(SWATCH, "bg-fg-faint")} /> Admin down</span>
           </div>
-          <div className="ld-devices-ports" role="group" aria-label="Switch ports">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(44px,1fr))] gap-1.5" role="group" aria-label="Switch ports">
             {nics.map((n) => {
               const s = portState(n);
               return (
-                <button key={n.name} type="button" className={`ld-devices-port is-${s}`} aria-pressed={port === n.name}
+                <button key={n.name} type="button" className={cx(PORT_BASE, PORT_CLASS[s])} aria-pressed={port === n.name}
                   aria-label={`${n.name}: ${PORT_LABEL[s]}${n.connected_to?.peer.name ? `, connected to ${n.connected_to.peer.name}` : ""}`}
                   title={`${n.name} · ${PORT_LABEL[s]}`} onClick={() => setPort(port === n.name ? null : n.name)}>
                   <span>{n.name.replace(/^[A-Za-z-]+/, "") || n.name}</span>
@@ -214,15 +226,15 @@ export default function SwitchDetailScreen() {
             })}
           </div>
           {selPort && (
-            <div className="ld-devices-port-detail">
-              <dl className="ld-dl">
-                <dt>Interface</dt><dd className="ld-mono">{selPort.name}{selPort.description ? ` · ${selPort.description}` : ""}</dd>
-                <dt>Status</dt><dd><Pill tone={PORT_TONE[portState(selPort)]}><span className="ld-pill-dot" />{PORT_LABEL[portState(selPort)]}</Pill></dd>
+            <div className="border-t border-line-subtle pt-2.5">
+              <dl className={ui.dl}>
+                <dt>Interface</dt><dd className={ui.mono}>{selPort.name}{selPort.description ? ` · ${selPort.description}` : ""}</dd>
+                <dt>Status</dt><dd><Pill tone={PORT_TONE[portState(selPort)]}><PillDot />{PORT_LABEL[portState(selPort)]}</Pill></dd>
                 <dt>Speed / MTU</dt><dd>{selPort.speed || "—"} · {selPort.mtu || "—"}</dd>
                 <dt>VLAN</dt><dd>{selPort.vlan || "—"}</dd>
-                <dt>MAC</dt><dd className="ld-mono">{selPort.mac || "—"}</dd>
-                <dt>RX / TX</dt><dd className="ld-mono">{fmtValue(selPort.rx_mbps, "Mbps")} / {fmtValue(selPort.tx_mbps, "Mbps")}</dd>
-                <dt>Connected to</dt><dd>{selPort.connected_to ? <>{peerButton(selPort.connected_to.peer)} <span className="ld-muted ld-mono">port {selPort.connected_to.port || "—"}</span></> : <span className="ld-muted">Not cabled / not discovered</span>}</dd>
+                <dt>MAC</dt><dd className={ui.mono}>{selPort.mac || "—"}</dd>
+                <dt>RX / TX</dt><dd className={ui.mono}>{fmtValue(selPort.rx_mbps, "Mbps")} / {fmtValue(selPort.tx_mbps, "Mbps")}</dd>
+                <dt>Connected to</dt><dd>{selPort.connected_to ? <>{peerButton(selPort.connected_to.peer)} <span className={cx(ui.mono, "text-fg-muted")}>port {selPort.connected_to.port || "—"}</span></> : <span className="text-fg-muted">Not cabled / not discovered</span>}</dd>
               </dl>
             </div>
           )}
@@ -236,27 +248,25 @@ export default function SwitchDetailScreen() {
   const interfaceTable = (limit?: number) => (
     <Panel title={`Interfaces (${nics.length})`} action={limit && nics.length > limit ? { label: "View all", onClick: () => goTab("Interfaces") } : undefined}>
       {nics.length ? (
-        <div className="ld-table-wrap">
-          <table className="ld-table">
+        <Table>
             <thead><tr><th scope="col">Interface</th><th scope="col">Status</th><th scope="col">VLAN</th><th scope="col">Speed</th><th scope="col">In</th><th scope="col">Out</th><th scope="col">Connected to</th></tr></thead>
             <tbody>
               {nics.slice(0, limit).map((n) => {
                 const s = portState(n);
                 return (
                   <tr key={n.name}>
-                    <td><span className="ld-mono ld-strong">{n.name}</span><span className="ld-sub">{n.description}</span></td>
-                    <td><Pill tone={PORT_TONE[s]}><span className="ld-pill-dot" />{PORT_LABEL[s]}</Pill></td>
-                    <td className="ld-muted">{n.vlan || "—"}</td>
+                    <td><span className="font-mono text-xs font-medium">{n.name}</span><span className={ui.sub}>{n.description}</span></td>
+                    <td><Pill tone={PORT_TONE[s]}><PillDot />{PORT_LABEL[s]}</Pill></td>
+                    <td>{n.vlan || "—"}</td>
                     <td>{n.speed || "—"}</td>
-                    <td className="ld-mono">{fmtValue(n.rx_mbps, "Mbps")}</td>
-                    <td className="ld-mono">{fmtValue(n.tx_mbps, "Mbps")}</td>
-                    <td>{n.connected_to ? <>{peerButton(n.connected_to.peer)}<span className="ld-sub ld-mono">port {n.connected_to.port || "—"}</span></> : <span className="ld-muted">—</span>}</td>
+                    <td className="font-mono font-semibold">{fmtValue(n.rx_mbps, "Mbps")}</td>
+                    <td className="font-mono font-semibold">{fmtValue(n.tx_mbps, "Mbps")}</td>
+                    <td>{n.connected_to ? <>{peerButton(n.connected_to.peer)}<span className={cx(ui.sub, "font-mono font-semibold")}>port {n.connected_to.port || "—"}</span></> : <span className="text-fg-muted">—</span>}</td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </Table>
       ) : (
         <Empty>{rel.isLoading ? "Loading interfaces…" : "No interfaces discovered yet."}</Empty>
       )}
@@ -264,10 +274,10 @@ export default function SwitchDetailScreen() {
   );
 
   const configPanel = (
-    <div className="ld-grid ld-grid-2">
+    <div className={cx(ui.grid, ui.cols[2])}>
       {infoPanel}
       <Panel title="Monitoring">
-        <dl className="ld-dl">
+        <dl className={ui.dl}>
           <dt>Collector</dt><dd>{d.agent || "—"}</dd>
           <dt>Metric family</dt><dd>{m?.family ?? "—"}</dd>
           <dt>Metrics source</dt><dd>{m?.sample ? <Pill tone="muted">Sample data</Pill> : connected ? <Pill tone="ok">Prometheus · connected</Pill> : <Pill tone="muted">{m?.source === "unsupported" ? "Not supported" : "Not connected"}</Pill>}</dd>
@@ -280,62 +290,54 @@ export default function SwitchDetailScreen() {
   );
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra")}>Monitoring</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("infra-assets")}>Nodes</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>{d.id}</span>
-      </nav>
+    <div className={ui.page}>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Nodes", onClick: () => setRoute("infra-assets") }, { label: d.id }]} />
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className="ld-devices-tile" aria-hidden="true"><Icon icon={NetworkIcon} /></span>
+      <div className={node.head}>
+        <div className={node.entity}>
+          <span className={node.deviceTile} aria-hidden="true"><Icon icon={NetworkIcon} /></span>
           <div>
-            <h1 className="ld-entity-title">
+            <h1 className={node.title}>
               {d.hostname || d.id}
-              <Pill tone={st.tone}><span className="ld-pill-dot" /> {st.label}</Pill>
+              <Pill tone={st.tone}><PillDot /> {st.label}</Pill>
             </h1>
-            <p className="ld-entity-meta">
+            <p className={node.meta}>
               <span>{d.model || "Switch"}</span>
-              <span className="ld-mono">{d.ip}</span>
+              <span className={ui.mono}>{d.ip}</span>
               <span>Site: <b>{d.site || "—"}</b></span>
               <span>Uptime: <b>{d.uptime || "—"}</b></span>
             </p>
-            <p className="ld-entity-meta">
+            <p className={node.meta}>
               <span>{d.os || "—"}</span>
               <span>Last seen: {d.lastSeen || "—"}</span>
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
             <RangeSelect />
             <LiveButton />
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
-            <button type="button" className="ld-btn" onClick={() => setRoute("infra-device", { deviceId: d.id })}><Icon icon={ExternalLinkIcon} /> Device monitoring</button>
+            <button type="button" className={buttonClass()} onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
+            <button type="button" className={buttonClass()} onClick={() => setRoute("infra-device", { deviceId: d.id })}><Icon icon={ExternalLinkIcon} /> Device monitoring</button>
           </div>
-          <ul className="ld-tags" aria-label="Tags">
-            {tags.map((t) => <li key={t.label} className="ld-tag"><Icon className={t.icon} /> {t.label}</li>)}
+          <ul className={ui.tags} aria-label="Tags">
+            {tags.map((t) => <li key={t.label} className={ui.tag}><Icon className={t.icon} /> {t.label}</li>)}
           </ul>
         </div>
       </div>
 
       {m?.sample && <SampleNotice />}
       {!metrics.isLoading && !connected && (
-        <div className="ld-card ld-metrics-off" role="status">
+        <div className={cx(ui.card, ui.notice)} role="status">
           <Icon icon={UnplugIcon} />
           <div>
             <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
-            <p className="ld-muted ld-small">{m?.message ?? "The metrics API is not reachable from this browser."} Cards show the last values from the device record; charts fill in once the SNMP exporter is scraped.</p>
+            <p className="text-fg-muted text-xs">{m?.message ?? "The metrics API is not reachable from this browser."} Cards show the last values from the device record; charts fill in once the SNMP exporter is scraped.</p>
           </div>
         </div>
       )}
 
-      <div className="ld-kpis">
+      <div className={node.kpis}>
         <Kpi icon="fa-microchip" tone="info" label="CPU Usage" value={cpu ? fmtValue(lastOf(cpu)!, "%") : `${d.cpu}%`}
           sub={cpu ? undefined : fromRecord} points={cpu?.points} lowerIsBetter />
         <Kpi icon="fa-memory" tone="ok" label="Memory Usage" value={`${d.mem}%`} sub={fromRecord} />
@@ -349,21 +351,21 @@ export default function SwitchDetailScreen() {
         <Kpi icon="fa-clock" tone="info" label="Uptime" value={uptime ? `${lastOf(uptime)!.toFixed(1)} d` : d.uptime || "n/a"} sub={uptime ? "sysUpTime" : fromRecord} />
       </div>
 
-      <div className="ld-tabs" role="tablist" aria-label={`${d.id} sections`}>
+      <Tabs aria-label={`${d.id} sections`}>
         {tabs.map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} className={`ld-tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>{t}</button>
+          <Tab key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Tab>
         ))}
-      </div>
+      </Tabs>
 
       {is("Overview") && (
         <>
           {charts(["cpu", "network"])}
-          <div className="ld-grid ld-grid-2">
+          <div className={cx(ui.grid, ui.cols[2])}>
             {infoPanel}
             {errorsPanel}
           </div>
           {portMap}
-          <div className="ld-grid ld-grid-2">
+          <div className={cx(ui.grid, ui.cols[2])}>
             {neighborsPanel(8)}
             {alertsPanel(5)}
           </div>
