@@ -69,7 +69,7 @@ export const ui = {
   mono: "font-mono text-xs font-semibold",
   sub: "block text-xs text-fg-muted",
   link: cx("border-0 bg-transparent p-0 text-sm font-medium text-accent cursor-pointer hover:underline", focusRing),
-  req: "text-tone-crit",
+  req: "text-[#b42318]",
   // tables
   tableWrap: "overflow-x-auto -mx-1",
   table: cx(

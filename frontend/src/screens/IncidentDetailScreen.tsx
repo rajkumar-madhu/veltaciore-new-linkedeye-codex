@@ -6,14 +6,16 @@ import { useUiStore } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
 import { INCIDENTS, TENANTS, USERS } from "@/data/core";
 import { TIMELINE_EVENTS, CHAT, type ChatMessage } from "@/data/incidentContent";
-import { Panel, Pill } from "@/components/ld";
+import { Panel, Pill, PillDot } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import { useIncidents, useUpdateCoreIncident } from "@/api/hooks";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
+import { entityTile, sd } from "@/components/RecordList";
+import { Button, Card, Crumbs, Page, Tab, Table, Tabs, Tile, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { AtSignIcon, BookIcon, ChevronRightIcon, EyeIcon, FlameIcon, FlaskConicalIcon, GlobeIcon, HandIcon, LockIcon, PaperclipIcon, PlayIcon, SendIcon, SignalIcon, SlackIcon, ThumbsDownIcon, ThumbsUpIcon, UserIcon, VideoIcon } from "lucide-react";
+import { AtSignIcon, BookIcon, EyeIcon, FlameIcon, FlaskConicalIcon, GlobeIcon, HandIcon, LockIcon, PaperclipIcon, PlayIcon, SendIcon, SignalIcon, SlackIcon, ThumbsDownIcon, ThumbsUpIcon, UserIcon, VideoIcon } from "lucide-react";
 const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "ok" };
 const EVENT_TONE: Record<string, { tone: Tone; icon: string }> = {
   critical: { tone: "crit", icon: "fa-bell" },
@@ -45,38 +47,32 @@ export default function IncidentDetailScreen() {
   };
   const resolved = status === "resolved";
   const statusPill = resolved ? (
-    <Pill tone="ok"><span className="ld-pill-dot" />Resolved</Pill>
+    <Pill tone="ok"><PillDot />Resolved</Pill>
   ) : status === "mitigating" ? (
-    <Pill tone="warn"><span className="ld-pill-dot" />Acknowledged · Mitigating</Pill>
+    <Pill tone="warn"><PillDot />Acknowledged · Mitigating</Pill>
   ) : (
-    <Pill tone="crit"><span className="ld-pill-dot" />Active</Pill>
+    <Pill tone="crit"><PillDot />Active</Pill>
   );
   const sevPill = <Pill tone={SEV_TONE[inc.sev] ?? "muted"}>Sev {inc.sev}</Pill>;
   const tenantName = TENANTS.find((t) => t.id === inc.tenant)?.name ?? inc.tenant ?? "—";
   const responders = USERS.slice(0, 5);
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("incidents")}>Incidents</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>{inc.id}</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Incidents", onClick: () => setRoute("incidents") }, { label: inc.id }]} />
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className={`ld-tile ld-${SEV_TONE[inc.sev] ?? "muted"}`} aria-hidden="true"><Icon icon={FlameIcon} /></span>
+      <div className={sd.entityHead}>
+        <div className={sd.entity}>
+          <span className={entityTile(SEV_TONE[inc.sev] ?? "muted")} aria-hidden="true"><Icon icon={FlameIcon} /></span>
           <div>
-            <span className="ld-sd-number">{inc.id}</span>
-            <h1 className="ld-entity-title">{inc.title} {sevPill} {statusPill}</h1>
-            <p className="ld-entity-meta">
+            <span className={sd.number}>{inc.id}</span>
+            <h1 className={sd.entityTitle}>{inc.title} {sevPill} {statusPill}</h1>
+            <p className={sd.entityMeta}>
               <span>Declared {inc.age} ago</span>
               <span>{tenantName}</span>
-              <span className="ld-mono">{inc.service}</span>
+              <span className={ui.mono}>{inc.service}</span>
             </p>
-            <p className="ld-entity-meta">
+            <p className={sd.entityMeta}>
               <span>IC: <b>{userName(inc.assignee)}</b></span>
               <span>{responders.length} responders</span>
               <span>SLO burn <b>{inc.sloBurn}x</b></span>
@@ -84,63 +80,63 @@ export default function IncidentDetailScreen() {
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><Icon icon={SlackIcon} /> #{inc.id.toLowerCase()}</button>
-            <button type="button" className="ld-btn"><Icon icon={VideoIcon} /> Join bridge</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button><Icon icon={SlackIcon} /> #{inc.id.toLowerCase()}</Button>
+            <Button><Icon icon={VideoIcon} /> Join bridge</Button>
             {!canWrite && <ReadOnlyBadge />}
             {canWrite && !resolved && status !== "mitigating" && (
-              <button type="button" className="ld-btn" onClick={() => setStatus("mitigating")} disabled={update.isPending}>
+              <Button onClick={() => setStatus("mitigating")} disabled={update.isPending}>
                 <Icon icon={HandIcon} /> Acknowledge
-              </button>
+              </Button>
             )}
             {canWrite && (
-              <button type="button" className="ld-btn ld-btn-primary" onClick={() => !resolved && setStatus("resolved")} disabled={resolved || update.isPending}>
-                <Icon className={`fa-solid ${resolved ? "fa-circle-check" : "fa-check"}`} /> {resolved ? "Resolved" : "Mark resolved"}
-              </button>
+              <Button variant="primary" onClick={() => !resolved && setStatus("resolved")} disabled={resolved || update.isPending}>
+                <Icon name={resolved ? "fa-circle-check" : "fa-check"} /> {resolved ? "Resolved" : "Mark resolved"}
+              </Button>
             )}
           </div>
         </div>
       </div>
 
-      <div className="ld-card ld-metrics-off" role="status">
+      <Card className={ui.notice} role="status">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample war-room content</b>
-          <p className="ld-muted ld-small">Only the incident status is read from the incident API. The AI analysis, timeline and activity below are example content.</p>
+          <p className="text-fg-muted text-xs">Only the incident status is read from the incident API. The AI analysis, timeline and activity below are example content.</p>
         </div>
-      </div>
+      </Card>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Argus AI — Root cause analysis (sample)">
-            <p className="ld-sd-entry-text">
+            <p className={sd.entryText}>
               <b>Likely cause:</b> Connection pool on <code>payments-primary</code> was reduced from 200 → 120 in deploy <code>2f8a1c</code> at 12:47 UTC. Peak traffic load at 14:30 exhausted the pool, causing cascading Stripe timeouts on <code>checkout-api</code>.
             </p>
-            <ul className="ld-sd-list">
+            <ul className={sd.list}>
               <li><b>Blast radius:</b> {inc.impacted} · {tenantName} only</li>
               <li><b>Correlation:</b> deploy event · memory pressure on DB · Stripe 429 rate</li>
               <li><b>Remediation:</b> Roll back deploy 2f8a1c (safe · no schema change)</li>
               <li><b>Similar past incident:</b> INC-47120 · resolved via rollback</li>
             </ul>
-            <div className="ld-sd-actions">
-              <button type="button" className="ld-btn ld-btn-primary ld-btn-sm"><Icon icon={PlayIcon} /> Run suggested playbook</button>
-              <button type="button" className="ld-btn ld-btn-sm"><Icon icon={ThumbsUpIcon} /> Helpful</button>
-              <button type="button" className="ld-btn ld-btn-sm"><Icon icon={ThumbsDownIcon} /> Off-base</button>
+            <div className={sd.actions}>
+              <Button variant="primary" size="sm"><Icon icon={PlayIcon} /> Run suggested playbook</Button>
+              <Button size="sm"><Icon icon={ThumbsUpIcon} /> Helpful</Button>
+              <Button size="sm"><Icon icon={ThumbsDownIcon} /> Off-base</Button>
             </div>
           </Panel>
 
           <Panel title="Timeline">
-            <ul className="ld-activity ld-sd-feed">
+            <ul className={ui.activity}>
               {TIMELINE_EVENTS.map((ev, i) => {
                 const t = EVENT_TONE[ev.type] ?? EVENT_TONE.info;
                 return (
-                  <li key={i}>
-                    <span className="ld-sd-time">{ev.t}</span>
-                    <span className={`ld-tile ld-tile-sm ld-${t.tone}`} aria-hidden="true"><Icon className={`fa-solid ${t.icon}`} /></span>
-                    <div className="ld-sd-entry">
-                      <div className="ld-sd-entry-text">{ev.body}</div>
-                      {ev.meta && <div className="ld-sd-entry-meta">{ev.meta.map((m, j) => <span key={j}>{m}</span>)}</div>}
+                  <li key={i} className={sd.feedItem}>
+                    <span className={sd.time}>{ev.t}</span>
+                    <Tile tone={t.tone} size="sm"><Icon name={t.icon} /></Tile>
+                    <div className={sd.entry}>
+                      <div className={sd.entryText}>{ev.body}</div>
+                      {ev.meta && <div className={sd.entryMeta}>{ev.meta.map((m, j) => <span key={j}>{m}</span>)}</div>}
                     </div>
                   </li>
                 );
@@ -151,13 +147,13 @@ export default function IncidentDetailScreen() {
           <WarRoomActivity />
         </div>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Details">
-            <dl className="ld-dl">
-              <dt>Number</dt><dd className="ld-mono">{inc.id}</dd>
+            <dl className={ui.dl}>
+              <dt>Number</dt><dd className={ui.mono}>{inc.id}</dd>
               <dt>Client</dt><dd>{tenantName}</dd>
-              <dt>Application</dt><dd className="ld-mono">{inc.service}</dd>
-              <dt>Hostname</dt><dd className="ld-mono">checkout-api-7f9c2</dd>
+              <dt>Application</dt><dd className={ui.mono}>{inc.service}</dd>
+              <dt>Hostname</dt><dd className={ui.mono}>checkout-api-7f9c2</dd>
               <dt>Severity</dt><dd>{sevPill}</dd>
               <dt>Status</dt><dd>{statusPill}</dd>
               <dt>Commander</dt><dd>{userName(inc.assignee)}</dd>
@@ -171,35 +167,33 @@ export default function IncidentDetailScreen() {
           </Panel>
 
           <Panel title={`Responders · ${responders.length}`}>
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {responders.map((u) => (
-                <li key={u.id}>
-                  <span className={`ld-tile ld-tile-sm ld-${u.role === "Incident Commander" ? "crit" : "info"}`} aria-hidden="true"><Icon icon={UserIcon} /></span>
-                  <span className="ld-activity-text">
-                    {u.name} · <span className="ld-muted">{u.role === "Incident Commander" ? "IC" : u.role} · {u.team}</span>
+                <li key={u.id} className={ui.activityItem}>
+                  <Tile tone={u.role === "Incident Commander" ? "crit" : "info"} size="sm"><Icon icon={UserIcon} /></Tile>
+                  <span className={ui.activityText}>
+                    {u.name} · <span className="text-fg-muted">{u.role === "Incident Commander" ? "IC" : u.role} · {u.team}</span>
                   </span>
-                  <Pill tone={u.status === "online" ? "ok" : u.status === "away" ? "warn" : "muted"}><span className="ld-pill-dot" />{u.status}</Pill>
+                  <Pill tone={u.status === "online" ? "ok" : u.status === "away" ? "warn" : "muted"}><PillDot />{u.status}</Pill>
                 </li>
               ))}
             </ul>
           </Panel>
 
           <Panel title="Related records">
-            <div className="ld-table-wrap">
-              <table className="ld-table">
-                <thead><tr><th scope="col">Record</th><th scope="col">Summary</th></tr></thead>
-                <tbody>
-                  <tr><td className="ld-mono">INC-47120</td><td className="ld-wrap">Connection pool — 3w ago</td></tr>
-                  <tr><td className="ld-mono">INC-46088</td><td className="ld-wrap">Stripe timeouts — 2mo ago</td></tr>
-                  <tr><td className="ld-mono">PRB-3912</td><td className="ld-wrap">Problem (unresolved)</td></tr>
-                  <tr><td className="ld-mono">CHG-2219</td><td className="ld-wrap">Change · deploy 2f8a1c</td></tr>
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <thead><tr><th scope="col">Record</th><th scope="col">Summary</th></tr></thead>
+              <tbody>
+                <tr><td className={sd.cellMono}>INC-47120</td><td className={ui.cellWrap}>Connection pool — 3w ago</td></tr>
+                <tr><td className={sd.cellMono}>INC-46088</td><td className={ui.cellWrap}>Stripe timeouts — 2mo ago</td></tr>
+                <tr><td className={sd.cellMono}>PRB-3912</td><td className={ui.cellWrap}>Problem (unresolved)</td></tr>
+                <tr><td className={sd.cellMono}>CHG-2219</td><td className={ui.cellWrap}>Change · deploy 2f8a1c</td></tr>
+              </tbody>
+            </Table>
           </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -242,31 +236,31 @@ export function WarRoomActivity() {
 
   return (
     <Panel title="Activity">
-      <div className="ld-tabs" role="tablist" aria-label="Filter activity">
+      <Tabs aria-label="Filter activity">
         {filters.map(([k, lbl]) => (
-          <button key={k} type="button" role="tab" aria-selected={filter === k} className={`ld-tab${filter === k ? " active" : ""}`} onClick={() => setFilter(k)}>{lbl}</button>
+          <Tab key={k} active={filter === k} onClick={() => setFilter(k)}>{lbl}</Tab>
         ))}
-      </div>
+      </Tabs>
 
-      <ul className="ld-activity ld-sd-feed">
+      <ul className={ui.activity}>
         {shown.map((c) => {
           const t = WARROOM_TYPES[c.kind];
           const u = c.ai ? null : USERS.find((x) => x.id === c.u);
           const name = c.ai ? "Argus AI" : (u ? u.name : "Unknown");
           const role = c.ai ? "copilot" : c.role;
           return (
-            <li key={c._i}>
-              <span className={`ld-tile ld-tile-sm ld-${t.tone}`} aria-hidden="true">
-                <Icon className={`fa-solid ${c.ai ? "fa-wand-magic-sparkles" : "fa-user"}`} />
-              </span>
-              <div className="ld-sd-entry">
-                <div className="ld-sd-entry-meta">
+            <li key={c._i} className={sd.feedItem}>
+              <Tile tone={t.tone} size="sm">
+                <Icon name={c.ai ? "fa-wand-magic-sparkles" : "fa-user"} />
+              </Tile>
+              <div className={sd.entry}>
+                <div className={sd.entryMeta}>
                   <b>{name}</b>
                   <span>{role}</span>
-                  <Pill tone={t.tone}><Icon className={`fa-solid ${t.icon}`} /> {t.label}</Pill>
+                  <Pill tone={t.tone}><Icon name={t.icon} /> {t.label}</Pill>
                   <time>{c.time} · Today</time>
                 </div>
-                <div className="ld-sd-entry-text">{c.text}</div>
+                <div className={sd.entryText}>{c.text}</div>
               </div>
             </li>
           );
@@ -274,24 +268,24 @@ export function WarRoomActivity() {
       </ul>
 
       {!canWrite ? (
-        <p className="ld-muted ld-small">
+        <p className="text-fg-muted text-xs">
           <Icon icon={EyeIcon} /> Read-only — you can follow the war room but not post work notes or comments.
         </p>
       ) : (
-        <div className="ld-form">
-          <div className="ld-tabs" role="tablist" aria-label="Journal channel">
-            <button type="button" role="tab" aria-selected={channel === "worknote"} className={`ld-tab${channel === "worknote" ? " active" : ""}`} onClick={() => setChannel("worknote")}>
+        <div className={ui.form}>
+          <Tabs aria-label="Journal channel">
+            <Tab active={channel === "worknote"} onClick={() => setChannel("worknote")}>
               <Icon icon={LockIcon} /> Work notes
-            </button>
-            <button type="button" role="tab" aria-selected={channel === "comment"} className={`ld-tab${channel === "comment" ? " active" : ""}`} onClick={() => setChannel("comment")}>
-              <Icon icon={GlobeIcon} /> Additional comments <span className="ld-muted ld-small">customer-visible</span>
-            </button>
-          </div>
-          <div className="ld-form-field">
+            </Tab>
+            <Tab active={channel === "comment"} onClick={() => setChannel("comment")}>
+              <Icon icon={GlobeIcon} /> Additional comments <span className="text-fg-muted text-xs">customer-visible</span>
+            </Tab>
+          </Tabs>
+          <div className={ui.field}>
             <label htmlFor={`${idp}-draft`} className="sr-only">{channel === "worknote" ? "Work note" : "Additional comment"}</label>
             <textarea
               id={`${idp}-draft`}
-              className="ld-input ld-textarea ld-sd-textarea"
+              className={sd.textarea}
               rows={3}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -300,15 +294,15 @@ export function WarRoomActivity() {
                 : "Write a customer-visible update for stakeholders…"}
             />
           </div>
-          <div className="ld-sd-actions">
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Mention" title="Mention"><Icon icon={AtSignIcon} /></button>
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Attach" title="Attach"><Icon icon={PaperclipIcon} /></button>
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Runbook" title="Runbook"><Icon icon={BookIcon} /></button>
-            <button type="button" className="ld-btn ld-btn-sm" aria-label="Status page" title="Status page"><Icon icon={SignalIcon} /></button>
-            <span className="ld-field-grow" />
-            <button type="button" className="ld-btn ld-btn-primary" disabled={!draft.trim()}>
+          <div className={sd.actions}>
+            <Button size="sm" aria-label="Mention" title="Mention"><Icon icon={AtSignIcon} /></Button>
+            <Button size="sm" aria-label="Attach" title="Attach"><Icon icon={PaperclipIcon} /></Button>
+            <Button size="sm" aria-label="Runbook" title="Runbook"><Icon icon={BookIcon} /></Button>
+            <Button size="sm" aria-label="Status page" title="Status page"><Icon icon={SignalIcon} /></Button>
+            <span className={ui.fieldGrow} />
+            <Button variant="primary" disabled={!draft.trim()}>
               <Icon icon={SendIcon} /> Post {channel === "worknote" ? "work note" : "comment"}
-            </button>
+            </Button>
           </div>
         </div>
       )}

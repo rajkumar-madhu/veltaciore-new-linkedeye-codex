@@ -3,12 +3,14 @@
 import "@/styles/servicedesk.css";
 import React from "react";
 import { useNav } from "@/hooks/useNav";
-import { Empty, Panel, Pill, countBy, fmt } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, countBy, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 import { useArticles } from "@/api/hooks";
 import { USERS } from "@/data/core";
 
 
+import { Tile, buttonClass, cx, ui } from "@/components/ui";
+import { chipClass, chipLabel, ddTone, entityTile, monoLink, sd } from "@/components/RecordList";
 import { Icon } from "@/components/Icon";
 import { BookOpenIcon, BotIcon, ChevronRightIcon, Grid3x3Icon, PencilIcon, PlusIcon, PrinterIcon, ShareIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
 const CATEGORIES: { label: string; id: string; icon: string }[] = [
@@ -21,12 +23,12 @@ const userName = (id: string) => USERS.find((u) => u.id === id)?.name ?? id;
 
 function Summary({ icon, tone, label, value, note }: { icon: string; tone: Tone; label: string; value: React.ReactNode; note: string }) {
   return (
-    <div className="ld-card ld-stat ld-sd-stat">
-      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
-      <span className="ld-stat-body">
-        <span className="ld-stat-label">{label}</span>
-        <span className="ld-stat-value">{value}</span>
-        <span className="ld-stat-note">{note}</span>
+    <div className={cx(ui.card, "flex items-center gap-4 px-4.5 py-4 text-left cursor-default")}>
+      <Tile tone={tone}><Icon name={icon} /></Tile>
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-sm text-fg-muted">{label}</span>
+        <span className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{value}</span>
+        <span className="text-sm text-fg-muted">{note}</span>
       </span>
     </div>
   );
@@ -47,25 +49,25 @@ export default function KnowledgeScreen() {
   const current = CATEGORIES.find((c) => c.id === cat);
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
         <Icon icon={ChevronRightIcon} />
         <span>Knowledge Base</span>
       </nav>
 
-      <div className="ld-head">
+      <div className={ui.head}>
         <div>
-          <h1>Knowledge Base</h1>
-          <p>{fmt(articles.length)} articles in {catCount} categories · AI-assisted authoring</p>
+          <h1 className={ui.h1}>Knowledge Base</h1>
+          <p className={ui.headSub}>{fmt(articles.length)} articles in {catCount} categories · AI-assisted authoring</p>
         </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={BotIcon} /> Generate from Incident</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Article</button>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={BotIcon} /> Generate from Incident</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={PlusIcon} /> New Article</button>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <Summary icon="fa-book-open" tone="info" label="Total articles" value={fmt(articles.length)} note="published" />
         <Summary icon="fa-book" tone="ok" label="Runbooks" value={fmt(articles.filter(a => a.cat === "Runbooks").length)} note="operational" />
         <Summary icon="fa-bug" tone="warn" label="Known errors" value={fmt(articles.filter(a => a.cat === "Known errors").length)} note="documented" />
@@ -73,39 +75,39 @@ export default function KnowledgeScreen() {
         <Summary icon="fa-eye" tone="muted" label="Total views" value={fmt(views)} note="all time" />
       </div>
 
-      <div className="ld-chips" role="group" aria-label="Filter by category">
-        <button type="button" className={`ld-chip${cat === "all" ? " active" : ""}`} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="Filter by category">
+        <button type="button" className={chipClass(cat === "all")} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
           <Icon icon={Grid3x3Icon} />
-          <span className="ld-chip-label">All</span>
-          <span className="ld-chip-count">{articles.length}</span>
+          <span className={chipLabel(cat === "all")}>All</span>
+          <span className="text-md font-bold">{articles.length}</span>
         </button>
         {CATEGORIES.map(({ label, id, icon }) => (
-          <button key={id} type="button" className={`ld-chip${cat === id ? " active" : ""}`} aria-pressed={cat === id} onClick={() => setCat(cat === id ? "all" : id)}>
-            <Icon className={`fa-solid ${icon}`} />
-            <span className="ld-chip-label">{label}</span>
-            <span className="ld-chip-count">{articles.filter(a => a.cat.toLowerCase() === id).length}</span>
+          <button key={id} type="button" className={chipClass(cat === id)} aria-pressed={cat === id} onClick={() => setCat(cat === id ? "all" : id)}>
+            <Icon name={icon} />
+            <span className={chipLabel(cat === id)}>{label}</span>
+            <span className="text-md font-bold">{articles.filter(a => a.cat.toLowerCase() === id).length}</span>
           </button>
         ))}
       </div>
 
-      <div className="ld-split">
+      <div className={ui.split}>
         <Panel title={`${current ? current.label : "All Articles"} (${filtered.length})`}>
           {filtered.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
                 <thead>
                   <tr><th scope="col">Number</th><th scope="col">Title</th><th scope="col">Category</th><th scope="col">Author</th><th scope="col">Views</th><th scope="col">Rating</th><th scope="col">Updated</th></tr>
                 </thead>
                 <tbody>
                   {filtered.map(a => (
                     <tr key={a.id}>
-                      <td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("knowledge-article")}>{a.id}</button></td>
-                      <td className="ld-wrap"><span className="ld-strong">{a.title}</span><span className="ld-sub ld-mono">#{a.tag}</span></td>
+                      <td><button type="button" className={monoLink} onClick={() => setRoute("knowledge-article")}>{a.id}</button></td>
+                      <td className={ui.cellWrap}><span className="font-medium">{a.title}</span><span className={cx(ui.sub, ui.mono)}>#{a.tag}</span></td>
                       <td><Pill tone="muted">{a.cat}</Pill></td>
                       <td>{userName(a.author)}</td>
-                      <td className="ld-mono">{fmt(a.views)}</td>
-                      <td className="ld-mono ld-text-ok">{a.rating}</td>
-                      <td className="ld-muted">{a.upd}</td>
+                      <td className={sd.cellMono}>{fmt(a.views)}</td>
+                      <td className={cx(sd.cellMono, "dark:text-tone-ok")}>{a.rating}</td>
+                      <td>{a.upd}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -116,15 +118,15 @@ export default function KnowledgeScreen() {
           )}
         </Panel>
 
-        <aside className="ld-rail" aria-label="Authoring">
+        <aside className={ui.rail} aria-label="Authoring">
           <Panel title="AI Authoring">
-            <p className="ld-sd-entry-text">Argus-LinkedEye can draft runbooks from recently resolved incidents.</p>
-            <button type="button" className="ld-btn ld-btn-primary">Review drafts</button>
+            <p className={sd.entryText}>Argus-LinkedEye can draft runbooks from recently resolved incidents.</p>
+            <button type="button" className={buttonClass("primary")}>Review drafts</button>
           </Panel>
           <Panel title="Top tags">
             {tags.length ? (
-              <ul className="ld-tags ld-sd-tags-start" aria-label="Tags">
-                {tags.map(([t, n]) => <li key={t} className="ld-tag">#{t} <span className="ld-muted">{n}</span></li>)}
+              <ul className={sd.tagsStart} aria-label="Tags">
+                {tags.map(([t, n]) => <li key={t} className={ui.tag}>#{t} <span className="text-fg-muted">{n}</span></li>)}
               </ul>
             ) : (
               <Empty>No tags yet.</Empty>
@@ -141,19 +143,19 @@ export function KnowledgeArticleScreen() {
   const { data } = useArticles();
   const a = (data ?? [])[0];
   const crumbs = (last: string) => (
-    <nav className="ld-crumbs" aria-label="Breadcrumb">
-      <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <nav className={ui.crumbs} aria-label="Breadcrumb">
+      <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
       <Icon icon={ChevronRightIcon} />
-      <button type="button" className="ld-link" onClick={() => setRoute("knowledge")}>Knowledge Base</button>
+      <button type="button" className={ui.link} onClick={() => setRoute("knowledge")}>Knowledge Base</button>
       <Icon icon={ChevronRightIcon} />
       <span>{last}</span>
     </nav>
   );
   if (!a) {
     return (
-      <div className="ld-dash">
+      <div className={ui.page}>
         {crumbs("Article")}
-        <div className="ld-card">
+        <div className={ui.card}>
           <Empty>
             <Icon icon={BookOpenIcon} /> <b>No articles</b>
             <br />The knowledge base has no published articles for this tenant.
@@ -163,20 +165,20 @@ export function KnowledgeArticleScreen() {
     );
   }
   return (
-    <div className="ld-dash">
+    <div className={ui.page}>
       {crumbs(a.id)}
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className="ld-tile ld-info" aria-hidden="true"><Icon icon={BookOpenIcon} /></span>
+      <div className={sd.entityHead}>
+        <div className={sd.entity}>
+          <span className={entityTile("info")} aria-hidden="true"><Icon icon={BookOpenIcon} /></span>
           <div>
-            <span className="ld-sd-number">{a.id}</span>
-            <h1 className="ld-entity-title">
+            <span className={sd.number}>{a.id}</span>
+            <h1 className={sd.entityTitle}>
               {a.title}
-              <Pill tone="ok"><span className="ld-pill-dot" />Published</Pill>
+              <Pill tone="ok"><PillDot />Published</Pill>
               <Pill tone="muted">{a.cat}</Pill>
             </h1>
-            <p className="ld-entity-meta">
+            <p className={sd.entityMeta}>
               <span>By {userName(a.author)}</span>
               <span>Updated {a.upd}</span>
               <span>{fmt(a.views)} views</span>
@@ -184,18 +186,18 @@ export function KnowledgeArticleScreen() {
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><Icon icon={ShareIcon} /> Share</button>
-            <button type="button" className="ld-btn"><Icon icon={PencilIcon} /> Edit</button>
-            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PrinterIcon} /> Print</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <button type="button" className={buttonClass()}><Icon icon={ShareIcon} /> Share</button>
+            <button type="button" className={buttonClass()}><Icon icon={PencilIcon} /> Edit</button>
+            <button type="button" className={buttonClass("primary")}><Icon icon={PrinterIcon} /> Print</button>
           </div>
         </div>
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-label="Article">
-          <div className="ld-sd-prose">
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-label="Article">
+          <div className={sd.prose}>
             <h3>Symptoms</h3>
             <p>Elevated 5xx response rate on <code>checkout-api</code>, correlated with timeouts against Stripe. p95 latency climbs above 5s, error rate exceeds 10%.</p>
             <h3>Cause</h3>
@@ -207,34 +209,34 @@ export function KnowledgeArticleScreen() {
               <li>Roll back any deploy in the last 2 hours that touched pool config.</li>
               <li>Monitor 10 minutes; update status page when recovery holds.</li>
             </ol>
-            <div className="ld-sd-callout">
+            <div className={sd.callout}>
               <b>Tip</b> · Argus-LinkedEye can auto-execute step 2 when this runbook is tagged on an active incident.
             </div>
             <h3>Related</h3>
             <ul>
-              <li><span className="ld-mono">KB-2113</span> · How to declare and lead a Sev-1 incident</li>
-              <li><span className="ld-mono">PRB-3912</span> · Connection pool sizing regression</li>
+              <li><span className={ui.mono}>KB-2113</span> · How to declare and lead a Sev-1 incident</li>
+              <li><span className={ui.mono}>PRB-3912</span> · Connection pool sizing regression</li>
             </ul>
           </div>
         </section>
 
-        <aside className="ld-rail" aria-label="Article details">
+        <aside className={ui.rail} aria-label="Article details">
           <Panel title="Article Properties">
-            <dl className="ld-dl">
-              <dt>Number</dt><dd className="ld-mono">{a.id}</dd>
+            <dl className={ui.dl}>
+              <dt>Number</dt><dd className={ui.mono}>{a.id}</dd>
               <dt>Category</dt><dd>{a.cat}</dd>
-              <dt>Tag</dt><dd className="ld-mono">#{a.tag}</dd>
+              <dt>Tag</dt><dd className={ui.mono}>#{a.tag}</dd>
               <dt>Author</dt><dd>{userName(a.author)}</dd>
               <dt>Updated</dt><dd>{a.upd}</dd>
               <dt>Views</dt><dd>{fmt(a.views)}</dd>
-              <dt>Rating</dt><dd className="ld-text-ok">{a.rating} / 5</dd>
-              <dt>State</dt><dd><Pill tone="ok"><span className="ld-pill-dot" />Published</Pill></dd>
+              <dt>Rating</dt><dd className={ddTone.ok}>{a.rating} / 5</dd>
+              <dt>State</dt><dd><Pill tone="ok"><PillDot />Published</Pill></dd>
             </dl>
           </Panel>
           <Panel title="Was this helpful?">
-            <div className="ld-sd-actions">
-              <button type="button" className="ld-btn"><Icon icon={ThumbsUpIcon} /> Yes</button>
-              <button type="button" className="ld-btn"><Icon icon={ThumbsDownIcon} /> No</button>
+            <div className={sd.actions}>
+              <button type="button" className={buttonClass()}><Icon icon={ThumbsUpIcon} /> Yes</button>
+              <button type="button" className={buttonClass()}><Icon icon={ThumbsDownIcon} /> No</button>
             </div>
           </Panel>
         </aside>

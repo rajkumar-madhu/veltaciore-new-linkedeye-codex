@@ -4,9 +4,11 @@
 import "@/styles/servicedesk.css";
 import { useNav } from "@/hooks/useNav";
 import { USERS } from "@/data/core";
-import { Panel, Pill } from "@/components/ld";
+import { Panel, Pill, PillDot } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Tile, buttonClass, cx, toneText, ui } from "@/components/ui";
+import { ddTone, entityTile, monoLink, sd } from "@/components/RecordList";
 import { Icon } from "@/components/Icon";
 import { CheckIcon, ChevronRightIcon, CircleCheckIcon, CircleIcon, ClipboardCheckIcon, FileTextIcon, PencilIcon, Share2Icon, UserIcon, XIcon } from "lucide-react";
 const TIMELINE: { t: string; label: string; who: string; text: string; tone: Tone }[] = [
@@ -61,29 +63,29 @@ export default function RetroScreen() {
   ];
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
         <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("incidents")}>Incidents</button>
+        <button type="button" className={ui.link} onClick={() => setRoute("incidents")}>Incidents</button>
         <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("incident-detail")}>INC-48279</button>
+        <button type="button" className={ui.link} onClick={() => setRoute("incident-detail")}>INC-48279</button>
         <Icon icon={ChevronRightIcon} />
         <span>Retrospective</span>
       </nav>
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className="ld-tile ld-purple" aria-hidden="true"><Icon icon={ClipboardCheckIcon} /></span>
+      <div className={sd.entityHead}>
+        <div className={sd.entity}>
+          <span className={entityTile("purple")} aria-hidden="true"><Icon icon={ClipboardCheckIcon} /></span>
           <div>
-            <span className="ld-sd-number">PIR-48279</span>
-            <h1 className="ld-entity-title">
+            <span className={sd.number}>PIR-48279</span>
+            <h1 className={sd.entityTitle}>
               Post-Incident Review — Payments connection pool exhaustion
               <Pill tone="crit">Sev-1</Pill>
-              <Pill tone="ok"><span className="ld-pill-dot" />Resolved</Pill>
+              <Pill tone="ok"><PillDot />Resolved</Pill>
               <Pill tone="info"><Icon icon={PencilIcon} /> Review: Draft</Pill>
             </h1>
-            <p className="ld-entity-meta">
+            <p className={sd.entityMeta}>
               <span>INC-48279</span>
               <span>Jun 1, 2026</span>
               <span>{since("Resolved")} duration ({at("Detected")}–{at("Resolved")} UTC)</span>
@@ -91,39 +93,39 @@ export default function RetroScreen() {
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><Icon icon={FileTextIcon} /> Export PDF</button>
-            <button type="button" className="ld-btn"><Icon icon={Share2Icon} /> Share</button>
-            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={CircleCheckIcon} /> Publish review</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <button type="button" className={buttonClass()}><Icon icon={FileTextIcon} /> Export PDF</button>
+            <button type="button" className={buttonClass()}><Icon icon={Share2Icon} /> Share</button>
+            <button type="button" className={buttonClass("primary")}><Icon icon={CircleCheckIcon} /> Publish review</button>
           </div>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         {timings.map((k) => (
-          <div key={k.label} className="ld-card ld-stat ld-sd-stat">
-            <span className={`ld-tile ld-${k.tone}`} aria-hidden="true"><Icon className={`fa-solid ${k.icon}`} /></span>
-            <span className="ld-stat-body">
-              <span className="ld-stat-label">{k.label}</span>
-              <span className="ld-stat-value">{k.value}</span>
-              <span className="ld-stat-note">{k.note}</span>
+          <div key={k.label} className={cx(ui.card, "flex items-center gap-4 px-4.5 py-4 text-left cursor-default")}>
+            <Tile tone={k.tone}><Icon name={k.icon} /></Tile>
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-sm text-fg-muted">{k.label}</span>
+              <span className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{k.value}</span>
+              <span className="text-sm text-fg-muted">{k.note}</span>
             </span>
           </div>
         ))}
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Summary">
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               <dt>Severity</dt><dd><Pill tone="crit">Sev-1</Pill></dd>
               <dt>Duration</dt><dd><b>{since("Resolved")}</b> · {at("Detected")}–{at("Resolved")} UTC</dd>
-              <dt>Affected services</dt><dd className="ld-mono">payments-api, checkout-web</dd>
+              <dt>Affected services</dt><dd className={ui.mono}>payments-api, checkout-web</dd>
               <dt>Incident commander</dt><dd>{userName("u1")}</dd>
               <dt>Trigger</dt><dd>CHG-2219 · concurrency increase</dd>
             </dl>
-            <p className="ld-sd-entry-text">
+            <p className={sd.entryText}>
               A routine change (CHG-2219) increased request concurrency on the payments service. The Stripe client connection
               pool was sized for the old concurrency and became exhausted under production load, causing a cascade of failed
               payment requests. Detection was fast, but mitigation required a manual rollback that added avoidable minutes.
@@ -131,14 +133,14 @@ export default function RetroScreen() {
           </Panel>
 
           <Panel title={`Incident timeline (${TIMELINE.length} events)`}>
-            <ul className="ld-activity ld-sd-feed">
+            <ul className={ui.activity}>
               {TIMELINE.map((e, i) => (
-                <li key={i}>
-                  <span className="ld-sd-time">{e.t}</span>
-                  <span className={`ld-tile ld-tile-sm ld-${e.tone}`} aria-hidden="true"><Icon icon={CircleIcon} /></span>
-                  <div className="ld-sd-entry">
-                    <div className="ld-sd-entry-meta"><b>{e.label}</b><span><Icon icon={UserIcon} /> {e.who}</span></div>
-                    <div className="ld-sd-entry-text">{e.text}</div>
+                <li key={i} className={sd.feedItem}>
+                  <span className={sd.time}>{e.t}</span>
+                  <Tile tone={e.tone} size="sm"><Icon icon={CircleIcon} /></Tile>
+                  <div className={sd.entry}>
+                    <div className={sd.entryMeta}><b>{e.label}</b><span><Icon icon={UserIcon} /> {e.who}</span></div>
+                    <div className={sd.entryText}>{e.text}</div>
                   </div>
                 </li>
               ))}
@@ -146,35 +148,35 @@ export default function RetroScreen() {
           </Panel>
 
           <Panel title="Root cause analysis — five whys">
-            <ol className="ld-sd-steps">
+            <ol className={sd.steps}>
               {WHYS.map(([q, a], i) => (
-                <li key={i}>
-                  <span className="ld-sd-step-n" aria-hidden="true">{i + 1}</span>
-                  <div className="ld-sd-entry">
-                    <div className="ld-sd-entry-text"><b>{q}</b></div>
-                    <div className="ld-sd-entry-text ld-muted">{a}</div>
+                <li key={i} className={sd.step}>
+                  <span className={sd.stepN} aria-hidden="true">{i + 1}</span>
+                  <div className={sd.entry}>
+                    <div className={sd.entryText}><b>{q}</b></div>
+                    <div className={sd.entryText}>{a}</div>
                   </div>
                 </li>
               ))}
             </ol>
           </Panel>
 
-          <div className="ld-grid ld-grid-2">
+          <div className={cx(ui.grid, ui.cols[2])}>
             <Panel title="What went well">
-              <ul className="ld-sd-list ld-sd-list-plain">
-                {WELL.map((x, i) => <li key={i}><Icon icon={CheckIcon} className="ld-text-ok" /> <span>{x}</span></li>)}
+              <ul className={sd.listPlain}>
+                {WELL.map((x, i) => <li key={i}><Icon icon={CheckIcon} className={toneText.ok} /> <span>{x}</span></li>)}
               </ul>
             </Panel>
             <Panel title="What to improve">
-              <ul className="ld-sd-list ld-sd-list-plain">
-                {WRONG.map((x, i) => <li key={i}><Icon icon={XIcon} className="ld-text-crit" /> <span>{x}</span></li>)}
+              <ul className={sd.listPlain}>
+                {WRONG.map((x, i) => <li key={i}><Icon icon={XIcon} className={toneText.crit} /> <span>{x}</span></li>)}
               </ul>
             </Panel>
           </div>
 
           <Panel title={`Action items (${openActions} open)`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
                 <thead>
                   <tr><th scope="col">Action</th><th scope="col">Owner</th><th scope="col">Due</th><th scope="col">Priority</th><th scope="col">Status</th></tr>
                 </thead>
@@ -183,11 +185,11 @@ export default function RetroScreen() {
                     const st = ACT_STATUS[a.status];
                     return (
                       <tr key={i}>
-                        <td className="ld-wrap ld-strong">{a.item}</td>
+                        <td className={cx(ui.cellWrap, "font-medium")}>{a.item}</td>
                         <td>{userName(a.owner)}</td>
-                        <td className="ld-mono ld-muted">{a.due}</td>
+                        <td className={sd.cellMono}>{a.due}</td>
                         <td><Pill tone={PRIO_TONE[a.prio]}>{a.prio}</Pill></td>
-                        <td><Pill tone={st.tone}><span className="ld-pill-dot" />{st.label}</Pill></td>
+                        <td><Pill tone={st.tone}><PillDot />{st.label}</Pill></td>
                       </tr>
                     );
                   })}
@@ -197,42 +199,42 @@ export default function RetroScreen() {
           </Panel>
         </div>
 
-        <aside className="ld-rail" aria-label="Review details">
+        <aside className={ui.rail} aria-label="Review details">
           <Panel title="Review status">
-            <ol className="ld-sd-stages" aria-label="Review stages">
+            <ol className={sd.stages} aria-label="Review stages">
               {STAGES.map(([s, st]) => (
                 <li key={s} aria-current={st === "active" ? "step" : undefined}>
                   <Pill tone={st === "done" ? "ok" : st === "active" ? "info" : "muted"}>
-                    <Icon className={`fa-solid ${st === "done" ? "fa-check" : st === "active" ? "fa-pen" : "fa-circle"}`} /> {s}
+                    <Icon name={st === "done" ? "fa-check" : st === "active" ? "fa-pen" : "fa-circle"} /> {s}
                   </Pill>
                 </li>
               ))}
             </ol>
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               <dt>Author</dt><dd>{userName("u1")}</dd>
               <dt>Reviewers</dt><dd>Devon Hassan · Marcus Okafor</dd>
-              <dt>Due</dt><dd className="ld-text-warn">Jun 4</dd>
+              <dt>Due</dt><dd className={ddTone.warn}>Jun 4</dd>
             </dl>
           </Panel>
 
           <Panel title="Impact (sample data)">
-            <dl className="ld-dl">
-              <dt>Customers</dt><dd><span className="ld-text-crit">~3,200</span> failed checkouts</dd>
-              <dt>Failed revenue</dt><dd className="ld-mono">~$84,000</dd>
-              <dt>SLA</dt><dd className="ld-text-crit">Breached · 99.9%</dd>
-              <dt>Error budget</dt><dd className="ld-text-warn">38% spent (mo)</dd>
+            <dl className={ui.dl}>
+              <dt>Customers</dt><dd><span className={toneText.crit}>~3,200</span> failed checkouts</dd>
+              <dt>Failed revenue</dt><dd className={ui.mono}>~$84,000</dd>
+              <dt>SLA</dt><dd className={ddTone.crit}>Breached · 99.9%</dd>
+              <dt>Error budget</dt><dd className={ddTone.warn}>38% spent (mo)</dd>
             </dl>
           </Panel>
 
           <Panel title="Linked records">
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
                 <thead><tr><th scope="col">Type</th><th scope="col">Record</th></tr></thead>
                 <tbody>
-                  <tr><td>Incident</td><td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("incident-detail")}>INC-48279</button></td></tr>
-                  <tr><td>Problem</td><td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("problems")}>PRB-3912</button></td></tr>
-                  <tr><td>Change</td><td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("changes")}>CHG-2219</button></td></tr>
-                  <tr><td>Runbook</td><td><button type="button" className="ld-link ld-mono" onClick={() => setRoute("runbooks")}>KB-2114</button></td></tr>
+                  <tr><td>Incident</td><td><button type="button" className={monoLink} onClick={() => setRoute("incident-detail")}>INC-48279</button></td></tr>
+                  <tr><td>Problem</td><td><button type="button" className={monoLink} onClick={() => setRoute("problems")}>PRB-3912</button></td></tr>
+                  <tr><td>Change</td><td><button type="button" className={monoLink} onClick={() => setRoute("changes")}>CHG-2219</button></td></tr>
+                  <tr><td>Runbook</td><td><button type="button" className={monoLink} onClick={() => setRoute("runbooks")}>KB-2114</button></td></tr>
                 </tbody>
               </table>
             </div>

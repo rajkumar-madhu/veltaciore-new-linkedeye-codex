@@ -6,6 +6,8 @@ import { USERS } from "@/data/core";
 import { Panel, Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Tile, buttonClass, cx, toneText, ui } from "@/components/ui";
+import { ddTone, entityTile, sd } from "@/components/RecordList";
 import { Icon } from "@/components/Icon";
 import { CheckIcon, ChevronRightIcon, GavelIcon, GitBranchIcon, MessageSquareIcon, XIcon } from "lucide-react";
 const RISK_TONE: Record<string, Tone> = { High: "crit", Medium: "warn", Low: "ok" };
@@ -35,53 +37,53 @@ export default function ChangeDetailScreen() {
   const riskTone = RISK_TONE[c.risk] ?? "muted";
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
         <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("changes")}>Change Management</button>
+        <button type="button" className={ui.link} onClick={() => setRoute("changes")}>Change Management</button>
         <Icon icon={ChevronRightIcon} />
         <span>{c.id}</span>
       </nav>
 
-      <div className="ld-head ld-entity-head">
-        <div className="ld-entity">
-          <span className={`ld-tile ld-${riskTone}`} aria-hidden="true"><Icon icon={GitBranchIcon} /></span>
+      <div className={sd.entityHead}>
+        <div className={sd.entity}>
+          <span className={entityTile(riskTone)} aria-hidden="true"><Icon icon={GitBranchIcon} /></span>
           <div>
-            <span className="ld-sd-number">{c.id}</span>
-            <h1 className="ld-entity-title">
+            <span className={sd.number}>{c.id}</span>
+            <h1 className={sd.entityTitle}>
               {c.title}
               <Pill tone="info"><Icon icon={GavelIcon} /> {c.state}</Pill>
               <Pill tone={riskTone}>{c.risk} risk</Pill>
             </h1>
-            <p className="ld-entity-meta">
+            <p className={sd.entityMeta}>
               <span>{c.type} change</span>
               <span>Planned window: {c.window}</span>
-              <span>Service: <span className="ld-mono">{c.service}</span></span>
+              <span>Service: <span className={ui.mono}>{c.service}</span></span>
             </p>
           </div>
         </div>
-        <div className="ld-head-side">
-          <div className="ld-head-actions">
-            <button type="button" className="ld-btn"><Icon icon={XIcon} /> Reject</button>
-            <button type="button" className="ld-btn"><Icon icon={MessageSquareIcon} /> Request Info</button>
-            <button type="button" className="ld-btn ld-btn-primary"><Icon icon={CheckIcon} /> Approve</button>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <button type="button" className={buttonClass()}><Icon icon={XIcon} /> Reject</button>
+            <button type="button" className={buttonClass()}><Icon icon={MessageSquareIcon} /> Request Info</button>
+            <button type="button" className={buttonClass("primary")}><Icon icon={CheckIcon} /> Approve</button>
           </div>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-2">
+      <div className={cx(ui.grid, ui.cols[2])}>
         <Panel title="Change Request Details">
-          <dl className="ld-dl">
-            <dt>Number</dt><dd className="ld-mono">{c.id}</dd>
+          <dl className={ui.dl}>
+            <dt>Number</dt><dd className={ui.mono}>{c.id}</dd>
             <dt>Type</dt><dd>{c.type}</dd>
             <dt>Short description</dt><dd><b>{c.title}</b></dd>
             <dt>Category</dt><dd>Infrastructure</dd>
             <dt>Requested by</dt><dd>{userName(c.assignee)}</dd>
             <dt>Assignment group</dt><dd>Platform</dd>
-            <dt>Configuration item</dt><dd className="ld-mono">{c.service}</dd>
+            <dt>Configuration item</dt><dd className={ui.mono}>{c.service}</dd>
             <dt>Service</dt><dd>k8s-control-plane</dd>
-            <dt>Risk</dt><dd><span className={`ld-text-${riskTone}`}>{c.risk}</span> · cluster-wide blast radius</dd>
+            <dt>Risk</dt><dd><span className={toneText[riskTone]}>{c.risk}</span> · cluster-wide blast radius</dd>
             <dt>Impact</dt><dd>Production · multi-region</dd>
             <dt>Planned start</dt><dd>{c.window}</dd>
             <dt>Planned end</dt><dd>Sat Apr 27 · 04:00 UTC</dd>
@@ -89,13 +91,13 @@ export default function ChangeDetailScreen() {
         </Panel>
 
         <Panel title={`CAB Approvals (${approved} / ${APPROVALS.length})`}>
-          <ul className="ld-activity">
+          <ul className={ui.activity}>
             {APPROVALS.map((a) => (
-              <li key={a.who}>
-                <span className={`ld-tile ld-tile-sm ld-${a.state === "approved" ? "ok" : "warn"}`} aria-hidden="true">
-                  <Icon className={`fa-solid ${a.state === "approved" ? "fa-check" : "fa-clock"}`} />
-                </span>
-                <span className="ld-activity-text">{userName(a.who)} · <span className="ld-muted">{a.role}</span></span>
+              <li key={a.who} className={ui.activityItem}>
+                <Tile tone={a.state === "approved" ? "ok" : "warn"} size="sm">
+                  <Icon name={a.state === "approved" ? "fa-check" : "fa-clock"} />
+                </Tile>
+                <span className={ui.activityText}>{userName(a.who)} · <span className="text-fg-muted">{a.role}</span></span>
                 {a.state === "approved" ? <Pill tone="ok">approved</Pill> : <Pill tone="warn">pending</Pill>}
               </li>
             ))}
@@ -103,21 +105,21 @@ export default function ChangeDetailScreen() {
         </Panel>
       </div>
 
-      <div className="ld-grid ld-grid-2">
+      <div className={cx(ui.grid, ui.cols[2])}>
         <Panel title="Implementation Plan">
-          <ol className="ld-sd-steps">
+          <ol className={sd.steps}>
             {PLAN.map((s, i) => (
-              <li key={i}><span className="ld-sd-step-n" aria-hidden="true">{i + 1}</span><span>{s}</span></li>
+              <li key={i} className={sd.step}><span className={sd.stepN} aria-hidden="true">{i + 1}</span><span>{s}</span></li>
             ))}
           </ol>
         </Panel>
 
         <Panel title="Risk Assessment (sample)">
-          <dl className="ld-dl">
-            <dt>Blast radius</dt><dd className="ld-text-warn">Cluster-wide</dd>
+          <dl className={ui.dl}>
+            <dt>Blast radius</dt><dd className={ddTone.warn}>Cluster-wide</dd>
             <dt>Rollback time</dt><dd>≤ 5 min (planned)</dd>
             <dt>Peer review</dt><dd>{approved} / {APPROVALS.length} approvers</dd>
-            <dt>Tests</dt><dd className="ld-text-ok">Passing</dd>
+            <dt>Tests</dt><dd className={ddTone.ok}>Passing</dd>
           </dl>
         </Panel>
       </div>

@@ -5,15 +5,16 @@
 import "@/styles/admin.css";
 import { useNav } from "@/hooks/useNav";
 import { useIncidents, useProblems, useSlas } from "@/api/hooks";
-import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { buttonClass, cx, toneText, ui } from "@/components/ui";
+import { sd } from "@/components/RecordList";
 import { Icon } from "@/components/Icon";
 import { ChevronRightIcon, FileOutputIcon, MailIcon, PlusIcon } from "lucide-react";
 const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "muted" };
 const problemTone = (s: string): Tone => (s === "Resolved" ? "ok" : s === "Known error" ? "purple" : "warn");
 const complianceColor = (c: number) => (c > 95 ? "#16a34a" : c > 90 ? "#f5a524" : "#e5383b");
-const complianceText = (c: number) => (c > 95 ? "ld-text-ok" : c > 90 ? "ld-text-warn" : "ld-text-crit");
 
 const SAMPLE_SCHEDULED: [string, string, string][] = [
   ["Weekly ops digest", "Mon 09:00", "exec@"],
@@ -37,47 +38,47 @@ export default function ReportsScreen() {
   const sevMax = Math.max(1, ...bySev.map((s) => s.count));
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
         <Icon icon={ChevronRightIcon} />
         <span>Reports &amp; Analytics</span>
       </nav>
 
-      <div className="ld-head">
+      <div className={ui.head}>
         <div>
-          <h1>Reports &amp; Analytics</h1>
-          <p>Problem and incident trends across the organisation</p>
+          <h1 className={ui.h1}>Reports &amp; Analytics</h1>
+          <p className={ui.headSub}>Problem and incident trends across the organisation</p>
         </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New Report</button>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={FileOutputIcon} /> Export</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={PlusIcon} /> New Report</button>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-bug" tone="warn" label="Open problems" value={fmt(open)} note={`${fmt(problems.length)} problems in total`} />
         <StatCard icon="fa-book" tone="purple" label="Known errors" value={fmt(known)} note="workaround documented" />
         <StatCard icon="fa-link" tone="info" label="Linked incidents" value={fmt(linked)} note="tied to a problem record" />
         <StatCard icon="fa-ticket" tone="crit" label="Incidents" value={fmt(incidents.length)} note={`${bySev[0].count} Sev 1`} />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Top Problems by Linked Incidents">
             {top.length ? (
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <div className={ui.tableWrap}>
+                <table className={ui.table}>
                   <thead>
                     <tr><th scope="col">Problem</th><th scope="col">Linked</th><th scope="col">Impact</th><th scope="col">State</th></tr>
                   </thead>
                   <tbody>
                     {top.map((p) => (
                       <tr key={p.id}>
-                        <td className="ld-wrap"><span className="ld-strong">{p.title}</span><div className="ld-sub ld-mono">{p.id}</div></td>
-                        <td className="ld-mono"><b>{p.linked}</b> incidents</td>
-                        <td className="ld-muted">{p.impact}</td>
-                        <td><Pill tone={problemTone(p.status)}><span className="ld-pill-dot" />{p.status}</Pill></td>
+                        <td className={ui.cellWrap}><span className="font-medium">{p.title}</span><div className={cx(ui.sub, ui.mono)}>{p.id}</div></td>
+                        <td className={sd.cellMono}><b>{p.linked}</b> incidents</td>
+                        <td>{p.impact}</td>
+                        <td><Pill tone={problemTone(p.status)}><PillDot />{p.status}</Pill></td>
                       </tr>
                     ))}
                   </tbody>
@@ -90,12 +91,12 @@ export default function ReportsScreen() {
 
           <Panel title="Incident Volume by Severity">
             {incidents.length ? (
-              <ul className="ld-bars">
+              <ul className={ui.bars}>
                 {bySev.map(({ n, count }) => (
-                  <li key={n}>
-                    <span className="ld-bar-label"><Pill tone={SEV_TONE[n]}>Sev {n}</Pill></span>
-                    <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${(count / sevMax) * 100}%`, background: n === 1 ? "#e5383b" : n === 2 ? "#f5a524" : n === 3 ? "#2f6bff" : "#98a2b3" }} /></span>
-                    <span className="ld-bar-value">{count}</span>
+                  <li key={n} className={ui.barItem}>
+                    <span className={ui.barLabel}><Pill tone={SEV_TONE[n]}>Sev {n}</Pill></span>
+                    <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${(count / sevMax) * 100}%`, background: n === 1 ? "#e5383b" : n === 2 ? "#f5a524" : n === 3 ? "#2f6bff" : "#98a2b3" }} /></span>
+                    <span className={ui.barValue}>{count}</span>
                   </li>
                 ))}
               </ul>
@@ -105,17 +106,17 @@ export default function ReportsScreen() {
           </Panel>
         </div>
 
-        <div className="ld-rail">
-          <section className="ld-card ld-panel" aria-labelledby="rep-sched-h">
-            <div className="ld-panel-head">
-              <h2 id="rep-sched-h">Scheduled Reports</h2>
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="rep-sched-h">
+            <div className={ui.panelHead}>
+              <h2 id="rep-sched-h" className={ui.panelTitle}>Scheduled Reports</h2>
               <Pill tone="muted">Sample data</Pill>
             </div>
-            <ul className="ld-activity">
+            <ul className={ui.activity}>
               {SAMPLE_SCHEDULED.map(([n, w, r]) => (
-                <li key={n}>
-                  <Icon icon={MailIcon} className="ld-muted" />
-                  <span className="ld-activity-text">{n} <span className="ld-muted ld-small">· {w} · {r}</span></span>
+                <li key={n} className={ui.activityItem}>
+                  <Icon icon={MailIcon} className="text-fg-muted" />
+                  <span className={ui.activityText}>{n} <span className="text-fg-muted text-xs">· {w} · {r}</span></span>
                 </li>
               ))}
             </ul>
@@ -140,27 +141,27 @@ export function SLAScreen() {
   const causes = [...slas].sort((a, b) => b.breach - a.breach).slice(0, 5);
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
         <Icon icon={ChevronRightIcon} />
         <span>Service Level Management</span>
         <Icon icon={ChevronRightIcon} />
         <span>SLA Definitions</span>
       </nav>
 
-      <div className="ld-head">
+      <div className={ui.head}>
         <div>
-          <h1>SLA Definitions</h1>
-          <p>{slas.length} SLAs enforced · monthly window · all priorities</p>
+          <h1 className={ui.h1}>SLA Definitions</h1>
+          <p className={ui.headSub}>{slas.length} SLAs enforced · monthly window · all priorities</p>
         </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={FileOutputIcon} /> Export</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={PlusIcon} /> New SLA</button>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={FileOutputIcon} /> Export</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={PlusIcon} /> New SLA</button>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <StatCard icon="fa-file-contract" tone="info" label="Total SLAs" value={fmt(slas.length)} note="enforced" />
         <StatCard icon="fa-gauge-high" tone={avg > 95 ? "ok" : "warn"} label="Avg compliance" value={slas.length ? `${avg.toFixed(1)}%` : "—"} note="mean across SLAs" />
         <StatCard icon="fa-triangle-exclamation" tone="crit" label="Breaches" value={fmt(breaches)} note="this window" />
@@ -168,15 +169,15 @@ export function SLAScreen() {
         <StatCard icon="fa-arrows-up-down" tone="muted" label="Best / worst" value={best ? `${best.compliance}%` : "—"} note={best && worst ? `${best.name} · worst ${worst.name} ${worst.compliance}%` : "no SLAs"} />
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby="sla-h">
-          <div className="ld-panel-head">
-            <h2 id="sla-h">SLA Inventory</h2>
-            <span className="ld-muted ld-small">{slas.length} definitions</span>
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby="sla-h">
+          <div className={ui.panelHead}>
+            <h2 id="sla-h" className={ui.panelTitle}>SLA Inventory</h2>
+            <span className="text-fg-muted text-xs">{slas.length} definitions</span>
           </div>
           {slas.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
                 <thead>
                   <tr>
                     <th scope="col">SLA</th>
@@ -190,17 +191,18 @@ export function SLAScreen() {
                 <tbody>
                   {slas.map((s) => (
                     <tr key={s.id}>
-                      <td><span className="ld-strong">{s.name}</span><div className="ld-sub ld-mono">{s.id}</div></td>
-                      <td className="ld-mono">{s.target}</td>
-                      <td className="ld-muted">{s.window}</td>
+                      <td><span className="font-medium">{s.name}</span><div className={cx(ui.sub, ui.mono)}>{s.id}</div></td>
+                      <td className={sd.cellMono}>{s.target}</td>
+                      <td>{s.window}</td>
                       <td>
-                        <div className="ld-admin-meter">
-                          <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${s.compliance}%`, background: complianceColor(s.compliance) }} /></span>
-                          <span className={complianceText(s.compliance)}>{s.compliance}%</span>
+                        <div className="flex items-center gap-2 min-w-[150px]">
+                          <span className="flex-[1_1_60px] h-2 rounded-[5px] bg-bg-muted overflow-hidden"><span className="block h-2 rounded-[5px]" style={{ width: `${s.compliance}%`, background: complianceColor(s.compliance) }} /></span>
+                          {/* the meter's value style outranked the ld-text-* colour: only the weight shows */}
+                          <span className="font-mono text-xs font-semibold text-fg whitespace-nowrap [font-feature-settings:'cv02','cv03','cv04','cv11','ss01']">{s.compliance}%</span>
                         </div>
                       </td>
-                      <td>{s.breach > 0 ? <Pill tone="crit">{s.breach}</Pill> : <span className="ld-muted ld-mono">0</span>}</td>
-                      <td><Pill tone="ok"><span className="ld-pill-dot" />Enforced</Pill></td>
+                      <td>{s.breach > 0 ? <Pill tone="crit">{s.breach}</Pill> : <span className={cx("text-fg-muted", ui.mono)}>0</span>}</td>
+                      <td><Pill tone="ok"><PillDot />Enforced</Pill></td>
                     </tr>
                   ))}
                 </tbody>
@@ -211,14 +213,14 @@ export function SLAScreen() {
           )}
         </section>
 
-        <div className="ld-rail">
+        <div className={ui.rail}>
           <Panel title="Breaches by SLA">
             {causes.length ? (
-              <ul className="ld-activity">
+              <ul className={ui.activity}>
                 {causes.map((s) => (
-                  <li key={s.id}>
-                    <span className="ld-activity-text">{s.name}</span>
-                    <span className={s.breach > 2 ? "ld-text-crit" : s.breach > 0 ? "ld-text-warn" : "ld-text-ok"}>
+                  <li key={s.id} className={ui.activityItem}>
+                    <span className={ui.activityText}>{s.name}</span>
+                    <span className={s.breach > 2 ? toneText.crit : s.breach > 0 ? toneText.warn : toneText.ok}>
                       {s.breach} {s.breach === 1 ? "breach" : "breaches"}
                     </span>
                   </li>

@@ -8,6 +8,8 @@ import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
+import { Tile, buttonClass, cx, ui } from "@/components/ui";
+import { ddTone, sd } from "@/components/RecordList";
 import { Icon } from "@/components/Icon";
 import { CalendarIcon, ChevronRightIcon, ClockIcon, ExternalLinkIcon, FlaskConicalIcon, GlobeIcon, MegaphoneIcon, SendIcon, UsersIcon } from "lucide-react";
 const COMPONENTS = [
@@ -54,12 +56,12 @@ const CHANNEL_ICON: Record<string, string> = Object.fromEntries(CHANNELS.map(([k
 
 function Summary({ icon, tone, label, value, note }: { icon: string; tone: Tone; label: string; value: React.ReactNode; note: string }) {
   return (
-    <div className="ld-card ld-stat ld-sd-stat">
-      <span className={`ld-tile ld-${tone}`} aria-hidden="true"><Icon className={`fa-solid ${icon}`} /></span>
-      <span className="ld-stat-body">
-        <span className="ld-stat-label">{label}</span>
-        <span className="ld-stat-value">{value}</span>
-        <span className="ld-stat-note">{note}</span>
+    <div className={cx(ui.card, "flex items-center gap-4 px-4.5 py-4 text-left cursor-default")}>
+      <Tile tone={tone}><Icon name={icon} /></Tile>
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-sm text-fg-muted">{label}</span>
+        <span className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{value}</span>
+        <span className="text-sm text-fg-muted">{note}</span>
       </span>
     </div>
   );
@@ -79,36 +81,36 @@ export default function StatusPageScreen() {
   const latest = UPDATES[0];
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
         <Icon icon={ChevronRightIcon} />
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Operate</button>
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Operate</button>
         <Icon icon={ChevronRightIcon} />
         <span>Status page</span>
       </nav>
 
-      <div className="ld-head">
+      <div className={ui.head}>
         <div>
-          <h1>Status Page &amp; Stakeholder Comms</h1>
-          <p>status.linkedeye.in · publishes to email, SMS, Slack &amp; webhooks</p>
+          <h1 className={ui.h1}>Status Page &amp; Stakeholder Comms</h1>
+          <p className={ui.headSub}>status.linkedeye.in · publishes to email, SMS, Slack &amp; webhooks</p>
         </div>
-        <div className="ld-head-actions">
-          <button type="button" className="ld-btn"><Icon icon={ExternalLinkIcon} /> Preview public page</button>
-          <button type="button" className="ld-btn"><Icon icon={UsersIcon} /> Subscribers</button>
-          <button type="button" className="ld-btn ld-btn-primary"><Icon icon={MegaphoneIcon} /> Post update</button>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={ExternalLinkIcon} /> Preview public page</button>
+          <button type="button" className={buttonClass()}><Icon icon={UsersIcon} /> Subscribers</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={MegaphoneIcon} /> Post update</button>
         </div>
       </div>
 
-      <div className="ld-card ld-metrics-off" role="status">
+      <div className={cx(ui.card, ui.notice)} role="status">
         <Icon icon={FlaskConicalIcon} />
         <div>
           <b>Sample data</b>
-          <p className="ld-muted ld-small">No status-page provider is connected. Components, uptime, updates and subscriber counts below are example values.</p>
+          <p className="text-fg-muted text-xs">No status-page provider is connected. Components, uptime, updates and subscriber counts below are example values.</p>
         </div>
       </div>
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <Summary icon={overall.ic} tone={overall.tone} label="Overall status" value={overall.label} note={`${affected.length} of ${COMPONENTS.length} components affected`} />
         <Summary icon="fa-comment-dots" tone={PHASE_META[latest.phase].tone} label="Latest update" value={PHASE_META[latest.phase].label} note={`${latest.ago} · ${latest.by}`} />
         <Summary icon="fa-users" tone="info" label="Subscribers" value={fmt(subscriberTotal)} note={`across ${SUBSCRIBERS.length} channels`} />
@@ -116,51 +118,51 @@ export default function StatusPageScreen() {
         <Summary icon="fa-list" tone="muted" label="Posted updates" value={UPDATES.length} note="in the history below" />
       </div>
 
-      <div className="ld-split">
-        <div className="ld-rail">
+      <div className={ui.split}>
+        <div className={ui.rail}>
           <Panel title="Compose stakeholder update">
-            <div className="ld-form">
-              <div className="ld-form-field">
+            <div className={ui.form}>
+              <div className={ui.field}>
                 <span id={`${idp}-phase`}>Phase</span>
-                <div className="ld-sd-toggles" role="group" aria-labelledby={`${idp}-phase`}>
+                <div className={sd.toggles} role="group" aria-labelledby={`${idp}-phase`}>
                   {Object.entries(PHASE_META).map(([k, m]) => (
-                    <button key={k} type="button" className="ld-sd-toggle" aria-pressed={phase === k} onClick={() => setPhase(k)}>{m.label}</button>
+                    <button key={k} type="button" className={sd.toggle} aria-pressed={phase === k} onClick={() => setPhase(k)}>{m.label}</button>
                   ))}
                 </div>
               </div>
-              <div className="ld-form-field">
+              <div className={ui.field}>
                 <label htmlFor={`${idp}-msg`}>Message</label>
-                <textarea id={`${idp}-msg`} className="ld-input ld-textarea" rows={3} placeholder="What should stakeholders know? Keep it clear and blameless…"
+                <textarea id={`${idp}-msg`} className={ui.textarea} rows={3} placeholder="What should stakeholders know? Keep it clear and blameless…"
                   defaultValue="We've identified the root cause and are rolling out a fix. Next update in 30 minutes." />
               </div>
-              <fieldset className="ld-form-field ld-sd-fieldset">
+              <fieldset className={cx(ui.field, sd.fieldset)}>
                 <legend>Affected components</legend>
-                <div className="ld-sd-actions">
+                <div className={sd.actions}>
                   {COMPONENTS.slice(0, 4).map((c) => (
-                    <label key={c.name} className="ld-sd-check">
+                    <label key={c.name} className={sd.check}>
                       <input type="checkbox" defaultChecked={c.status !== "operational"} /> {c.name}
                     </label>
                   ))}
                 </div>
               </fieldset>
-              <div className="ld-form-field">
+              <div className={ui.field}>
                 <span id={`${idp}-ch`}>Notify via</span>
-                <div className="ld-sd-actions" role="group" aria-labelledby={`${idp}-ch`}>
+                <div className={sd.actions} role="group" aria-labelledby={`${idp}-ch`}>
                   {CHANNELS.map(([k, ic, lbl]) => (
-                    <button key={k} type="button" className="ld-sd-toggle" aria-pressed={!!channels[k]} onClick={() => tgl(k)}>
+                    <button key={k} type="button" className={sd.toggle} aria-pressed={!!channels[k]} onClick={() => tgl(k)}>
                       <Icon className={ic} /> {lbl}
                     </button>
                   ))}
-                  <span className="ld-field-grow" />
-                  <button type="button" className="ld-btn ld-btn-primary"><Icon icon={SendIcon} /> Publish update</button>
+                  <span className={ui.fieldGrow} />
+                  <button type="button" className={buttonClass("primary")}><Icon icon={SendIcon} /> Publish update</button>
                 </div>
               </div>
             </div>
           </Panel>
 
           <Panel title={`Public components (${COMPONENTS.length})`}>
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
                 <thead>
                   <tr><th scope="col">Component</th><th scope="col">Group</th><th scope="col">Status</th><th scope="col">Uptime (90d)</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
                 </thead>
@@ -169,11 +171,11 @@ export default function StatusPageScreen() {
                     const m = STATUS_META[c.status];
                     return (
                       <tr key={c.name}>
-                        <td className="ld-strong">{c.name}</td>
-                        <td className="ld-muted">{c.group}</td>
-                        <td><Pill tone={m.tone}><Icon className={`fa-solid ${m.ic}`} /> {m.label}</Pill></td>
-                        <td className="ld-mono ld-muted">{c.uptime}</td>
-                        <td><button type="button" className="ld-btn ld-btn-sm" aria-label={`Set status for ${c.name}`}>Set status</button></td>
+                        <td className="font-medium">{c.name}</td>
+                        <td>{c.group}</td>
+                        <td><Pill tone={m.tone}><Icon name={m.ic} /> {m.label}</Pill></td>
+                        <td className={sd.cellMono}>{c.uptime}</td>
+                        <td><button type="button" className={buttonClass("default", "sm")} aria-label={`Set status for ${c.name}`}>Set status</button></td>
                       </tr>
                     );
                   })}
@@ -183,20 +185,20 @@ export default function StatusPageScreen() {
           </Panel>
 
           <Panel title={`Posted updates (${UPDATES.length})`}>
-            <ul className="ld-activity ld-sd-feed">
+            <ul className={ui.activity}>
               {UPDATES.map((u, i) => {
                 const m = PHASE_META[u.phase];
                 return (
-                  <li key={i}>
-                    <span className="ld-sd-time">{u.t}</span>
-                    <div className="ld-sd-entry">
-                      <div className="ld-sd-entry-meta">
+                  <li key={i} className={sd.feedItem}>
+                    <span className={sd.time}>{u.t}</span>
+                    <div className={sd.entry}>
+                      <div className={sd.entryMeta}>
                         <Pill tone={m.tone}>{m.label}</Pill>
                         <span>{u.ago} · {u.by}</span>
                       </div>
-                      <div className="ld-sd-entry-text"><b>{u.title}</b></div>
-                      <div className="ld-sd-entry-text">{u.body}</div>
-                      <div className="ld-sd-entry-meta">
+                      <div className={sd.entryText}><b>{u.title}</b></div>
+                      <div className={sd.entryText}>{u.body}</div>
+                      <div className={sd.entryMeta}>
                         {u.ch.map(ch => <span key={ch}><Icon className={CHANNEL_ICON[ch]} /> {ch} sent</span>)}
                       </div>
                     </div>
@@ -207,18 +209,18 @@ export default function StatusPageScreen() {
           </Panel>
         </div>
 
-        <aside className="ld-rail" aria-label="Status page settings">
+        <aside className={ui.rail} aria-label="Status page settings">
           <Panel title="Public page">
-            <dl className="ld-dl">
-              <dt>URL</dt><dd className="ld-mono">status.linkedeye.in</dd>
+            <dl className={ui.dl}>
+              <dt>URL</dt><dd className={ui.mono}>status.linkedeye.in</dd>
               <dt>Visibility</dt><dd><Pill tone="ok"><Icon icon={GlobeIcon} /> Public</Pill></dd>
               <dt>Theme</dt><dd>Argus-LinkedEye · dark header</dd>
-              <dt>Custom domain</dt><dd className="ld-text-ok">verified · SSL</dd>
+              <dt>Custom domain</dt><dd className={ddTone.ok}>verified · SSL</dd>
             </dl>
           </Panel>
 
           <Panel title={`Subscribers (${fmt(subscriberTotal)})`}>
-            <dl className="ld-dl">
+            <dl className={ui.dl}>
               {SUBSCRIBERS.map((s) => (
                 <React.Fragment key={s.channel}>
                   <dt>{s.channel}</dt><dd><b>{fmt(s.count)}</b> {s.unit}</dd>
@@ -228,14 +230,14 @@ export default function StatusPageScreen() {
           </Panel>
 
           <Panel title="Scheduled maintenance">
-            <ul className="ld-activity ld-sd-feed">
+            <ul className={ui.activity}>
               {MAINTENANCE.map((mt) => (
-                <li key={mt.title}>
-                  <span className="ld-tile ld-tile-sm ld-purple" aria-hidden="true"><Icon icon={CalendarIcon} /></span>
-                  <div className="ld-sd-entry">
-                    <div className="ld-sd-entry-text"><b>{mt.title}</b></div>
-                    <div className="ld-sd-entry-meta"><span>{mt.when}</span></div>
-                    <div className="ld-sd-entry-meta"><span>Affects: {mt.affects}</span></div>
+                <li key={mt.title} className={sd.feedItem}>
+                  <Tile tone="purple" size="sm"><Icon icon={CalendarIcon} /></Tile>
+                  <div className={sd.entry}>
+                    <div className={sd.entryText}><b>{mt.title}</b></div>
+                    <div className={sd.entryMeta}><span>{mt.when}</span></div>
+                    <div className={sd.entryMeta}><span>Affects: {mt.affects}</span></div>
                     <span><Pill tone="muted"><Icon icon={ClockIcon} /> Notice sent to {fmt(subscriberTotal)}</Pill></span>
                   </div>
                 </li>
