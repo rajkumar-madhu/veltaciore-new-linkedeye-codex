@@ -10,10 +10,36 @@ import { useCtclLines, useBrokers, type CtclLine, type BrokerCtcl } from "@/api/
 import { useNav } from "@/hooks/useNav";
 import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Tone } from "@/components/ld";
-import "@/styles/trading.css";
+import { Button, Card, Crumbs, Input, Page, PageHead, Tab, Table, Tabs, cx, toneBg, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { CheckIcon, ChevronRightIcon, FlaskConicalIcon, HistoryIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
+import { CheckIcon, FlaskConicalIcon, HistoryIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
+// ── Local class strings (were the trading-ops CSS rules) ─────────────────────
+// Table cells keep the cell size (13px); the old mono class only set 12px outside tables.
+const monoCell = "font-mono font-semibold";
+// In table cells (and the mini stat boxes) the old status-text classes lost to
+// the cell colour: bold in light mode, the tone colour only in dark mode.
+const CELL_TONE = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn" } as const;
+const DARK_INK = { crit: "dark:text-tone-crit", warn: "dark:text-tone-warn" } as const;
+/** Panel sub-title under the heading */
+const sub = "text-[12.5px] text-fg-muted -mt-1.5";
+/** Notice banner (card with a coloured left edge); tone picks the edge + icon colour. */
+const NOTE_TONE: Partial<Record<Tone, string>> = {
+  info: "border-l-info [&>.ld-icon]:text-info",
+  crit: "border-l-critical [&>.ld-icon]:text-critical",
+  warn: "border-l-warning [&>.ld-icon]:text-warning",
+  muted: "border-l-line-strong [&>.ld-icon]:text-fg-muted",
+};
+const note = (tone: Tone) =>
+  cx(ui.card, "flex items-start gap-3 px-4 py-3 border-l-4 text-sm text-fg leading-[1.5] [&_b]:text-fg [&>.ld-icon]:mt-[3px] [&>.ld-icon]:text-md [&>.ld-icon]:flex-none", NOTE_TONE[tone] ?? NOTE_TONE.info);
+const stackNotes = "flex flex-col gap-2.5";
+const legendInline = "list-none mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-fg-muted [&>li]:inline-flex [&>li]:items-center [&>li]:gap-1.5";
+// Mini stat row inside a card (peak / mean)
+const mini = "grid grid-cols-[repeat(auto-fit,minmax(90px,1fr))] gap-2 m-0";
+const miniBox = "px-2.5 py-2 rounded-sm bg-bg-muted min-w-0";
+const miniDt = "text-[11.5px] text-fg-muted";
+const miniDd = "mt-0.5 mb-0 text-lg font-bold text-fg tabular-nums";
+
 // ── Data (local fallbacks; identical to the backend seed) ─────────────────
 
 // Generate intraday time labels 09:00–15:30 in N-min steps
@@ -190,18 +216,18 @@ function LineChart({ labels, series, maxV, height = 180, title }: { labels: stri
     return out;
   };
   return (
-    <div className="ld-trading-chart">
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="ld-trend" role="img"
+    <div className="relative min-w-0">
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block cursor-crosshair" role="img"
         aria-label={`${title}: ${series.map((s) => { const st = statsOf(s.data); return `${s.label} peak ${fmtN(st.peak)}`; }).join("; ")}`}
         onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <g key={f}>
-            <line x1={L} x2={W - R} y1={y(top * f)} y2={y(top * f)} className="ld-gridline" />
-            <text x={L - 6} y={y(top * f) + 4} textAnchor="end" className="ld-axis">{compact(top * f)}</text>
+            <line x1={L} x2={W - R} y1={y(top * f)} y2={y(top * f)} className="stroke-line-subtle stroke-1" />
+            <text x={L - 6} y={y(top * f) + 4} textAnchor="end" className="text-xs fill-fg-muted font-sans">{compact(top * f)}</text>
           </g>
         ))}
         {labels.map((lb, i) => (i % step === 0 || i === labels.length - 1) && (
-          <text key={lb + i} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} className="ld-axis">{lb}</text>
+          <text key={lb + i} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} className="text-xs fill-fg-muted font-sans">{lb}</text>
         ))}
         {series.map((s) => {
           const sparse = s.data.filter((v) => v != null).length <= 6;
@@ -219,13 +245,13 @@ function LineChart({ labels, series, maxV, height = 180, title }: { labels: stri
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="var(--border-strong)" strokeDasharray="3 3" />}
       </svg>
       {hover != null ? (
-        <div className="ld-chart-tip ld-small">
+        <div className="flex flex-wrap gap-x-3.5 gap-y-1 items-center px-2 py-1.5 mt-1 bg-bg-muted rounded-sm text-fg text-xs [&_span]:inline-flex [&_span]:items-center [&_span]:gap-[5px]">
           <b>{labels[hover]}</b>
-          {series.map((s) => <span key={s.label}><span className="ld-dot" style={{ background: s.color }} /> {s.label} {fmtN(s.data[hover])}</span>)}
+          {series.map((s) => <span key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label} {fmtN(s.data[hover])}</span>)}
         </div>
       ) : (
-        <ul className="ld-legend-inline">
-          {series.map((s) => <li key={s.label}><span className="ld-dot" style={{ background: s.color }} /> {s.label}</li>)}
+        <ul className={legendInline}>
+          {series.map((s) => <li key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label}</li>)}
         </ul>
       )}
     </div>
@@ -367,72 +393,63 @@ export default function CtclMonitorScreen() {
 
   const lineTable = (rows: CtclLine[], roleHead: string) => (
     rows.length ? (
-      <div className="ld-table-wrap">
-        <table className="ld-table">
+      <Table>
           <thead><tr><th scope="col">CTCL ID</th><th scope="col">{roleHead}</th><th scope="col">Samples</th><th scope="col">Status</th></tr></thead>
           <tbody>
             {rows.map((l) => (
               <tr key={l.id}>
-                <td className="ld-mono">{l.id}</td>
-                <td className="ld-muted">{l.role}</td>
-                <td className="ld-mono">{l.samples == null ? "—" : l.samples.toLocaleString("en-US")}</td>
+                <td className={monoCell}>{l.id}</td>
+                <td>{l.role}</td>
+                <td className={monoCell}>{l.samples == null ? "—" : l.samples.toLocaleString("en-US")}</td>
                 <td><Pill tone={statusTone(l.status)}>{statusText(l.status)}</Pill></td>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </Table>
     ) : <Empty>No lines reported.</Empty>
   );
 
   const seedNote = seed && (
-    <div className="ld-card ld-trading-note warn" role="status">
+    <div className={note("warn")} role="status">
       <Icon icon={UnplugIcon} />
       <p><b>No data from /trading/ctcl/lines/.</b> Lines, peaks and charts below use the embedded seed series, not a live feed.</p>
     </div>
   );
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>BOD / EOD</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>CTCL Monitor</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "BOD / EOD" }, { label: "CTCL Monitor" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>CTCL Data Monitor</h1>
-          <p>Noren OMS adapter-line queue depth per CTCL, trading-window behaviour and the broker → CTCL map</p>
-        </div>
-        <div className="ld-head-actions">
-          {problemLines.map((l) => (
-            <Pill key={l.id} tone={statusTone(l.status)}><span className="ld-pill-dot" aria-hidden="true" /> {l.id} {statusText(l.status)}</Pill>
-          ))}
-          <Pill tone={segmentsActive.length ? "ok" : "muted"}><span className="ld-pill-dot" aria-hidden="true" /> {segmentsActive.length} segments active</Pill>
-          <span className="ld-mono ld-muted" aria-label="Current time in IST">{clock}</span>
-        </div>
-      </div>
+      <PageHead
+        title="CTCL Data Monitor"
+        subtitle="Noren OMS adapter-line queue depth per CTCL, trading-window behaviour and the broker → CTCL map"
+        actions={
+          <>
+            {problemLines.map((l) => (
+              <Pill key={l.id} tone={statusTone(l.status)}><span className={ui.pillDot} aria-hidden="true" /> {l.id} {statusText(l.status)}</Pill>
+            ))}
+            <Pill tone={segmentsActive.length ? "ok" : "muted"}><span className={ui.pillDot} aria-hidden="true" /> {segmentsActive.length} segments active</Pill>
+            <span className={cx(ui.mono, "text-fg-muted")} aria-label="Current time in IST">{clock}</span>
+          </>
+        }
+      />
 
-      <div className="ld-tabs" role="tablist" aria-label="CTCL monitor sections">
+      <Tabs aria-label="CTCL monitor sections">
         {NAV.map((t) => (
-          <button key={t.id} type="button" role="tab" id={`ctcl-tab-${t.id}`} aria-selected={tab === t.id} aria-controls="ctcl-panel"
-            className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>
-            <Icon className={`fa-solid ${t.icon}`} /> {t.label}{t.count != null && <> <span className="ld-muted">({t.count})</span></>}
-          </button>
+          <Tab key={t.id} active={tab === t.id} id={`ctcl-tab-${t.id}`} aria-controls="ctcl-panel" onClick={() => setTab(t.id)}>
+            <Icon name={t.icon} /> {t.label}{t.count != null && <> <span className="text-fg-muted">({t.count})</span></>}
+          </Tab>
         ))}
-      </div>
+      </Tabs>
 
-      <div id="ctcl-panel" role="tabpanel" aria-labelledby={`ctcl-tab-${tab}`} className="ld-trading-tabpanel">
+      <div id="ctcl-panel" role="tabpanel" aria-labelledby={`ctcl-tab-${tab}`} className="flex flex-col gap-4 min-w-0">
         {tab !== "ctclmap" && seedNote}
 
         {/* ═══ OVERVIEW ═══ */}
         {tab === "overview" && (
           <>
             {problemLines.length > 0 && (
-              <div className="ld-card ld-trading-note warn" role="alert">
+              <div className={note("warn")} role="alert">
                 <Icon icon={TriangleAlertIcon} />
                 <p>
                   {problemLines.map((l, i) => {
@@ -451,7 +468,8 @@ export default function CtclMonitorScreen() {
               </div>
             )}
 
-            <div className="ld-grid ld-grid-stats ld-grid-6">
+            {/* six-up columns only: the old denser-card rules never reached StatCard, so ui.cols[6] would shrink the cards */}
+            <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
               <StatCard icon="fa-network-wired" tone="info" label="CTCL lines" value={`${activeLines.length}/${known.length}`} note={`active · ${[...new Set(known.map((l) => l.segment))].join(" · ")}`} onClick={() => setTab("ctclmap")} />
               <StatCard icon="fa-users" tone="purple" label="Broker clients" value={fmt(brokers.length)} note="mapped to CTCL codes" onClick={() => setTab("ctclmap")} />
               {charted.map((c) => {
@@ -463,18 +481,18 @@ export default function CtclMonitorScreen() {
               })}
             </div>
 
-            <div className="ld-split ld-split-wide">
-              <div className="ld-trading-stack-notes">
+            <div className={ui.splitWide}>
+              <div className={stackNotes}>
                 <Panel title="Queue peak by CTCL">
-                  <p className="ld-trading-sub">Peak queue depth per adapter line over the day</p>
-                  <ul className="ld-bars">
+                  <p className={sub}>Peak queue depth per adapter line over the day</p>
+                  <ul className={ui.bars}>
                     {(() => {
                       const max = Math.max(1, ...charted.map((c) => c.stats.peak ?? 0));
                       return charted.map((c) => (
-                        <li key={c.id}>
-                          <span className="ld-bar-label">{c.name}</span>
-                          <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${((c.stats.peak ?? 0) / max) * 100}%`, background: c.color }} /></span>
-                          <span className="ld-bar-value ld-bar-value-wide">{fmtN(c.stats.peak)}</span>
+                        <li key={c.id} className={ui.barItemWide}>
+                          <span className={ui.barLabel}>{c.name}</span>
+                          <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${((c.stats.peak ?? 0) / max) * 100}%`, background: c.color }} /></span>
+                          <span className={cx(ui.barValue, "min-w-16")}>{fmtN(c.stats.peak)}</span>
                         </li>
                       ));
                     })()}
@@ -487,17 +505,17 @@ export default function CtclMonitorScreen() {
               </div>
 
               <Panel title="Segment health">
-                <div className="ld-trading-stack-notes">
+                <div className={stackNotes}>
                   {[...new Set(known.map((l) => l.segment))].map((seg) => {
                     const segLines = known.filter((l) => l.segment === seg);
                     const worst: Tone = segLines.some((l) => statusTone(l.status) === "crit") ? "crit" : segLines.some((l) => statusTone(l.status) === "warn") ? "warn" : "ok";
                     return (
-                      <section key={seg} className="ld-card ld-panel" aria-label={`${seg} segment`}>
-                        <div className="ld-panel-head">
-                          <h3 className="ld-strong">{seg}</h3>
+                      <Card as="section" key={seg} className={ui.panel} aria-label={`${seg} segment`}>
+                        <div className={ui.panelHead}>
+                          <h3 className="font-medium">{seg}</h3>
                           <Pill tone={worst}>{worst === "ok" ? "Normal" : "Monitor"}</Pill>
                         </div>
-                        <dl className="ld-dl">
+                        <dl className={ui.dl}>
                           {segLines.map((l) => {
                             const c = chartedOf(l.id);
                             return (
@@ -505,13 +523,13 @@ export default function CtclMonitorScreen() {
                                 <dt>{l.id}</dt>
                                 <dd>
                                   <Pill tone={statusTone(l.status)}>{statusText(l.status)}</Pill>
-                                  {c?.stats.points ? <span className="ld-muted ld-small"> · peak {fmtN(c.stats.peak)}</span> : null}
+                                  {c?.stats.points ? <span className="text-fg-muted text-xs"> · peak {fmtN(c.stats.peak)}</span> : null}
                                 </dd>
                               </React.Fragment>
                             );
                           })}
                         </dl>
-                      </section>
+                      </Card>
                     );
                   })}
                 </div>
@@ -523,51 +541,51 @@ export default function CtclMonitorScreen() {
         {/* ═══ QUEUE SIZE ═══ */}
         {tab === "queue" && (
           <>
-            <section className="ld-card ld-panel" aria-labelledby="ctcl-range-h">
-              <div className="ld-panel-head"><h2 id="ctcl-range-h">Time range</h2></div>
-              <p className="ld-trading-sub">Zoom every line into a trading window (market open 09:10–09:20 · square-off 15:15–15:30). Ranges snap to the nearest samples.</p>
-              <div className="ld-trading-range">
-                <div className="ld-form-field">
+            <Card as="section" className={ui.panel} aria-labelledby="ctcl-range-h">
+              <div className={ui.panelHead}><h2 id="ctcl-range-h" className={ui.panelTitle}>Time range</h2></div>
+              <p className={sub}>Zoom every line into a trading window (market open 09:10–09:20 · square-off 15:15–15:30). Ranges snap to the nearest samples.</p>
+              <div className="flex flex-wrap items-end gap-2.5">
+                <div className={ui.field}>
                   <label htmlFor="tr-from">From</label>
-                  <input id="tr-from" type="time" className="ld-input" value={trFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrFrom(e.target.value)} />
+                  <Input id="tr-from" type="time" value={trFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrFrom(e.target.value)} />
                 </div>
-                <div className="ld-form-field">
+                <div className={ui.field}>
                   <label htmlFor="tr-to">To</label>
-                  <input id="tr-to" type="time" className="ld-input" value={trTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrTo(e.target.value)} />
+                  <Input id="tr-to" type="time" value={trTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrTo(e.target.value)} />
                 </div>
-                <div className="ld-trading-presets" role="group" aria-label="Range presets">
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Range presets">
                   {PRESETS.map((p, i) => (
-                    <button key={p.label} type="button" className="ld-btn ld-btn-sm" aria-pressed={preset === i} onClick={() => pickPreset(i)}>
+                    <Button key={p.label} size="sm" aria-pressed={preset === i} onClick={() => pickPreset(i)}>
                       {preset === i && <Icon icon={CheckIcon} />} {p.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
-                <button type="button" className="ld-btn ld-btn-primary" onClick={() => setApplied({ from: trFrom, to: trTo })}>Apply</button>
+                <Button variant="primary" onClick={() => setApplied({ from: trFrom, to: trTo })}>Apply</Button>
               </div>
-            </section>
+            </Card>
 
-            <div className="ld-grid ld-grid-2">
+            <div className={cx(ui.grid, ui.cols[2])}>
               {charted.map((c) => {
                 const view = cut(c.data, applied.from, applied.to);
                 const lvl = levelOf(c.id, c.stats.peak);
                 return (
-                  <section key={c.id} className="ld-card ld-panel" aria-labelledby={`q-${c.id}`}>
-                    <div className="ld-panel-head">
-                      <h2 id={`q-${c.id}`}>{c.name} {c.meta && <Pill tone="info">{c.meta.role}</Pill>}</h2>
+                  <Card as="section" key={c.id} className={ui.panel} aria-labelledby={`q-${c.id}`}>
+                    <div className={ui.panelHead}>
+                      <h2 id={`q-${c.id}`} className={ui.panelTitle}>{c.name} {c.meta && <Pill tone="info">{c.meta.role}</Pill>}</h2>
                       {c.meta && <Pill tone={statusTone(c.meta.status)}>{statusText(c.meta.status)}</Pill>}
                     </div>
-                    <p className="ld-trading-sub">
+                    <p className={sub}>
                       {c.meta?.samples != null ? `${fmt(c.meta.samples)} samples` : "samples not reported"}
                       {c.stats.points ? ` · data ${labelsFor(c.data.length)[c.data.findIndex((v) => v != null)]}–${c.stats.lastAt}` : ""}
                     </p>
-                    <dl className="ld-trading-mini">
-                      <div><dt>Peak</dt><dd className={lvl === "crit" ? "ld-text-crit" : lvl === "warn" ? "ld-text-warn" : undefined}>{fmtN(c.stats.peak)}</dd></div>
-                      <div><dt>Peak at</dt><dd>{c.stats.peakAt}</dd></div>
-                      <div><dt>Day mean</dt><dd>{fmtN(c.stats.mean)}</dd></div>
+                    <dl className={mini}>
+                      <div className={miniBox}><dt className={miniDt}>Peak</dt><dd className={cx(miniDd, lvl !== "ok" && DARK_INK[lvl])}>{fmtN(c.stats.peak)}</dd></div>
+                      <div className={miniBox}><dt className={miniDt}>Peak at</dt><dd className={miniDd}>{c.stats.peakAt}</dd></div>
+                      <div className={miniBox}><dt className={miniDt}>Day mean</dt><dd className={miniDd}>{fmtN(c.stats.mean)}</dd></div>
                     </dl>
                     <LineChart title={`${c.name} queue depth ${applied.from}–${applied.to}`} labels={view.labels}
                       series={[{ label: c.name, data: view.data, color: c.color }]} height={160} />
-                  </section>
+                  </Card>
                 );
               })}
             </div>
@@ -577,19 +595,18 @@ export default function CtclMonitorScreen() {
         {/* ═══ TRADING WINDOWS ═══ */}
         {tab === "windows" && (
           <>
-            <p className="ld-trading-sub">Window figures are computed from each line's intraday series; short windows are bracketed by the nearest samples.</p>
-            <div className="ld-grid ld-grid-2">
+            <p className={sub}>Window figures are computed from each line's intraday series; short windows are bracketed by the nearest samples.</p>
+            <div className={cx(ui.grid, ui.cols[2])}>
               {WINDOWS.map((w) => {
                 const rows = charted.map((c) => ({ c, v: windowValue(c.data, w.from, w.to, w.agg) }));
                 const lv: Level = w.agg === "mean" ? "ok" : rows.some((r) => levelOf(r.c.id, r.v) === "crit") ? "crit" : rows.some((r) => levelOf(r.c.id, r.v) === "warn") ? "warn" : "ok";
                 return (
-                  <section key={w.id} className="ld-card ld-panel" aria-labelledby={`win-${w.id}`}>
-                    <div className="ld-panel-head">
-                      <h2 id={`win-${w.id}`}><Icon className={`fa-solid ${w.icon} ld-muted`} /> {w.title}</h2>
+                  <Card as="section" key={w.id} className={ui.panel} aria-labelledby={`win-${w.id}`}>
+                    <div className={ui.panelHead}>
+                      <h2 id={`win-${w.id}`} className={ui.panelTitle}><Icon name={w.icon} className="text-fg-muted" /> {w.title}</h2>
                       <Pill tone={LEVEL[lv].tone}>{LEVEL[lv].label}</Pill>
                     </div>
-                    <div className="ld-table-wrap">
-                      <table className="ld-table">
+                    <Table>
                         <thead><tr><th scope="col">CTCL</th><th scope="col">{w.agg === "max" ? "Peak queue" : "Mean queue"}</th><th scope="col">Threshold</th></tr></thead>
                         <tbody>
                           {rows.map(({ c, v }) => {
@@ -597,45 +614,44 @@ export default function CtclMonitorScreen() {
                             const t = depthLimit(c.id);
                             return (
                               <tr key={c.id}>
-                                <td className="ld-strong">{c.name}</td>
-                                <td className={`ld-mono${l === "crit" ? " ld-text-crit" : l === "warn" ? " ld-text-warn" : ""}`}>{fmtN(v)}</td>
-                                <td className="ld-muted">{t ? `warn ${t.warn} · crit ${t.crit}` : "—"}</td>
+                                <td className="font-medium">{c.name}</td>
+                                <td className={cx(monoCell, l !== "ok" && CELL_TONE[l])}>{fmtN(v)}</td>
+                                <td>{t ? `warn ${t.warn} · crit ${t.crit}` : "—"}</td>
                               </tr>
                             );
                           })}
                         </tbody>
-                      </table>
-                    </div>
-                  </section>
+                      </Table>
+                  </Card>
                 );
               })}
             </div>
 
-            <div className="ld-grid ld-grid-2">
-              <section className="ld-card ld-panel" aria-labelledby="zoom-o1">
-                <div className="ld-panel-head"><h2 id="zoom-o1">NSE-2729 — open window (5-min)</h2><SampleBadge /></div>
-                <p className="ld-trading-sub">Pre-market build-up &amp; AMO flush · 5-minute samples have no feed yet</p>
+            <div className={cx(ui.grid, ui.cols[2])}>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-o1">
+                <div className={ui.panelHead}><h2 id="zoom-o1" className={ui.panelTitle}>NSE-2729 — open window (5-min)</h2><SampleBadge /></div>
+                <p className={sub}>Pre-market build-up &amp; AMO flush · 5-minute samples have no feed yet</p>
                 <LineChart title="NSE-2729 open window (sample data)" labels={WO_LABELS} maxV={6000} series={[{ label: "NSE-2729", data: WO_NSE2, color: "#e5383b" }]} />
-              </section>
-              <section className="ld-card ld-panel" aria-labelledby="zoom-o2">
-                <div className="ld-panel-head"><h2 id="zoom-o2">NSE-48621 + BSE — open window (5-min)</h2><SampleBadge /></div>
+              </Card>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-o2">
+                <div className={ui.panelHead}><h2 id="zoom-o2" className={ui.panelTitle}>NSE-48621 + BSE — open window (5-min)</h2><SampleBadge /></div>
                 <LineChart title="NSE-48621 and BSE open window (sample data)" labels={WO_LABELS} series={[
                   { label: "NSE-48621", data: WO_NSE1, color: "#2f6bff" },
                   { label: "BSE", data: WO_BSE, color: "#7c4dff" },
                 ]} />
-              </section>
-              <section className="ld-card ld-panel" aria-labelledby="zoom-c1">
-                <div className="ld-panel-head"><h2 id="zoom-c1">NSE-5864 — square-off window</h2><SampleBadge /></div>
-                <p className="ld-trading-sub">Close-side pressure · minute samples have no feed yet</p>
+              </Card>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-c1">
+                <div className={ui.panelHead}><h2 id="zoom-c1" className={ui.panelTitle}>NSE-5864 — square-off window</h2><SampleBadge /></div>
+                <p className={sub}>Close-side pressure · minute samples have no feed yet</p>
                 <LineChart title="NSE-5864 square-off window (sample data)" labels={WC_LABELS} maxV={1400} series={[{ label: "NSE-5864", data: WC_NSE5, color: "#f5a524" }]} />
-              </section>
-              <section className="ld-card ld-panel" aria-labelledby="zoom-c2">
-                <div className="ld-panel-head"><h2 id="zoom-c2">NSE-48621 + BSE — square-off window</h2><SampleBadge /></div>
+              </Card>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-c2">
+                <div className={ui.panelHead}><h2 id="zoom-c2" className={ui.panelTitle}>NSE-48621 + BSE — square-off window</h2><SampleBadge /></div>
                 <LineChart title="NSE-48621 and BSE square-off window (sample data)" labels={WC_LABELS} series={[
                   { label: "NSE-48621", data: WC_48621, color: "#2f6bff" },
                   { label: "BSE", data: WC_BSE, color: "#7c4dff" },
                 ]} />
-              </section>
+              </Card>
             </div>
           </>
         )}
@@ -644,10 +660,9 @@ export default function CtclMonitorScreen() {
         {tab === "ctclmap" && (
           <>
             <Panel title={`CTCL / adapter → broker mapping (${fmt(brokers.length)} clients)`}>
-              <p className="ld-trading-sub">CTCL IDs are per segment and per line. Each broker reaches Noren OMS through the CTCL codes assigned per exchange segment; segment status reflects the last polling cycle.</p>
+              <p className={sub}>CTCL IDs are per segment and per line. Each broker reaches Noren OMS through the CTCL codes assigned per exchange segment; segment status reflects the last polling cycle.</p>
               {brokers.length ? (
-                <div className="ld-table-wrap">
-                  <table className="ld-table">
+                <Table>
                     <thead>
                       <tr>
                         <th scope="col">Broker</th>
@@ -657,10 +672,10 @@ export default function CtclMonitorScreen() {
                         <th scope="col">CTCL (NFO-L2)</th>
                         <th scope="col">CTCL (BSE)</th>
                         <th scope="col">CTCL (BFO)</th>
-                        <th scope="col" className="ld-trading-center">NSE</th>
-                        <th scope="col" className="ld-trading-center">NFO</th>
-                        <th scope="col" className="ld-trading-center">BSE</th>
-                        <th scope="col" className="ld-trading-center">BFO</th>
+                        <th scope="col" className="text-center">NSE</th>
+                        <th scope="col" className="text-center">NFO</th>
+                        <th scope="col" className="text-center">BSE</th>
+                        <th scope="col" className="text-center">BFO</th>
                         <th scope="col">Overall</th>
                       </tr>
                     </thead>
@@ -670,18 +685,18 @@ export default function CtclMonitorScreen() {
                         const fail = segs.filter((s) => s === 0).length;
                         const ok = segs.filter((s) => s === 1).length;
                         const sc = (v: number, seg: string) => (
-                          <td className="ld-trading-center">
-                            <span className={`ld-trading-check ${v ? "ld-ok" : "ld-crit"}`}>
-                              <Icon className={`fa-solid ${v ? "fa-check" : "fa-xmark"}`} />
+                          <td className="text-center">
+                            <span className={cx("inline-grid place-items-center w-6 h-6 rounded-[6px] text-xs", toneBg[v ? "ok" : "crit"])}>
+                              <Icon name={v ? "fa-check" : "fa-xmark"} />
                               <span className="sr-only">{seg} {v ? "ok" : "failed"}</span>
                             </span>
                           </td>
                         );
                         const ctclCell = (id: string | undefined) =>
-                          !id || id === "—" ? <td className="ld-muted">—</td> : <td className="ld-mono">{id}</td>;
+                          !id || id === "—" ? <td>—</td> : <td className={monoCell}>{id}</td>;
                         return (
                           <tr key={b.n}>
-                            <td className="ld-strong">{b.n}</td>
+                            <td className="font-medium">{b.n}</td>
                             {ctclCell(b.ctcls.n1)}
                             {ctclCell(b.ctcls.n2)}
                             {ctclCell(b.ctcls.nf1)}
@@ -701,12 +716,11 @@ export default function CtclMonitorScreen() {
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
               ) : <Empty>No broker mapping from /trading/ctcl/brokers/.</Empty>}
             </Panel>
 
-            <div className="ld-grid ld-grid-3">
+            <div className={cx(ui.grid, ui.cols[3])}>
               <Panel title="NSE lines">{lineTable(lines.filter((l) => l.segment === "NSE"), "Role")}</Panel>
               <Panel title="NFO lines">{lineTable(lines.filter((l) => l.segment === "NFO"), "Role")}</Panel>
               <Panel title="BSE / BFO lines">{lineTable(lines.filter((l) => l.segment === "BSE" || l.segment === "BFO"), "Segment")}</Panel>
@@ -718,12 +732,12 @@ export default function CtclMonitorScreen() {
         {tab === "alerts" && (
           <>
             <Panel title={`Active alerts (${alerts.length}${p1 ? ` · ${p1} P1` : ""})`}>
-              <p className="ld-trading-sub">Raised from line status and from each line's queue peak against the thresholds below.</p>
+              <p className={sub}>Raised from line status and from each line's queue peak against the thresholds below.</p>
               {alerts.length ? (
-                <div className="ld-trading-stack-notes">
+                <div className={stackNotes}>
                   {alerts.map((a) => (
-                    <div key={a.id} className={`ld-card ld-trading-note ${a.tone}`}>
-                      <Icon className={`fa-solid ${a.tone === "crit" ? "fa-circle-exclamation" : "fa-triangle-exclamation"}`} />
+                    <div key={a.id} className={note(a.tone)}>
+                      <Icon name={a.tone === "crit" ? "fa-circle-exclamation" : "fa-triangle-exclamation"} />
                       <p><Pill tone={a.tone}>{a.prio}</Pill> <b>{a.title}.</b> {a.text}</p>
                     </div>
                   ))}
@@ -731,29 +745,27 @@ export default function CtclMonitorScreen() {
               ) : <Empty>No active alerts.</Empty>}
             </Panel>
 
-            <div className="ld-card ld-trading-note muted">
+            <div className={note("muted")}>
               <Icon icon={HistoryIcon} />
               <p><b>Historical note (not live) — BSE pipeline break:</b> BSE queue data once dropped from 99,219 to 163 samples because of a MySQL max_allowed_packet overflow in the executemany batch. Fix deployed (batches of 1,000 rows); verify it is active on both production servers.</p>
             </div>
 
             <Panel title="Recommended alert thresholds">
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead><tr><th scope="col">CTCL</th><th scope="col">Metric</th><th scope="col">Warn (P2)</th><th scope="col">Critical (P1)</th><th scope="col">Window</th><th scope="col">Action</th></tr></thead>
                   <tbody>
                     {THRESHOLDS.map((t) => (
                       <tr key={`${t.id}-${t.metric}`}>
-                        <td className="ld-mono">{t.id}</td>
+                        <td className={monoCell}>{t.id}</td>
                         <td>{t.metric}</td>
-                        <td className="ld-text-warn">{t.warn}</td>
-                        <td className="ld-text-crit">{t.crit}</td>
-                        <td className="ld-muted">{t.window}</td>
-                        <td className="ld-wrap">{t.action}</td>
+                        <td className={CELL_TONE.warn}>{t.warn}</td>
+                        <td className={CELL_TONE.crit}>{t.crit}</td>
+                        <td>{t.window}</td>
+                        <td className={ui.cellWrap}>{t.action}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
             </Panel>
 
             {problemLines.map((l) => {
@@ -762,10 +774,10 @@ export default function CtclMonitorScreen() {
                 <Panel key={l.id} title={`Broker impact — ${l.id} ${statusText(l.status).toLowerCase()}`}>
                   {hit.length ? (
                     <>
-                      <div className="ld-trading-badges">
+                      <div className="flex flex-wrap gap-1.5">
                         {hit.map((b) => <Pill key={b.n} tone="crit">{b.n}</Pill>)}
                       </div>
-                      <p className="ld-small ld-muted">{hit.length} of {brokers.length} broker clients have a CTCL code on {l.id}; queue depth on this line is unmonitored for them while its data is missing.</p>
+                      <p className="text-xs text-fg-muted">{hit.length} of {brokers.length} broker clients have a CTCL code on {l.id}; queue depth on this line is unmonitored for them while its data is missing.</p>
                     </>
                   ) : <Empty>No mapped broker routes through {l.id}.</Empty>}
                 </Panel>
@@ -774,6 +786,6 @@ export default function CtclMonitorScreen() {
           </>
         )}
       </div>
-    </div>
+    </Page>
   );
 }

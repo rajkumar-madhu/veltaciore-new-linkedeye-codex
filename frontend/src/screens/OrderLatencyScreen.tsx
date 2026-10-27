@@ -17,10 +17,33 @@ import {
 import { useNav } from "@/hooks/useNav";
 import { Donut, Empty, Legend, PALETTE, Panel, Pill, StatCard, fmt } from "@/components/ld";
 import type { Slice, Tone } from "@/components/ld";
-import "@/styles/trading.css";
+import { Card, Crumbs, Page, PageHead, Tab, Table, Tabs, cx, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, CircleDotIcon, FlaskConicalIcon, InfoIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
+import { CircleDotIcon, FlaskConicalIcon, InfoIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
+// ── Local class strings (were the trading-ops CSS rules) ─────────────────────
+// Table cells keep the cell size (13px); the old mono class only set 12px outside tables.
+const monoCell = "font-mono font-semibold";
+// In table cells the old status-text classes lost to the cell colour: bold in
+// light mode, the tone colour only in dark mode.
+const CELL_CRIT = "font-semibold dark:text-tone-crit";
+/** Panel sub-title under the heading */
+const sub = "text-[12.5px] text-fg-muted -mt-1.5";
+/** Notice banner (card with a coloured left edge); tone picks the edge + icon colour. */
+const NOTE_TONE = {
+  info: "border-l-info [&>.ld-icon]:text-info",
+  crit: "border-l-critical [&>.ld-icon]:text-critical",
+  warn: "border-l-warning [&>.ld-icon]:text-warning",
+  muted: "border-l-line-strong [&>.ld-icon]:text-fg-muted",
+} as const;
+const note = (tone: keyof typeof NOTE_TONE) =>
+  cx(ui.card, "flex items-start gap-3 px-4 py-3 border-l-4 text-sm text-fg leading-[1.5] [&_b]:text-fg [&>.ld-icon]:mt-[3px] [&>.ld-icon]:text-md [&>.ld-icon]:flex-none", NOTE_TONE[tone]);
+const legendInline = "list-none mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-fg-muted [&>li]:inline-flex [&>li]:items-center [&>li]:gap-1.5";
+const badges = "flex flex-wrap gap-1.5";
+// Pipeline step icon: the old tile rule was overridden by the node's span rule
+// (block, mono 11.5px, muted ink; tone ink in dark mode).
+const flowTile = "block flex-none w-7 h-7 rounded-[8px] bg-tone-info-soft text-fg-muted dark:text-tone-info font-mono text-[11.5px] [overflow-wrap:anywhere]";
+
 interface QueuePoint {
   label: string;
   mean: number;
@@ -111,23 +134,23 @@ function LineChart({ labels, series, cap, marker, height = 200, title }: {
   };
   const last = (s: LineSeries) => [...s.data].reverse().find((v) => v != null) ?? null;
   return (
-    <div className="ld-trading-chart">
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="ld-trend" role="img"
+    <div className="relative min-w-0">
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block cursor-crosshair" role="img"
         aria-label={`${title}: ${series.map((s) => `${s.label} latest ${fmtV(last(s))}${s.unit ?? ""}, peak ${fmtV(Math.max(0, ...s.data.filter((v): v is number => v != null)))}${s.unit ?? ""}`).join("; ")}`}
         onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <g key={f}>
-            <line x1={L} x2={W - R} y1={y(maxV * f)} y2={y(maxV * f)} className="ld-gridline" />
-            <text x={L - 6} y={y(maxV * f) + 4} textAnchor="end" className="ld-axis">{compact(maxV * f)}</text>
+            <line x1={L} x2={W - R} y1={y(maxV * f)} y2={y(maxV * f)} className="stroke-line-subtle stroke-1" />
+            <text x={L - 6} y={y(maxV * f) + 4} textAnchor="end" className="text-xs fill-fg-muted font-sans">{compact(maxV * f)}</text>
           </g>
         ))}
         {labels.map((lb, i) => (i % step === 0 || i === labels.length - 1) && (
-          <text key={lb + i} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} className="ld-axis">{lb}</text>
+          <text key={lb + i} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} className="text-xs fill-fg-muted font-sans">{lb}</text>
         ))}
         {marker && marker.index >= 0 && (
           <g>
-            <line x1={x(marker.index)} x2={x(marker.index)} y1={T} y2={H - B} className="ld-trading-marker-line" />
-            <text x={x(marker.index) + 4} y={T + 10} className="ld-trading-marker-text">{marker.text}</text>
+            <line x1={x(marker.index)} x2={x(marker.index)} y1={T} y2={H - B} className="stroke-critical [stroke-dasharray:4_3] [stroke-width:1.5]" />
+            <text x={x(marker.index) + 4} y={T + 10} className="text-2xs font-bold fill-critical font-sans">{marker.text}</text>
           </g>
         )}
         {series.map((s) => runs(s.data).map((run, ri) => {
@@ -138,7 +161,7 @@ function LineChart({ labels, series, cap, marker, height = 200, title }: {
                 <polygon points={`${run[0][0].toFixed(1)},${y(0)} ${pts} ${run[run.length - 1][0].toFixed(1)},${y(0)}`} fill={s.color} fillOpacity={0.1} />
               )}
               {run.length > 1
-                ? <polyline points={pts} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" className={s.dashed ? "ld-trading-threshold" : undefined} />
+                ? <polyline points={pts} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" className={s.dashed ? "[stroke-dasharray:6_4]" : undefined} />
                 : <circle cx={run[0][0]} cy={run[0][1]} r={3} fill={s.color} />}
             </g>
           );
@@ -146,32 +169,32 @@ function LineChart({ labels, series, cap, marker, height = 200, title }: {
         {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="var(--border-strong)" strokeDasharray="3 3" />}
       </svg>
       {hover != null ? (
-        <div className="ld-chart-tip ld-small">
+        <div className="flex flex-wrap gap-x-3.5 gap-y-1 items-center px-2 py-1.5 mt-1 bg-bg-muted rounded-sm text-fg text-xs [&_span]:inline-flex [&_span]:items-center [&_span]:gap-[5px]">
           <b>{labels[hover]}</b>
           {series.map((s) => (
-            <span key={s.label}><span className="ld-dot" style={{ background: s.color }} /> {s.label} {fmtV(s.data[hover])}{s.data[hover] != null ? s.unit ?? "" : ""}</span>
+            <span key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label} {fmtV(s.data[hover])}{s.data[hover] != null ? s.unit ?? "" : ""}</span>
           ))}
         </div>
       ) : (
-        <ul className="ld-legend-inline">
-          {series.map((s) => <li key={s.label}><span className="ld-dot" style={{ background: s.color }} /> {s.label}</li>)}
+        <ul className={legendInline}>
+          {series.map((s) => <li key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label}</li>)}
         </ul>
       )}
     </div>
   );
 }
 
-/** Horizontal bars (ld-bars) with a formatted value column. */
+/** Horizontal bars with a formatted value column. */
 function Bars({ rows, color = COLOR.blue, format = fmtV }: { rows: { label: string; value: number; color?: string }[]; color?: string; format?: (v: number) => string }) {
   if (!rows.length) return <Empty>No data.</Empty>;
   const max = Math.max(1, ...rows.map((r) => r.value));
   return (
-    <ul className="ld-bars">
+    <ul className={ui.bars}>
       {rows.map((r) => (
-        <li key={r.label}>
-          <span className="ld-bar-label">{r.label}</span>
-          <span className="ld-bar-track"><span className="ld-bar-fill" style={{ width: `${(r.value / max) * 100}%`, background: r.color ?? color }} /></span>
-          <span className="ld-bar-value ld-bar-value-wide">{format(r.value)}</span>
+        <li key={r.label} className={ui.barItemWide}>
+          <span className={ui.barLabel}>{r.label}</span>
+          <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${(r.value / max) * 100}%`, background: r.color ?? color }} /></span>
+          <span className={cx(ui.barValue, "min-w-16")}>{format(r.value)}</span>
         </li>
       ))}
     </ul>
@@ -256,39 +279,32 @@ export default function OrderLatencyScreen() {
   const noData = !hourly.length && !segments.length;
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>BOD / EOD</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>Order Latency</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "BOD / EOD" }, { label: "Order Latency" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Order Latency Monitor</h1>
-          <p>OMS and exchange-confirmation latency per hour and segment, from the L_ORDERLATENCY EOD batch</p>
-        </div>
-        <div className="ld-head-actions">
-          {spikes.length > 0 && <Pill tone="crit"><span className="ld-pill-dot" aria-hidden="true" /> {spikes.length} spike {spikes.length === 1 ? "window" : "windows"}</Pill>}
-          {segments.length > 0 && <Pill tone="ok"><span className="ld-pill-dot" aria-hidden="true" /> {segments.map((s) => s.seg).join(" / ")} reporting</Pill>}
-          <span className="ld-mono ld-muted" aria-label="Current time in IST">{clock}</span>
-        </div>
-      </div>
+      <PageHead
+        title="Order Latency Monitor"
+        subtitle="OMS and exchange-confirmation latency per hour and segment, from the L_ORDERLATENCY EOD batch"
+        actions={
+          <>
+            {spikes.length > 0 && <Pill tone="crit"><span className={ui.pillDot} aria-hidden="true" /> {spikes.length} spike {spikes.length === 1 ? "window" : "windows"}</Pill>}
+            {segments.length > 0 && <Pill tone="ok"><span className={ui.pillDot} aria-hidden="true" /> {segments.map((s) => s.seg).join(" / ")} reporting</Pill>}
+            <span className={cx(ui.mono, "text-fg-muted")} aria-label="Current time in IST">{clock}</span>
+          </>
+        }
+      />
 
-      <div className="ld-tabs" role="tablist" aria-label="Order latency sections">
+      <Tabs aria-label="Order latency sections">
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" id={`ol-tab-${t.id}`} aria-selected={tab === t.id} aria-controls="ol-panel"
-            className={`ld-tab${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>
-            <Icon className={`fa-solid ${t.icon}`} /> {t.label}{t.count && <> <span className="ld-muted">({t.count})</span></>}
-          </button>
+          <Tab key={t.id} active={tab === t.id} id={`ol-tab-${t.id}`} aria-controls="ol-panel" onClick={() => setTab(t.id)}>
+            <Icon name={t.icon} /> {t.label}{t.count && <> <span className="text-fg-muted">({t.count})</span></>}
+          </Tab>
         ))}
-      </div>
+      </Tabs>
 
-      <div id="ol-panel" role="tabpanel" aria-labelledby={`ol-tab-${tab}`} className="ld-trading-tabpanel">
+      <div id="ol-panel" role="tabpanel" aria-labelledby={`ol-tab-${tab}`} className="flex flex-col gap-4 min-w-0">
         {noData && tab !== "schema" && tab !== "queue" && tab !== "orders" && (
-          <div className="ld-card ld-trading-note muted" role="status">
+          <div className={note("muted")} role="status">
             <Icon icon={UnplugIcon} />
             <p><b>No latency data loaded.</b> /trading/latency/hourly/ and /trading/latency/segments/ returned nothing — cards and charts fill in once the EOD batch has run.</p>
           </div>
@@ -298,7 +314,7 @@ export default function OrderLatencyScreen() {
         {tab === "overview" && (
           <>
             {firstSpike && (
-              <div className="ld-card ld-trading-note crit" role="alert">
+              <div className={note("crit")} role="alert">
                 <Icon icon={TriangleAlertIcon} />
                 <p>
                   <b>Spike — {spikes.map((s) => s.label).join(", ")} IST:</b> OMS latency p99 reached <b>{fmtUs(firstSpike.oms_p99)}</b>
@@ -308,7 +324,8 @@ export default function OrderLatencyScreen() {
               </div>
             )}
 
-            <div className="ld-grid ld-grid-stats ld-grid-6">
+            {/* six-up columns only: the old denser-card rules never reached StatCard, so ui.cols[6] would shrink the cards */}
+            <div className={cx(ui.grid, "grid-cols-[repeat(auto-fit,minmax(180px,1fr))]")}>
               <StatCard icon="fa-receipt" tone="info" label="Total orders" value={fmt(totalOrders)} note={labels.length ? `${labels[0]} → ${labels[labels.length - 1]} IST` : "no hourly data"} onClick={() => setTab("orders")} />
               <StatCard icon="fa-stopwatch" tone="ok" label="OMS latency median" value={omsMed != null ? fmtUs(omsMed) : "—"} note={hourly.length ? `hourly p99 median ${fmtUs(hourlyP99Median)} (ex-spike)` : "order-weighted"} onClick={() => setTab("latency")} />
               <StatCard icon="fa-link" tone="info" label="Exch confirm median" value={exchMed != null ? fmtUs(exchMed) : "—"} note={hourly.length ? `hourly p99 median ${fmtUs(hourlyExchP99Median)} (ex-spike)` : "order-weighted"} onClick={() => setTab("exchange")} />
@@ -317,14 +334,14 @@ export default function OrderLatencyScreen() {
               <StatCard icon="fa-layer-group" tone="purple" label="Active segments" value={fmt(segments.length)} note={segments.map((s) => s.seg).join(" · ") || "none reporting"} />
             </div>
 
-            <div className="ld-split">
+            <div className={ui.split}>
               <Panel title="Order volume by hour">
-                <p className="ld-trading-sub">All segments combined · {fmt(hourly.reduce((a, h) => a + h.orders, 0))} orders</p>
+                <p className={sub}>All segments combined · {fmt(hourly.reduce((a, h) => a + h.orders, 0))} orders</p>
                 <Bars rows={hourly.map((h) => ({ label: `${h.label} IST`, value: h.orders, color: spikes.includes(h) ? COLOR.red : COLOR.blue }))} format={(v) => fmt(v)} />
               </Panel>
               <Panel title="Segment mix">
                 {segments.length ? (
-                  <div className="ld-donut-row">
+                  <div className="flex flex-wrap items-center gap-4.5">
                     <Donut slices={segSlices} center={compact(segTotal)} sub="orders" label={segments.map((s) => `${s.seg} ${s.pct}%`).join(", ")} />
                     <Legend slices={segSlices} />
                   </div>
@@ -334,8 +351,7 @@ export default function OrderLatencyScreen() {
 
             <Panel title="Segment summary">
               {segments.length ? (
-                <div className="ld-table-wrap">
-                  <table className="ld-table">
+                <Table>
                     <thead>
                       <tr>
                         <th scope="col">Segment</th><th scope="col">Orders</th><th scope="col">Share</th>
@@ -347,24 +363,23 @@ export default function OrderLatencyScreen() {
                       {segments.map((s) => {
                         const watch = segWatch(s);
                         return (
-                          <tr key={s.seg} className={watch ? "ld-trading-row-warn" : undefined}>
-                            <td className="ld-strong">{s.seg}</td>
-                            <td className="ld-mono">{fmt(s.count)}</td>
+                          <tr key={s.seg} className={watch ? "[&>td]:bg-warning-bg" : undefined}>
+                            <td className="font-medium">{s.seg}</td>
+                            <td className={monoCell}>{fmt(s.count)}</td>
                             <td>
-                              <span className="ld-mono">{s.pct}%</span>
-                              <span className="ld-trading-pbar" aria-hidden="true"><span style={{ width: `${Math.min(100, s.pct)}%` }} /></span>
+                              <span className={ui.mono}>{s.pct}%</span>
+                              <span className="block w-full max-w-[120px] h-[5px] mt-1 rounded-[3px] bg-bg-muted overflow-hidden" aria-hidden="true"><span className="block h-full rounded-[3px] bg-accent" style={{ width: `${Math.min(100, s.pct)}%` }} /></span>
                             </td>
-                            <td className="ld-mono">{fmtUs(s.oms_med)}</td>
-                            <td className={`ld-mono${watch ? " ld-text-crit" : ""}`}>{fmtUs(s.oms_p99)}</td>
-                            <td className="ld-mono">{fmtUs(s.exch_med)}</td>
-                            <td className="ld-mono">{fmtUs(s.exch_p99)}</td>
+                            <td className={monoCell}>{fmtUs(s.oms_med)}</td>
+                            <td className={cx(monoCell, watch && CELL_CRIT)}>{fmtUs(s.oms_p99)}</td>
+                            <td className={monoCell}>{fmtUs(s.exch_med)}</td>
+                            <td className={monoCell}>{fmtUs(s.exch_p99)}</td>
                             <td>{watch ? <Pill tone="warn">Monitor · p99 &gt; {fmtUs(OMS_P99_WATCH)}</Pill> : <Pill tone="ok">Normal</Pill>}</td>
                           </tr>
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
               ) : <Empty>No segment data.</Empty>}
             </Panel>
           </>
@@ -373,58 +388,56 @@ export default function OrderLatencyScreen() {
         {/* ═══ OMS LATENCY ═══ */}
         {tab === "latency" && (
           <>
-            <div className="ld-card ld-trading-note warn">
+            <div className={note("warn")}>
               <Icon icon={InfoIcon} />
               <p><b>OMS_LATENCY note:</b> requires the placement timestamp from a separate Noren placement log or the Argus routing layer. The field is blank for unconfirmed rows; use the <code>norentm</code> delta when available.</p>
             </div>
 
-            <div className="ld-grid ld-grid-2">
+            <div className={cx(ui.grid, ui.cols[2])}>
               <Panel title="OMS latency — median (µs)">
-                <p className="ld-trading-sub">Hourly · capped at {fmt(OMS_P99_WATCH)} µs for readability</p>
+                <p className={sub}>Hourly · capped at {fmt(OMS_P99_WATCH)} µs for readability</p>
                 <LineChart title="OMS latency median per hour" labels={labels} cap={OMS_P99_WATCH} marker={spikeIdx >= 0 ? { index: spikeIdx, text: "Spike" } : undefined}
                   series={[{ label: "OMS median", data: hourly.map((h) => h.oms_med), color: COLOR.blue, unit: " µs" }]} />
               </Panel>
               <Panel title="OMS latency — p99 (µs)">
-                <p className="ld-trading-sub">Spike windows clipped at {fmt(OMS_P99_WATCH)} µs; the hover readout shows the full value</p>
+                <p className={sub}>Spike windows clipped at {fmt(OMS_P99_WATCH)} µs; the hover readout shows the full value</p>
                 <LineChart title="OMS latency p99 per hour" labels={labels} cap={OMS_P99_WATCH} marker={spikeIdx >= 0 ? { index: spikeIdx, text: "Spike" } : undefined}
                   series={[{ label: "OMS p99", data: hourly.map((h) => h.oms_p99), color: COLOR.red, unit: " µs" }]} />
               </Panel>
             </div>
 
-            <div className="ld-grid ld-grid-2">
+            <div className={cx(ui.grid, ui.cols[2])}>
               <Panel title="OMS latency distribution">
-                <p className="ld-trading-sub">{fmt(lat.length)} loaded order records with an OMS latency</p>
+                <p className={sub}>{fmt(lat.length)} loaded order records with an OMS latency</p>
                 <Bars rows={buckets.map(([label, f]) => ({ label, value: lat.filter(f).length }))} format={(v) => fmt(v)} />
               </Panel>
               <Panel title="OMS latency by segment">
-                <p className="ld-trading-sub">Median and p99 per segment</p>
+                <p className={sub}>Median and p99 per segment</p>
                 {segments.length ? (
-                  <div className="ld-table-wrap">
-                    <table className="ld-table">
+                  <Table>
                       <thead><tr><th scope="col">Segment</th><th scope="col">Median</th><th scope="col">p99</th><th scope="col">p99 vs {fmtUs(OMS_P99_WATCH)}</th></tr></thead>
                       <tbody>
                         {segments.map((s) => (
                           <tr key={s.seg}>
-                            <td className="ld-strong">{s.seg}</td>
-                            <td className="ld-mono">{fmtUs(s.oms_med)}</td>
-                            <td className={`ld-mono${segWatch(s) ? " ld-text-crit" : ""}`}>{fmtUs(s.oms_p99)}</td>
-                            <td className="ld-trading-barcell">
-                              <span className="ld-bar-track">
-                                <span className="ld-bar-fill" style={{ width: `${Math.min(100, (s.oms_p99 / OMS_P99_WATCH) * 100)}%`, background: segWatch(s) ? COLOR.red : COLOR.blue }} />
+                            <td className="font-medium">{s.seg}</td>
+                            <td className={monoCell}>{fmtUs(s.oms_med)}</td>
+                            <td className={cx(monoCell, segWatch(s) && CELL_CRIT)}>{fmtUs(s.oms_p99)}</td>
+                            <td className="min-w-[140px]">
+                              <span className={cx(ui.barTrack, "block")}>
+                                <span className={ui.barFill} style={{ width: `${Math.min(100, (s.oms_p99 / OMS_P99_WATCH) * 100)}%`, background: segWatch(s) ? COLOR.red : COLOR.blue }} />
                               </span>
                             </td>
                           </tr>
                         ))}
                       </tbody>
-                    </table>
-                  </div>
+                    </Table>
                 ) : <Empty>No segment data.</Empty>}
               </Panel>
             </div>
 
             <Panel title="OMS status code distribution">
-              <p className="ld-trading-sub">OMS_STATUS column of the L_ORDERLATENCY CSV · {fmt(orders.length)} loaded records</p>
-              <div className="ld-trading-badges">
+              <p className={sub}>OMS_STATUS column of the L_ORDERLATENCY CSV · {fmt(orders.length)} loaded records</p>
+              <div className={badges}>
                 {Object.entries(OMS_STATUS_LABELS).map(([code, label]) => <Pill key={code} tone={OMS_STATUS_TONE[Number(code)] ?? "muted"}>{code} = {label}</Pill>)}
               </div>
               <Bars rows={statusCounts.map(([code, n]) => ({ label: `${OMS_STATUS_LABELS[code] ?? code} (${code})`, value: n }))} format={(v) => fmt(v)} />
@@ -435,7 +448,7 @@ export default function OrderLatencyScreen() {
         {/* ═══ EXCHANGE CONFIRM ═══ */}
         {tab === "exchange" && (
           <>
-            <div className="ld-grid ld-grid-stats">
+            <div className={cx(ui.grid, ui.cols.stats)}>
               <StatCard icon="fa-link" tone="ok" label="Median (order-weighted)" value={exchMed != null ? fmtUs(exchMed) : "—"} note="across segments" />
               <StatCard icon="fa-gauge-high" tone="warn" label="p99 (order-weighted)" value={exchP99 != null ? fmtUs(exchP99) : "—"} note={omsP99 != null ? `OMS p99 ${fmtUs(omsP99)}` : "across segments"} />
               <StatCard icon="fa-bolt" tone="crit" label="Max hourly p99" value={peakExch ? fmtUs(peakExch.exch_p99) : "—"} note={peakExch ? `${peakExch.label} IST window` : "no hourly data"} />
@@ -443,7 +456,7 @@ export default function OrderLatencyScreen() {
               <StatCard icon="fa-hourglass-half" tone="muted" label="Exch confirm > 10 ms" value={pct(confLat.filter((v) => v > 10000).length, confLat.length)} note={`of ${fmt(confLat.length)} confirmed records`} />
             </div>
 
-            <div className="ld-grid ld-grid-2">
+            <div className={cx(ui.grid, ui.cols[2])}>
               <Panel title="Exchange confirmation — median (µs)">
                 <LineChart title="Exchange confirmation median per hour" labels={labels} cap={12000} marker={spikeIdx >= 0 ? { index: spikeIdx, text: "Spike" } : undefined}
                   series={[{ label: "Exch median", data: hourly.map((h) => h.exch_med), color: COLOR.teal, unit: " µs" }]} />
@@ -455,27 +468,27 @@ export default function OrderLatencyScreen() {
             </div>
 
             <Panel title="Exchange status (EXCH_STATUS) by segment">
-              <p className="ld-trading-sub">48 = confirmed · blank = pending / not sent · {fmt(orders.length)} loaded records</p>
+              <p className={sub}>48 = confirmed · blank = pending / not sent · {fmt(orders.length)} loaded records</p>
               {exchBySeg.length ? (
                 <>
-                  <ul className="ld-bars">
+                  <ul className={ui.bars}>
                     {exchBySeg.map((r) => {
                       const tot = r.ok + r.pending || 1;
                       return (
-                        <li key={r.seg}>
-                          <span className="ld-bar-label">{r.seg}</span>
-                          <span className="ld-trading-stack" role="img" aria-label={`${r.seg}: ${r.ok} confirmed, ${r.pending} pending`}>
-                            <span style={{ width: `${(r.ok / tot) * 100}%`, background: COLOR.teal }} />
-                            <span style={{ width: `${(r.pending / tot) * 100}%`, background: "var(--border-strong)" }} />
+                        <li key={r.seg} className={ui.barItemWide}>
+                          <span className={ui.barLabel}>{r.seg}</span>
+                          <span className="flex h-2.5 rounded-[5px] bg-bg-muted overflow-hidden" role="img" aria-label={`${r.seg}: ${r.ok} confirmed, ${r.pending} pending`}>
+                            <span className="block h-full" style={{ width: `${(r.ok / tot) * 100}%`, background: COLOR.teal }} />
+                            <span className="block h-full" style={{ width: `${(r.pending / tot) * 100}%`, background: "var(--border-strong)" }} />
                           </span>
-                          <span className="ld-bar-value ld-bar-value-wide">{r.ok}/{r.ok + r.pending}</span>
+                          <span className={cx(ui.barValue, "min-w-16")}>{r.ok}/{r.ok + r.pending}</span>
                         </li>
                       );
                     })}
                   </ul>
-                  <ul className="ld-legend-inline">
-                    <li><span className="ld-dot" style={{ background: COLOR.teal }} /> Confirmed (48)</li>
-                    <li><span className="ld-dot" style={{ background: "var(--border-strong)" }} /> Pending / blank</li>
+                  <ul className={legendInline}>
+                    <li><span className={ui.dot} style={{ background: COLOR.teal }} /> Confirmed (48)</li>
+                    <li><span className={ui.dot} style={{ background: "var(--border-strong)" }} /> Pending / blank</li>
                   </ul>
                 </>
               ) : <Empty>No order records loaded.</Empty>}
@@ -486,47 +499,46 @@ export default function OrderLatencyScreen() {
         {/* ═══ QUEUE SIZE ═══ */}
         {tab === "queue" && (
           <>
-            <div className="ld-card ld-trading-note warn" role="status">
+            <div className={note("warn")} role="status">
               <Icon icon={FlaskConicalIcon} />
               <p><b>Sample data — not connected.</b> The NSE adapter queue has no live feed yet. These figures come from a single captured file, QueSize_NSE_22Jul2026.csv (11:31–15:20 IST, 2,318 samples).</p>
             </div>
 
-            <div className="ld-grid ld-grid-stats">
+            <div className={cx(ui.grid, ui.cols.stats)}>
               <StatCard icon="fa-arrow-up" tone="muted" label="Peak depth (sample)" value={fmt(Math.max(...QUEUE.map((q) => q.max)))} note="largest drain episode" />
               <StatCard icon="fa-wave-square" tone="muted" label="Mean of bucket means (sample)" value={(QUEUE.reduce((a, q) => a + q.mean, 0) / QUEUE.length).toFixed(1)} note={`${QUEUE.length} buckets`} />
               <StatCard icon="fa-chart-line" tone="muted" label="p95 threshold (sample)" value="744" note="from the captured file" />
               <StatCard icon="fa-envelope" tone="muted" label="Messages (sample)" value="24,023" note="SeqNo 38,736 → 62,759" />
             </div>
 
-            <section className="ld-card ld-panel" aria-labelledby="ol-q1">
-              <div className="ld-panel-head"><h2 id="ol-q1">NSE queue depth — mean &amp; max</h2><SampleBadge /></div>
-              <p className="ld-trading-sub">NSE adapter · x-axis = progress through the captured episode</p>
+            <Card as="section" className={ui.panel} aria-labelledby="ol-q1">
+              <div className={ui.panelHead}><h2 id="ol-q1" className={ui.panelTitle}>NSE queue depth — mean &amp; max</h2><SampleBadge /></div>
+              <p className={sub}>NSE adapter · x-axis = progress through the captured episode</p>
               <LineChart title="NSE queue depth (sample data)" labels={QUEUE.map((q) => q.label)} series={[
                 { label: "Mean queue", data: QUEUE.map((q) => q.mean), color: COLOR.blue },
                 { label: "Max queue", data: QUEUE.map((q) => q.max), color: COLOR.amber },
               ]} />
-            </section>
+            </Card>
 
-            <section className="ld-card ld-panel" aria-labelledby="ol-q2">
-              <div className="ld-panel-head"><h2 id="ol-q2">Max queue depth vs p95 alert threshold</h2><SampleBadge /></div>
+            <Card as="section" className={ui.panel} aria-labelledby="ol-q2">
+              <div className={ui.panelHead}><h2 id="ol-q2" className={ui.panelTitle}>Max queue depth vs p95 alert threshold</h2><SampleBadge /></div>
               <LineChart title="NSE max queue depth against the 744 threshold (sample data)" labels={QUEUE.map((q) => q.label)} series={[
                 { label: "Max depth", data: QUEUE.map((q) => q.max), color: COLOR.amber },
                 { label: "p95 threshold (744)", data: QUEUE.map(() => 744), color: COLOR.blue, dashed: true },
               ]} />
-            </section>
+            </Card>
           </>
         )}
 
         {/* ═══ ORDER DETAIL ═══ */}
         {tab === "orders" && (
           <Panel title={`Order records — L_ORDERLATENCY format (${fmt(orders.length)})`}>
-            <p className="ld-trading-sub">
+            <p className={sub}>
               Latest records returned by /trading/latency/orders/ (up to 200), in the 9-column <code>L_ORDERLATENCY*.csv</code> format produced by the Argus Celery EOD batch.
               New fields: EXT_RMKS, OMS_STATUS, EXCH_STATUS.
             </p>
             {orders.length ? (
-              <div className="ld-table-wrap">
-                <table className="ld-table">
+              <Table>
                   <thead>
                     <tr>
                       <th scope="col">NOREN_ORD_NUM</th>
@@ -543,20 +555,19 @@ export default function OrderLatencyScreen() {
                   <tbody>
                     {orders.map((o) => (
                       <tr key={o.ord}>
-                        <td className="ld-mono">{o.ord}</td>
-                        <td className="ld-strong">{o.seg}</td>
-                        <td className="ld-mono">{o.rmks}</td>
+                        <td className={monoCell}>{o.ord}</td>
+                        <td className="font-medium">{o.seg}</td>
+                        <td className={monoCell}>{o.rmks}</td>
                         <td><Pill tone={OMS_STATUS_TONE[o.oms] ?? "muted"}>{o.oms} {OMS_STATUS_LABELS[o.oms] ?? ""}</Pill></td>
-                        <td className="ld-mono">{o.lat !== "" ? o.lat : <span className="ld-muted">—</span>}</td>
+                        <td className={monoCell}>{o.lat !== "" ? o.lat : <span className="text-fg-muted">—</span>}</td>
                         <td>{o.exch === 48 ? <Pill tone="ok">48 CONFIRMED</Pill> : <Pill tone="muted">PENDING</Pill>}</td>
-                        <td className="ld-mono">{o.conf ? o.conf.toLocaleString("en-US") : <span className="ld-muted">0</span>}</td>
-                        <td className="ld-mono">{o.omsT}</td>
-                        <td className="ld-mono">{o.exchT || <span className="ld-muted">0</span>}</td>
+                        <td className={monoCell}>{o.conf ? o.conf.toLocaleString("en-US") : <span className="text-fg-muted">0</span>}</td>
+                        <td className={monoCell}>{o.omsT}</td>
+                        <td className={monoCell}>{o.exchT || <span className="text-fg-muted">0</span>}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
             ) : <Empty>No order records loaded.</Empty>}
           </Panel>
         )}
@@ -564,11 +575,10 @@ export default function OrderLatencyScreen() {
         {/* ═══ SCHEMA ═══ */}
         {tab === "schema" && (
           <>
-            <div className="ld-split ld-split-wide">
+            <div className={ui.splitWide}>
               <Panel title="L_ORDERLATENCY — 9-column schema">
-                <p className="ld-trading-sub">Noren OMS source → CSV output mapping (new fields highlighted)</p>
-                <div className="ld-table-wrap">
-                  <table className="ld-table">
+                <p className={sub}>Noren OMS source → CSV output mapping (new fields highlighted)</p>
+                <Table>
                     <thead>
                       <tr><th scope="col">CSV column</th><th scope="col">Noren source</th><th scope="col">Type</th><th scope="col">Notes</th></tr>
                     </thead>
@@ -584,34 +594,33 @@ export default function OrderLatencyScreen() {
                         ["OMSUPDATETIME", "norentm", "int (epoch)", 'Parsed from "HH:MM:SS DD-MM-YYYY"', false],
                         ["EXCHUPDATETIME", "exch_tm", "int (epoch)", "0 when Noren sentinel 01-01-1980", false],
                       ] as [string, string, string, string, boolean][]).map(([col, src, type, note, isNew]) => (
-                        <tr key={col} className={isNew ? "ld-trading-row-next" : undefined}>
-                          <td className="ld-mono">{col}{isNew && <> <Pill tone="info">new</Pill></>}</td>
-                          <td className="ld-mono ld-muted">{src}</td>
-                          <td className="ld-muted">{type}</td>
-                          <td className="ld-wrap">{note}</td>
+                        <tr key={col} className={isNew ? ui.rowSelected : undefined}>
+                          <td className={monoCell}>{col}{isNew && <> <Pill tone="info">new</Pill></>}</td>
+                          <td className={monoCell}>{src}</td>
+                          <td>{type}</td>
+                          <td className={ui.cellWrap}>{note}</td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
               </Panel>
 
-              <div className="ld-rail ld-trading-stack-notes">
+              <div className="flex flex-col gap-2.5 min-w-0">
                 <Panel title="Filename convention">
-                  <div className="ld-trading-fname">
-                    <span className="t1">L_</span><span className="t2">ORDERLATENCY</span><span className="t3">20260616161500</span><span className="t4">.csv</span>
+                  <div className="font-mono text-sm px-3.5 py-2.5 border border-line rounded bg-bg-muted [overflow-wrap:anywhere]">
+                    <span className="text-success font-bold">L_</span><span className="text-accent font-bold">ORDERLATENCY</span><span className="text-warning font-bold">20260616161500</span><span className="text-fg-muted">.csv</span>
                   </div>
-                  <dl className="ld-dl">
-                    <dt className="ld-mono">L_</dt><dd>Required prefix (new)</dd>
-                    <dt className="ld-mono">ORDERLATENCY</dt><dd>Fixed token</dd>
-                    <dt className="ld-mono">YYYYMMDDHHmmss</dt><dd>Batch run time</dd>
+                  <dl className={ui.dl}>
+                    <dt className={ui.mono}>L_</dt><dd>Required prefix (new)</dd>
+                    <dt className={ui.mono}>ORDERLATENCY</dt><dd>Fixed token</dd>
+                    <dt className={ui.mono}>YYYYMMDDHHmmss</dt><dd>Batch run time</dd>
                   </dl>
                 </Panel>
                 <Panel title="Celery beat schedule">
-                  <dl className="ld-dl">
-                    <dt>Task</dt><dd className="ld-mono">latency.tasks.generate_order_latency_csv</dd>
+                  <dl className={ui.dl}>
+                    <dt>Task</dt><dd className={ui.mono}>latency.tasks.generate_order_latency_csv</dd>
                     <dt>Schedule</dt><dd>16:15 IST Mon–Fri (10:45 UTC)</dd>
-                    <dt>Queue</dt><dd className="ld-mono">eod_batch</dd>
+                    <dt>Queue</dt><dd className={ui.mono}>eod_batch</dd>
                     <dt>Retry</dt><dd>3× / 5 min delay</dd>
                   </dl>
                 </Panel>
@@ -619,7 +628,8 @@ export default function OrderLatencyScreen() {
             </div>
 
             <Panel title="End-to-end pipeline — Argus / Celery">
-              <ol className="ld-trading-flow" aria-label="Order latency pipeline">
+              {/* The separator between steps is the old Font Awesome arrow glyph (\f061), kept as it renders. */}
+              <ol className="list-none flex flex-wrap items-stretch gap-2.5 [&>li+li]:before:content-['\f061'] [&>li+li]:before:[font-family:'Font_Awesome_6_Free'] [&>li+li]:before:font-black [&>li+li]:before:text-xs [&>li+li]:before:text-fg-faint max-sm:[&>li+li]:before:hidden" aria-label="Order latency pipeline">
                 {([
                   ["fa-file-lines", "Noren OMS log", "orders_YYYYMMDD.log", false],
                   ["fa-magnifying-glass", "parser.py", "auto-detect format", true],
@@ -628,35 +638,35 @@ export default function OrderLatencyScreen() {
                   ["fa-folder-open", "Output file", "/opt/argus/reports/", false],
                   ["fa-chart-column", "This dashboard", "load CSV → visualise", false],
                 ] as [string, string, string, boolean][]).map(([ic, t, sub, hl]) => (
-                  <li key={t}>
-                    <div className={`ld-trading-flow-node${hl ? " hl" : ""}`}>
-                      <span className="ld-tile ld-tile-sm ld-info" aria-hidden="true"><Icon className={`fa-solid ${ic}`} /></span>
-                      <div><b>{t}</b><span>{sub}</span></div>
+                  <li key={t} className="flex items-center gap-2.5 max-sm:flex-[1_1_100%]">
+                    <div className={cx("flex items-center gap-2.5 px-3 py-2 border rounded min-w-0 max-sm:flex-1", hl ? "border-accent bg-info-bg" : "border-line bg-bg-muted")}>
+                      <span className={flowTile} aria-hidden="true"><Icon name={ic} /></span>
+                      <div><b className="block text-sm text-fg">{t}</b><span className="block text-[11.5px] text-fg-muted font-mono [overflow-wrap:anywhere]">{sub}</span></div>
                     </div>
                   </li>
                 ))}
               </ol>
             </Panel>
 
-            <div className="ld-grid ld-grid-2">
+            <div className={cx(ui.grid, ui.cols[2])}>
               <Panel title="Stack">
-                <div className="ld-trading-badges">
+                <div className={badges}>
                   {["React + TypeScript + Vite", "Django + DRF", "Celery + Redis 7", "PostgreSQL 16", "OPA + Keycloak", "Gunicorn + Uvicorn"].map((t) => <Pill key={t} tone="info">{t}</Pill>)}
                 </div>
               </Panel>
-              <section className="ld-card ld-panel" aria-labelledby="ol-tests">
-                <div className="ld-panel-head"><h2 id="ol-tests">Parser test suite</h2><SampleBadge /></div>
-                <p className="ld-trading-sub">Cases covered by the parser tests. Results are not reported to this page yet.</p>
-                <ul className="ld-trading-steps">
+              <Card as="section" className={ui.panel} aria-labelledby="ol-tests">
+                <div className={ui.panelHead}><h2 id="ol-tests" className={ui.panelTitle}>Parser test suite</h2><SampleBadge /></div>
+                <p className={sub}>Cases covered by the parser tests. Results are not reported to this page yet.</p>
+                <ul className="list-none grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-3.5 gap-y-1.5">
                   {["JSON-lines parse", "Pipe-delimited parse", "COMPLETE transform", "OPEN/unconfirmed transform", "REJECT transform", "CSV write + L_ prefix", "Header exact match", "Row count"].map((t) => (
-                    <li key={t} className="pending"><Icon icon={CircleDotIcon} className="none" /> {t}</li>
+                    <li key={t} className="flex items-center gap-2 text-[12.5px] text-fg-muted"><Icon icon={CircleDotIcon} className="text-fg-faint" /> {t}</li>
                   ))}
                 </ul>
-              </section>
+              </Card>
             </div>
           </>
         )}
       </div>
-    </div>
+    </Page>
   );
 }

@@ -6,10 +6,12 @@ import React from "react";
 import { useMarketCalendar } from "@/api/hooks";
 import { useNav } from "@/hooks/useNav";
 import { Empty, Pill, StatCard, fmt as fmtNum } from "@/components/ld";
-import "@/styles/trading.css";
+import { Button, Card, Crumbs, Page, PageHead, Select, Table, cx, toneText, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { BanIcon, ChevronDownIcon, ChevronRightIcon, DownloadIcon, FlaskConicalIcon } from "lucide-react";
+import { BanIcon, ChevronDownIcon, DownloadIcon, FlaskConicalIcon } from "lucide-react";
+// Table cells keep the cell size (13px); the old mono class only set 12px outside tables.
+const monoCell = "font-mono font-semibold";
 // Exchange segments present in the calendars.
 const SEGMENTS = ["NSE", "NFO", "CDS", "NSLB", "NCOM", "NMF", "BSE", "BFO", "BCD", "BSLB", "BCOM", "NCDEX", "MCX", "NIE", "BIX"];
 
@@ -69,6 +71,14 @@ const fmt = (iso: string) => {
 const longDate = (iso: string) =>
   new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
+// Collapsible section header button; the chevron turns when collapsed.
+const toggleClass = cx(
+  "inline-flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-semibold text-fg cursor-pointer text-left",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+  "[&_.ld-icon]:text-2xs [&_.ld-icon]:text-fg-muted [&_.ld-icon]:[transition:transform_.15s] [&[aria-expanded=false]_.ld-icon]:-rotate-90",
+);
+const legendKey = "inline-block w-3 h-3 rounded-[3px]";
+
 type Kind = "all" | "holiday" | "mock";
 interface Row { date: string; kind: "holiday" | "mock"; name: string; }
 
@@ -82,24 +92,28 @@ function MonthTable({ year, month, hol, mock }: { year: number; month: number; h
   const weeks = Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
   const isNow = TODAY.startsWith(`${year}-${pad(month + 1)}`);
   return (
-    <div className={`ld-trading-month${isNow ? " now" : ""}`}>
-      <table>
-        <caption>{MONTHS[month]} {year}{isNow && <> · <span className="ld-text-info">this month</span></>}</caption>
+    <div className={cx("border rounded p-2.5 bg-bg-raised min-w-0", isNow ? "border-accent shadow-[inset_0_0_0_1px_var(--accent)]" : "border-line")}>
+      <table className="w-full border-collapse table-fixed">
+        <caption className="text-left text-sm font-semibold text-fg pb-1.5 [caption-side:top]">{MONTHS[month]} {year}{isNow && <> · <span className={toneText.info}>this month</span></>}</caption>
         <thead>
-          <tr>{WEEKDAYS.map((w) => <th key={w} scope="col" abbr={w}>{w.slice(0, 2)}</th>)}</tr>
+          <tr>{WEEKDAYS.map((w) => <th key={w} scope="col" abbr={w} className="text-[10.5px] font-semibold text-fg-faint py-0.5 px-0 text-center">{w.slice(0, 2)}</th>)}</tr>
         </thead>
         <tbody>
           {weeks.map((wk, wi) => (
             <tr key={wi}>
               {wk.map((d, di) => {
-                if (d == null) return <td key={di} />;
+                if (d == null) return <td key={di} className="text-center p-px" />;
                 const iso = `${year}-${pad(month + 1)}-${pad(d)}`;
                 const h = hol.get(iso);
                 const m = mock.has(iso);
-                const cls = ["ld-trading-day", di >= 5 ? "wkend" : "", h ? "hol" : m ? "mock" : "", iso === TODAY ? "today" : ""].filter(Boolean).join(" ");
+                const cls = cx(
+                  "grid place-items-center h-6 rounded-[6px] text-[11.5px] tabular-nums",
+                  h ? "bg-critical-bg text-critical font-bold" : m ? "bg-info-bg text-info font-bold" : di >= 5 ? "text-fg-faint" : "text-fg",
+                  iso === TODAY && "shadow-[inset_0_0_0_2px_var(--accent)] font-bold",
+                );
                 const label = h ? `${h} — market closed` : m ? "Mock session" : undefined;
                 return (
-                  <td key={di}>
+                  <td key={di} className="text-center p-px">
                     <span className={cls} title={label}>
                       {d}
                       {label && <span className="sr-only">, {label}</span>}
@@ -165,99 +179,97 @@ export default function MarketCalendarScreen() {
   const short = (iso?: string) => (iso ? `${fmt(iso).wd} ${longDate(iso).slice(0, 6)}` : "—");
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>BOD / EOD</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>Market Calendar</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "BOD / EOD" }, { label: "Market Calendar" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Market Calendar {year} · {seg}</h1>
-          <p>Exchange trading holidays and mock sessions per segment · drives BOD/EOD scheduling</p>
-        </div>
-        <div className="ld-head-actions">
-          {cal ? <Pill tone="ok">Live calendar</Pill> : <Pill tone="muted">Seed · holiday_calendar_2026.csv</Pill>}
-          <button type="button" className="ld-btn" onClick={exportICS}><Icon icon={DownloadIcon} /> Export ICS</button>
-        </div>
-      </div>
+      <PageHead
+        title={`Market Calendar ${year} · ${seg}`}
+        subtitle="Exchange trading holidays and mock sessions per segment · drives BOD/EOD scheduling"
+        actions={
+          <>
+            {cal ? <Pill tone="ok">Live calendar</Pill> : <Pill tone="muted">Seed · holiday_calendar_2026.csv</Pill>}
+            <Button onClick={exportICS}><Icon icon={DownloadIcon} /> Export ICS</Button>
+          </>
+        }
+      />
 
-      <div className="ld-trading-segs" role="group" aria-label="Exchange segment">
-        <span className="ld-inline-label">Segment</span>
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Exchange segment">
+        <span className="text-sm text-fg-muted">Segment</span>
         {SEGMENTS.map((s) => (
-          <button key={s} type="button" className="ld-trading-seg" aria-pressed={seg === s} onClick={() => setSeg(s)}>{s}</button>
+          <button key={s} type="button" aria-pressed={seg === s} onClick={() => setSeg(s)}
+            className={cx(
+              "border text-xs font-semibold px-[11px] py-1 rounded-full cursor-pointer",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+              seg === s ? "bg-accent border-accent text-white" : "bg-bg-raised border-line-strong text-fg-muted hover:text-fg hover:border-fg-faint",
+            )}>{s}</button>
         ))}
       </div>
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-ban" tone="crit" label="Trading holidays" value={fmtNum(holidays.length)} note={`${seg} · full-day close`} onClick={() => setKind("holiday")} />
         <StatCard icon="fa-flask" tone="info" label="Mock sessions" value={fmtNum(mocks.length)} note="test-environment runs" onClick={() => setKind("mock")} />
         <StatCard icon="fa-calendar-xmark" tone="warn" label="Next holiday" value={short(nextHoliday?.date)} note={nextHoliday?.name ?? "none left this year"} />
         <StatCard icon="fa-calendar-check" tone="ok" label="Next mock" value={short(nextMock?.date)} note={nextMock ? "BOD dry-run" : "none left this year"} />
       </div>
 
-      <section className="ld-card ld-panel" aria-labelledby="cal-year-h">
-        <div className="ld-panel-head">
-          <h2 id="cal-year-h">{year} at a glance</h2>
-          <div className="ld-trading-cal-legend">
-            <span><span className="ld-trading-key hol" aria-hidden="true" /> Holiday (market closed)</span>
-            <span><span className="ld-trading-key mock" aria-hidden="true" /> Mock (test) session</span>
-            <span><span className="ld-trading-key today" aria-hidden="true" /> Today</span>
+      <Card as="section" className={ui.panel} aria-labelledby="cal-year-h">
+        <div className={ui.panelHead}>
+          <h2 id="cal-year-h" className={ui.panelTitle}>{year} at a glance</h2>
+          <div className="flex flex-wrap gap-3.5 text-xs text-fg-muted [&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5">
+            <span><span className={cx(legendKey, "bg-critical-bg shadow-[inset_0_0_0_1px_var(--critical)]")} aria-hidden="true" /> Holiday (market closed)</span>
+            <span><span className={cx(legendKey, "bg-info-bg shadow-[inset_0_0_0_1px_var(--info)]")} aria-hidden="true" /> Mock (test) session</span>
+            <span><span className={cx(legendKey, "shadow-[inset_0_0_0_2px_var(--accent)]")} aria-hidden="true" /> Today</span>
           </div>
         </div>
-        <div className="ld-trading-year">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]">
           {MONTHS.map((_, i) => <MonthTable key={i} year={year} month={i} hol={holMap} mock={mockSet} />)}
         </div>
-      </section>
+      </Card>
 
-      <section className="ld-card ld-panel" aria-labelledby="cal-tbl-h">
-        <div className="ld-panel-head">
-          <h2 id="cal-tbl-h">
-            <button type="button" className="ld-trading-toggle" aria-expanded={!collapsed.tbl} aria-controls="cal-tbl" onClick={() => toggle("tbl")}>
+      <Card as="section" className={ui.panel} aria-labelledby="cal-tbl-h">
+        <div className={ui.panelHead}>
+          <h2 id="cal-tbl-h" className={ui.panelTitle}>
+            <button type="button" className={toggleClass} aria-expanded={!collapsed.tbl} aria-controls="cal-tbl" onClick={() => toggle("tbl")}>
               <Icon icon={ChevronDownIcon} /> {seg} sessions &amp; holidays
             </button>
           </h2>
-          <div className="ld-trading-panel-tools">
+          <div className="inline-flex items-center gap-2 flex-wrap">
             <label htmlFor="cal-kind" className="sr-only">Show</label>
-            <select id="cal-kind" className="ld-select" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
+            <Select id="cal-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
               <option value="all">Holidays and mock sessions</option>
               <option value="holiday">Holidays only</option>
               <option value="mock">Mock sessions only</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div id="cal-tbl" hidden={collapsed.tbl}>
           {rows.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
-                <thead>
-                  <tr><th scope="col">Date</th><th scope="col">Day</th><th scope="col">Type</th><th scope="col">Name</th><th scope="col">Status</th></tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => {
-                    const past = r.date < TODAY;
-                    const isNext = r === nextRow;
-                    return (
-                      <tr key={`${r.kind}-${r.date}`} className={past ? "ld-trading-row-past" : isNext ? "ld-trading-row-next" : undefined}>
-                        <td className="ld-mono">{longDate(r.date)}</td>
-                        <td className="ld-muted">{fmt(r.date).wd}</td>
-                        <td>{r.kind === "holiday" ? <Pill tone="crit"><Icon icon={BanIcon} /> Holiday</Pill> : <Pill tone="info"><Icon icon={FlaskConicalIcon} /> Mock</Pill>}</td>
-                        <td className="ld-wrap">{r.name}</td>
-                        <td>{past ? <Pill tone="muted">Passed</Pill> : isNext ? <Pill tone="warn">Next</Pill> : <Pill tone="ok">Upcoming</Pill>}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <thead>
+                <tr><th scope="col">Date</th><th scope="col">Day</th><th scope="col">Type</th><th scope="col">Name</th><th scope="col">Status</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const past = r.date < TODAY;
+                  const isNext = r === nextRow;
+                  return (
+                    <tr key={`${r.kind}-${r.date}`} className={past ? "[&>td]:text-fg-muted" : isNext ? ui.rowSelected : undefined}>
+                      <td className={monoCell}>{longDate(r.date)}</td>
+                      {/* the old muted class lost to the table cell colour */}
+                      <td>{fmt(r.date).wd}</td>
+                      <td>{r.kind === "holiday" ? <Pill tone="crit"><Icon icon={BanIcon} /> Holiday</Pill> : <Pill tone="info"><Icon icon={FlaskConicalIcon} /> Mock</Pill>}</td>
+                      <td className={ui.cellWrap}>{r.name}</td>
+                      <td>{past ? <Pill tone="muted">Passed</Pill> : isNext ? <Pill tone="warn">Next</Pill> : <Pill tone="ok">Upcoming</Pill>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
           ) : (
             <Empty>No {kind === "mock" ? "mock sessions" : kind === "holiday" ? "holidays" : "calendar entries"} for {seg}.</Empty>
           )}
         </div>
-      </section>
-    </div>
+      </Card>
+    </Page>
   );
 }

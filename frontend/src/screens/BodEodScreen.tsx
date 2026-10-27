@@ -10,10 +10,10 @@ import { useBodChecks } from "@/api/hooks";
 import { useNav } from "@/hooks/useNav";
 import { Panel, Pill, StatCard } from "@/components/ld";
 import type { Tone } from "@/components/ld";
-import "@/styles/trading.css";
+import { Button, Crumbs, Page, PageHead, cx, ui } from "@/components/ui";
 
 import { Icon } from "@/components/Icon";
-import { ChevronRightIcon, CircleCheckIcon, CircleHelpIcon, HistoryIcon, PlayIcon, RefreshCwIcon, TriangleAlertIcon } from "lucide-react";
+import { CircleCheckIcon, CircleHelpIcon, HistoryIcon, PlayIcon, RefreshCwIcon, TriangleAlertIcon } from "lucide-react";
 type StageState = "done" | "failed" | "active" | "pending" | "closed" | "nodata";
 
 interface Step { label: string; ok: boolean | null; }  // null = not reported
@@ -36,6 +36,15 @@ const stateMeta: Record<StageState, { tone: Tone; icon: string; label: string }>
   pending: { tone: "muted", icon: "fa-clock",         label: "Upcoming" },
   closed:  { tone: "muted", icon: "fa-check",         label: "Window closed" },
   nodata:  { tone: "muted", icon: "fa-circle-question", label: "No results" },
+};
+
+// Timeline marker ring per tone. In dark mode the old tone class also
+// tinted the marker background, so that is kept here.
+const MARKER: Partial<Record<Tone, string>> = {
+  ok: "text-success dark:bg-tone-ok-soft",
+  info: "text-info dark:bg-tone-info-soft",
+  crit: "text-critical dark:bg-tone-crit-soft",
+  muted: "text-fg-faint",
 };
 
 const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -137,33 +146,27 @@ export default function BodEodScreen() {
   const short = (s?: Stage) => s?.title.split(" · ")[0] ?? "—";
 
   return (
-    <div className="ld-dash">
-      <nav className="ld-crumbs" aria-label="Breadcrumb">
-        <button type="button" className="ld-link" onClick={() => setRoute("dashboard")}>Home</button>
-        <Icon icon={ChevronRightIcon} />
-        <span>BOD / EOD</span>
-        <Icon icon={ChevronRightIcon} />
-        <span>BOD/EOD Status</span>
-      </nav>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "BOD / EOD" }, { label: "BOD/EOD Status" }]} />
 
-      <div className="ld-head">
-        <div>
-          <h1>Trading-Day Lifecycle</h1>
-          <p>Trading day {now.date} · BOD → open → intraday → EOD → ADP · site nextalpha</p>
-        </div>
-        <div className="ld-head-actions">
-          {bod.length === 0
-            ? <Pill tone="muted"><Icon icon={CircleHelpIcon} /> BOD no results</Pill>
-            : bodDown > 0
-              ? <Pill tone="crit"><Icon icon={TriangleAlertIcon} /> BOD {bodDown} open</Pill>
-              : <Pill tone="ok"><Icon icon={CircleCheckIcon} /> BOD cleared</Pill>}
-          {current && <Pill tone="info"><Icon icon={PlayIcon} /> {short(current)}</Pill>}
-          <button type="button" className="ld-btn" disabled title="Stage history is not connected yet"><Icon icon={HistoryIcon} /> History</button>
-          <button type="button" className="ld-btn" disabled title="Stage status feed is not connected yet"><Icon icon={RefreshCwIcon} /> Refresh</button>
-        </div>
-      </div>
+      <PageHead
+        title="Trading-Day Lifecycle"
+        subtitle={`Trading day ${now.date} · BOD → open → intraday → EOD → ADP · site nextalpha`}
+        actions={
+          <>
+            {bod.length === 0
+              ? <Pill tone="muted"><Icon icon={CircleHelpIcon} /> BOD no results</Pill>
+              : bodDown > 0
+                ? <Pill tone="crit"><Icon icon={TriangleAlertIcon} /> BOD {bodDown} open</Pill>
+                : <Pill tone="ok"><Icon icon={CircleCheckIcon} /> BOD cleared</Pill>}
+            {current && <Pill tone="info"><Icon icon={PlayIcon} /> {short(current)}</Pill>}
+            <Button disabled title="Stage history is not connected yet"><Icon icon={HistoryIcon} /> History</Button>
+            <Button disabled title="Stage status feed is not connected yet"><Icon icon={RefreshCwIcon} /> Refresh</Button>
+          </>
+        }
+      />
 
-      <div className="ld-grid ld-grid-stats">
+      <div className={cx(ui.grid, ui.cols.stats)}>
         <StatCard icon="fa-list-ol" tone="info" label="Stages passed" value={`${passed}/${STAGES.length}`} note="by schedule (BOD from live checks)" />
         <StatCard icon="fa-play" tone="purple" label="Current stage" value={short(current)} note={current ? windowLabel(current) : "outside trading hours"} />
         <StatCard icon={bodDown > 0 ? "fa-circle-xmark" : "fa-clipboard-check"} tone={bod.length === 0 ? "muted" : bodDown > 0 ? "crit" : "ok"}
@@ -173,27 +176,29 @@ export default function BodEodScreen() {
       </div>
 
       <Panel title="Stages">
-        <p className="ld-trading-sub">
+        <p className="text-[12.5px] text-fg-muted -mt-1.5">
           Only BOD reports live results. Later stages follow the IST schedule; their steps list what the stage covers — step results are not connected yet.
         </p>
-        <ol className="ld-trading-timeline">
+        <ol className="list-none relative flex flex-col gap-5.5 before:content-[''] before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-0.5 before:bg-line">
           {STAGES.map((s) => {
             const m = stateMeta[s.state];
             return (
-              <li key={s.id} className="ld-trading-stage">
-                <span className={`ld-trading-marker ld-${m.tone}`} aria-hidden="true"><Icon className={`fa-solid ${m.icon}`} /></span>
-                <div className="ld-trading-stage-body">
-                  <div className="ld-trading-stage-head">
-                    <h3>{s.title}</h3>
-                    <span className="ld-mono ld-muted">{windowLabel(s)}</span>
+              <li key={s.id} className="relative flex gap-4">
+                <span className={cx("flex-none w-8 h-8 rounded-full grid place-items-center text-sm z-[1] border-2 border-current bg-bg-raised", MARKER[m.tone])} aria-hidden="true"><Icon name={m.icon} /></span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                    <h3 className="text-base font-semibold text-fg">{s.title}</h3>
+                    <span className={cx(ui.mono, "text-fg-muted")}>{windowLabel(s)}</span>
                     <Pill tone={m.tone}>{m.label}</Pill>
                     {!s.live && <Pill tone="muted">Schedule only</Pill>}
                   </div>
-                  <p>{s.desc}</p>
-                  <ul className="ld-trading-steps">
+                  <p className="text-sm text-fg-muted mt-1 mb-2.5">{s.desc}</p>
+                  <ul className="list-none grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-x-3.5 gap-y-1.5">
                     {s.steps.map((st) => (
-                      <li key={st.label} className={st.ok === null ? "pending" : undefined}>
-                        <Icon className={`fa-solid ${st.ok === null ? "fa-circle-dot none" : st.ok ? "fa-circle-check ok" : "fa-circle-xmark fail"}`} />
+                      <li key={st.label} className={cx("flex items-center gap-2 text-[12.5px]", st.ok === null ? "text-fg-muted" : "text-fg")}>
+                        {st.ok === null
+                          ? <Icon name="fa-circle-dot" className="text-fg-faint" />
+                          : st.ok ? <Icon name="fa-circle-check" className="text-success" /> : <Icon name="fa-circle-xmark" className="text-critical" />}
                         <span>{st.label}</span>
                         <span className="sr-only">{st.ok === null ? "(not reported)" : st.ok ? "(ok)" : "(failed)"}</span>
                       </li>
@@ -205,6 +210,6 @@ export default function BodEodScreen() {
           })}
         </ol>
       </Panel>
-    </div>
+    </Page>
   );
 }
