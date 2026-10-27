@@ -2,15 +2,12 @@
    storage, UPS) and the live topology map. Theme tokens only, so dark mode
    follows styles.css. */
 
-/* ── device header tile ─────────────────────────────────────────────── */
-.ld-devices-tile { flex: none; width: 56px; height: 56px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; background: var(--info-bg); color: var(--accent); }
+/* ── device header tile ─────────────────────────────────────────────── */ .ld-devices-tile { flex: none; width: 56px; height: 56px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; background: var(--info-bg); color: var(--accent); }
 
-/* ── "Sample data" note inside a panel ──────────────────────────────── */
-.ld-devices-sample { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--bg-muted); font-size: 12px; color: var(--fg-muted); }
+/* ── "Sample data" note inside a panel ──────────────────────────────── */ .ld-devices-sample { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: var(--radius); background: var(--bg-muted); font-size: 12px; color: var(--fg-muted); }
 .ld-devices-sample .ld-icon { margin-top: 2px; color: var(--warning); }
 
-/* ── port map (from discovered interfaces) ──────────────────────────── */
-.ld-devices-ports { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+/* ── port map (from discovered interfaces) ──────────────────────────── */ .ld-devices-ports { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
 .ld-devices-port {
   display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
   padding: 6px 2px 5px; border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -34,8 +31,7 @@
 .ld-devices-swatch.is-warn { background: var(--warning); }
 .ld-devices-port-detail { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
 
-/* ── live topology ──────────────────────────────────────────────────── */
-.ld-devices-topo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+/* ── live topology ──────────────────────────────────────────────────── */ .ld-devices-topo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
 .ld-devices-topo-main, .ld-devices-topo-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 @media (max-width: 1100px) { .ld-devices-topo-layout { grid-template-columns: minmax(0, 1fr); } }
 
@@ -79,8 +75,7 @@
 .ld-devices-link-label[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .ld-devices-link-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* grouped ("physical") view */
-.ld-devices-groups { position: relative; display: flex; flex-direction: column; gap: 22px; padding: 16px 18px; }
+/* grouped ("physical") view */ .ld-devices-groups { position: relative; display: flex; flex-direction: column; gap: 22px; padding: 16px 18px; }
 .ld-devices-groups > svg { position: absolute; inset: 0; pointer-events: none; }
 .ld-devices-group { position: relative; display: flex; flex-direction: column; gap: 10px; }
 .ld-devices-group h3 { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-muted); }
@@ -101,7 +96,6 @@
 .ld-devices-card .ld-bar-track { height: 6px; }
 .ld-devices-card .ld-bar-fill { height: 6px; }
 
-/* heatmap */
-.ld-devices-heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(18px, 1fr)); gap: 4px; }
+/* heatmap */ .ld-devices-heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(18px, 1fr)); gap: 4px; }
 .ld-devices-heat button { aspect-ratio: 1; border: 0; border-radius: 3px; padding: 0; cursor: pointer; }
 .ld-devices-heat button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

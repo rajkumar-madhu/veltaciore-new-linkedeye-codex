@@ -2,8 +2,7 @@
    node view, rack elevation, device monitoring). Theme tokens only, so light
    and dark both work; classes are ld-infra-*. */
 
-/* ── shared ───────────────────────────────────────────────────────────────── */
-.ld-infra-usage { display: inline-flex; align-items: center; gap: 8px; }
+/* ── shared ───────────────────────────────────────────────────────────────── */ .ld-infra-usage { display: inline-flex; align-items: center; gap: 8px; }
 .ld-infra-usage .ld-bar-inline { width: 64px; }
 .ld-infra-usage b { font-size: 12px; font-weight: 600; min-width: 34px; }
 .ld-infra-kind { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; background: var(--bg-muted); color: var(--accent); }
@@ -31,8 +30,7 @@
 @media (min-width: 900px) { .ld-infra-chartrow { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); } .ld-infra-chartrow-3 { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(0, 1fr); } }
 .ld-infra-chart-label { font-size: 12px; color: var(--fg-muted); margin-bottom: 6px; }
 
-/* site picker / rack picker cards */
-.ld-infra-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+/* site picker / rack picker cards */ .ld-infra-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .ld-infra-pick { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; font: inherit; color: var(--fg); padding: 12px 14px; cursor: pointer; }
 .ld-infra-pick:hover { border-color: var(--border-strong); }
 .ld-infra-pick[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
@@ -41,8 +39,7 @@
 .ld-infra-pick-title { font-weight: 700; font-size: 13px; }
 .ld-infra-pick-sub { font-size: 12px; color: var(--fg-muted); }
 
-/* exporter tiles (site detail) */
-.ld-infra-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+/* exporter tiles (site detail) */ .ld-infra-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .ld-infra-tiles li { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ld-infra-tiles li > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ld-infra-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -50,8 +47,7 @@
 .ld-infra-counts b { display: block; font-size: 18px; }
 .ld-infra-counts span { font-size: 12px; }
 
-/* ── host map ─────────────────────────────────────────────────────────────── */
-.ld-infra-hexgroup + .ld-infra-hexgroup { margin-top: 18px; }
+/* ── host map ─────────────────────────────────────────────────────────────── */ .ld-infra-hexgroup + .ld-infra-hexgroup { margin-top: 18px; }
 .ld-infra-hexgroup h3 { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--fg); margin: 0 0 8px; }
 .ld-infra-hexgroup h3 .ld-icon { color: var(--accent); }
 .ld-infra-hexes { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; max-width: 100%; }
@@ -72,8 +68,7 @@
 
 /* ── rack elevation ───────────────────────────────────────────────────────── */
 /* The chassis is drawn as physical hardware (dark metal) in both themes;
-   only the surrounding cards follow the page theme. */
-.ld-infra-rack-glyph { flex: none; width: 22px; height: 34px; border-radius: 3px; background: #171b22; border: 1px solid #2c313a; display: flex; flex-direction: column; gap: 1.5px; padding: 2px; }
+   only the surrounding cards follow the page theme. */ .ld-infra-rack-glyph { flex: none; width: 22px; height: 34px; border-radius: 3px; background: #171b22; border: 1px solid #2c313a; display: flex; flex-direction: column; gap: 1.5px; padding: 2px; }
 .ld-infra-rack-glyph span { flex: 1; border-radius: 1px; background: #2b303a; }
 .ld-infra-rack-glyph span.lit { background: var(--c); }
 
@@ -113,8 +108,7 @@ button.ld-infra-unit { cursor: pointer; }
 .ld-infra-chip.active .ld-infra-chip-tag { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
 .ld-infra-chip-asset { font-family: var(--font-mono); font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* faceplate atoms (hardware colours — fixed in both themes) */
-.ld-infra-led { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c, #22c55e); box-shadow: 0 0 5px var(--c, #22c55e); }
+/* faceplate atoms (hardware colours — fixed in both themes) */ .ld-infra-led { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--c, #22c55e); box-shadow: 0 0 5px var(--c, #22c55e); }
 .ld-infra-led.sm { width: 4px; height: 4px; }
 .ld-infra-led.ring { width: 8px; height: 8px; background: none; border: 1.5px solid #3b82f6; box-shadow: 0 0 4px #3b82f6; }
 .ld-infra-ledcol { display: flex; flex-direction: column; gap: 3px; align-items: center; flex: none; }
@@ -152,12 +146,10 @@ button.ld-infra-unit { cursor: pointer; }
 .ld-infra-tapes span { height: 10px; background: #3f4650; border: 1px solid #2c313a; border-radius: 1px; }
 .ld-infra-tapes span.empty { background: #0b0f14; }
 
-/* ── logs ─────────────────────────────────────────────────────────────────── */
-.ld-infra-log td { vertical-align: top; }
+/* ── logs ─────────────────────────────────────────────────────────────────── */ .ld-infra-log td { vertical-align: top; }
 .ld-infra-log td.ld-wrap { font-family: var(--font-mono); font-size: 12px; }
 
-/* ── Domains ─────────────────────────────────────────────────────────── */
-.ld-dom-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* ── Domains ─────────────────────────────────────────────────────────── */ .ld-dom-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ld-dom-error { margin: 0; padding: 8px 12px; border-radius: var(--radius); background: var(--critical-bg); color: var(--critical); font-size: 13px; }
 .ld-dom-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .ld-dom-row > .ld-form-field { flex: 1 1 160px; }
