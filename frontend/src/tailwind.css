@@ -1,0 +1,11 @@
+/* Tailwind entry. Loaded after styles.css so utilities win over the legacy
+   ld-* rules while screens move across. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Preflight is off (styles.css has its own reset); border utilities need a
+     border style to show. Width stays 0 so nothing changes until a utility sets it. */
+  *, ::before, ::after { border-style: solid; border-width: 0; border-color: var(--border); }
+}
