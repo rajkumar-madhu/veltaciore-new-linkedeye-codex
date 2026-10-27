@@ -62,6 +62,7 @@ const NAV: NavNode[] = [
   { group: "monitoring", label: "Monitoring", icon: "fa-desktop", also: ["server-detail", "switch-detail", "vm-detail", "infra-device", "node"], items: [
     { id: "infra", label: "Overview", icon: "fa-chart-pie" },
     { id: "host-map", label: "Infrastructure", icon: "fa-hexagon-nodes" },
+    { id: "heatmap", label: "Heatmap", icon: "fa-table-cells" },
     { id: "infra-vms", label: "Virtual Machines", icon: "fa-cube" },
     { id: "infra-topology", label: "Network Devices", icon: "fa-network-wired" },
     { id: "url-checker", label: "URL Checker", icon: "fa-link" },

@@ -87,3 +87,44 @@
 .ld-obs-fields > .ld-form-field { flex: 1 1 120px; }
 .ld-obs-center { text-align: center; }
 .ld-obs-tags-left { justify-content: flex-start; }
+
+/* ── Heatmap ─────────────────────────────────────────────────────────── */
+.ld-heat-filters { align-items: flex-end; padding: 12px 16px; }
+.ld-heat-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 14px; margin: 0 auto 8px 0; padding: 0; font-size: 13px; color: var(--fg-muted); }
+.ld-heat-legend li { display: flex; align-items: center; gap: 6px; }
+.ld-heat-swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.ld-heat-layout { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1200px) { .ld-heat-layout { grid-template-columns: 1fr; } }
+.ld-heat-grid { padding: 8px 12px 12px; }
+.ld-heat-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ld-heat { width: 100%; border-collapse: separate; border-spacing: 4px 3px; font-size: 13px; }
+.ld-heat thead th { font-size: 12px; font-weight: 600; color: var(--fg); text-align: center; padding: 6px 2px; white-space: nowrap; }
+.ld-heat thead th:first-child { text-align: left; }
+.ld-heat tbody th[scope="row"] { text-align: left; font-weight: 400; padding: 2px 6px 2px 24px; white-space: nowrap; }
+.ld-heat td { padding: 0; min-width: 38px; }
+.ld-heat-domain th { text-align: left; padding: 12px 0 4px; }
+.ld-heat-domain th > * { margin-right: 8px; vertical-align: middle; }
+.ld-heat-toggle { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; font-size: 14px; color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.ld-heat-toggle i { font-size: 11px; color: var(--fg-muted); width: 12px; }
+.ld-heat-cell { display: flex; align-items: center; justify-content: center; height: 20px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 0 4px; }
+.ld-heat-values .ld-heat-cell { height: auto; min-height: 22px; }
+.ld-heat-ok, .ld-heat-swatch.ld-heat-ok { background: #5fcf80; color: #064e2b; }
+.ld-heat-warn, .ld-heat-swatch.ld-heat-warn { background: var(--warning); color: #4a2a00; }
+.ld-heat-crit, .ld-heat-swatch.ld-heat-crit { background: var(--critical); color: #fff; }
+.ld-heat-unknown, .ld-heat-swatch.ld-heat-unknown { background: var(--border); color: var(--fg-muted); }
+.ld-heat-selected > * { background: var(--bg-raised); }
+.ld-heat-note { margin: 12px 4px 0; }
+.ld-heat-panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.ld-heat-panel h2 { margin: 0; font-size: 18px; }
+.ld-heat-panel > p { margin: -8px 0 0; }
+.ld-heat-stats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.ld-heat-stat { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.ld-heat-stat > span:last-child { display: flex; flex-direction: column; }
+.ld-heat-stat b { font-size: 20px; line-height: 1.2; }
+.ld-heat-detail-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ld-heat-summary { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; }
+.ld-heat-summary > i { font-size: 26px; color: var(--accent); }
+.ld-heat-summary p { margin: 2px 0 0; }
+.ld-heat-summary-val { margin-left: auto; text-align: right; display: flex; flex-direction: column; }
+.ld-heat-summary-val b { font-size: 20px; }
+.ld-heat-sub { margin: 4px 0 0; font-size: 14px; }

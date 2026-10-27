@@ -79,6 +79,7 @@ const VmDetailScreen = React.lazy(() => import("@/screens/VmDetailScreen"));
 const DomainsScreen = React.lazy(() => import("@/screens/DomainsScreen"));
 const UrlCheckerScreen = React.lazy(() => import("@/screens/UrlCheckerScreen"));
 const TelnetMonitoringScreen = React.lazy(() => import("@/screens/TelnetMonitoringScreen"));
+const HeatmapScreen = React.lazy(() => import("@/screens/HeatmapScreen"));
 const APMScreen = React.lazy(() => import("@/screens/APMScreen"));
 const APMCatalogScreen = React.lazy(() => import("@/screens/APMCatalogScreen"));
 const AppDetailScreen = React.lazy(() => import("@/screens/AppDetailScreen"));
@@ -232,6 +233,7 @@ export default function App() {
             <Route path="/domains" element={<DomainsScreen />} />
             <Route path="/url-checker" element={<UrlCheckerScreen />} />
             <Route path="/telnet-monitoring" element={<TelnetMonitoringScreen />} />
+            <Route path="/heatmap" element={<HeatmapScreen />} />
             <Route path="/apm" element={<APMScreen />} />
             <Route path="/apm-catalog" element={<APMCatalogScreen />} />
             <Route path="/app-detail" element={<AppDetailScreen />} />

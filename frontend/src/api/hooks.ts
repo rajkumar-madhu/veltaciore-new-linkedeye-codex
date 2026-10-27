@@ -64,6 +64,28 @@ export function useDevices(siteId?: string, search?: string) {
   });
 }
 
+/** Every device of the client (all pages), for fleet-wide views such as the heatmap. */
+export function useAllDevices() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["devices-all", tenant],
+    queryFn: () => apiGetAllPages<Device>("/infra/devices/"),
+    refetchInterval: 30_000,
+  });
+}
+
+/** Every APM service of the client (all pages). */
+export function useAllServices() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["services-all", tenant],
+    queryFn: () => apiGetAllPages<Service>("/services/"),
+    refetchInterval: 30_000,
+  });
+}
+
 export function useDevice(deviceId?: string) {
   return useQuery({
     ...quiet,
