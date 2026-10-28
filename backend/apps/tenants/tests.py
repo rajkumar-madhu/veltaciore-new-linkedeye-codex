@@ -1,6 +1,6 @@
 """API contract + tenant-isolation tests. Run: python manage.py test apps"""
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 
@@ -16,6 +16,16 @@ class SeededApiTests(TestCase):
         res = self.client.get("/api/tenants/")
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["count"], 6)
+
+    def test_alerts_carry_device_kind(self):
+        from apps.infra.models import DeviceAlert
+        from apps.tenants.context import all_tenants
+
+        res = self.client.get("/api/infra/alerts/")
+        self.assertEqual(res.status_code, 200)
+        row = res.json()["results"][0]
+        with all_tenants():
+            self.assertEqual(row["deviceKind"], DeviceAlert.objects.select_related("device").get(pk=row["id"]).device.device_type)
 
     def test_devices_have_frontend_field_names(self):
         res = self.client.get("/api/infra/devices/")
@@ -213,3 +223,47 @@ class OrderLatencyCsvTests(TestCase):
                 "OMSUPDATETIME", "EXCHUPDATETIME",
             ])
             self.assertEqual(len(rows), 16)  # header + 15 orders
+
+
+@override_settings(OPA_URL="", OPA_FAIL_OPEN=True)
+class CrossTenantSummaryTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_demo")
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_summary_counts_match_the_database(self):
+        from apps.incidents.models import SnIncidentRecord
+        from apps.infra.models import InfraDevice
+        from apps.tenants.context import all_tenants
+
+        res = self.client.get("/api/tenants-summary/")
+        self.assertEqual(res.status_code, 200, res.content)
+        body = res.json()
+        with all_tenants():
+            self.assertEqual(body["totals"]["tickets_total"], SnIncidentRecord.objects.count())
+            self.assertEqual(body["totals"]["devices_total"],
+                             InfraDevice.objects.exclude(lifecycle_state="decommissioned").count())
+        self.assertTrue({"id", "name", "sev1", "devices_online_pct", "sla_met_pct"} <= set(body["clients"][0]))
+
+    def test_offline_devices_count_as_down(self):
+        from apps.infra.models import InfraDevice
+        from apps.tenants.context import all_tenants
+
+        with all_tenants():
+            dev = InfraDevice.objects.exclude(lifecycle_state="decommissioned").first()
+            InfraDevice.objects.filter(pk=dev.pk).update(status="offline", tenant_id="fyers")
+        row = next(c for c in self.client.get("/api/tenants-summary/").json()["clients"] if c["id"] == "fyers")
+        self.assertEqual(row["devices_down"], 1)
+        self.assertEqual(row["devices_online_pct"], 0.0)
+
+    def test_client_scoped_request_is_refused(self):
+        res = self.client.get("/api/tenants-summary/", HTTP_X_TENANT_ID="fyers")
+        self.assertEqual(res.status_code, 403)
+
+    @override_settings(OPA_FAIL_OPEN=False)
+    def test_without_policy_production_fails_closed(self):
+        res = self.client.get("/api/tenants-summary/")
+        self.assertIn(res.status_code, (401, 403))

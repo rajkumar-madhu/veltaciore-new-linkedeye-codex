@@ -1,114 +1,162 @@
-// Flow Designer in ServiceNow form-style.
-// Ported from screens/flow.jsx.
-import React from "react";
-import { Kpi, FormSection, FormRow, Field, UserById } from "@/components/primitives";
+// Flow Designer — LinkedEye entity layout for one automation flow: header,
+// properties, the step canvas (as a responsive vertical flow) and a rail with
+// recent runs. There is no flow-execution endpoint yet, so run history and
+// suggestions are labelled as sample data.
+import { useNav } from "@/hooks/useNav";
+import { USERS } from "@/data/core";
+import { Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, Tile, cx, toneBg, ui } from "@/components/ui";
 
-export default function FlowScreen() {
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+import { Icon } from "@/components/Icon";
+import { HistoryIcon, PlayIcon, TestTubeIcon, WorkflowIcon } from "lucide-react";
+// Entity title row (was ld-head ld-entity-head / ld-entity / ld-tile ld-info)
+const entityHead = "flex flex-wrap items-start justify-between gap-3";
+const entity = "flex items-center gap-3.5 min-w-0";
+const entityTile = cx("flex-none w-14 h-14 rounded-[12px] grid place-items-center text-5xl", toneBg.info);
+const entityTitle = cx(ui.h1, "flex items-center gap-2.5 flex-wrap");
+const entityMeta = cx(
+  ui.headSub,
+  "flex flex-wrap gap-x-3.5 gap-y-1 [&>span+span]:before:content-['|'] [&>span+span]:before:mr-3.5 [&>span+span]:before:text-line-strong",
+);
+// Flow canvas: vertical step list joined by connectors, then a parallel branch row (were ld-admin-flow / -branch / -node)
+const flow = cx(
+  "list-none flex flex-col items-center gap-0 m-0 py-2 px-0",
+  "[&>li]:flex [&>li]:flex-col [&>li]:items-center [&>li]:w-full",
+  "[&>li+li]:before:content-[''] [&>li+li]:before:block [&>li+li]:before:w-0.5 [&>li+li]:before:h-5.5 [&>li+li]:before:bg-line-strong",
+);
+const branch = "list-none m-0 grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3 w-full pt-3 border-t-2 border-line-strong";
+const node = "flex items-start gap-2.5 py-2.5 px-3 border border-line border-l-4 rounded bg-bg-raised shadow-sm";
+
+interface FlowStep { kind: "trigger" | "ai" | "logic" | "action"; icon: string; title: string; sub: string }
+
+const NODE_COLOR: Record<FlowStep["kind"], string> = { trigger: "#2563eb", ai: "#8b5cf6", logic: "#f59e0b", action: "#6b7785" };
+
+const MAIN_STEPS: FlowStep[] = [
+  { kind: "trigger", icon: "fa-bolt", title: "Sev-1 declared", sub: "Trigger" },
+  { kind: "ai", icon: "fa-wand-magic-sparkles", title: "AI correlate & RCA", sub: "Find similar in 90d" },
+  { kind: "logic", icon: "fa-code-branch", title: "Has runbook?", sub: "Decision · KB match" },
+];
+const BRANCH_STEPS: FlowStep[] = [
+  { kind: "action", icon: "fa-play", title: "Run runbook", sub: "pool-expansion-v3" },
+  { kind: "action", icon: "fa-user-plus", title: "Page on-call", sub: "PagerDuty Tier 1" },
+  { kind: "action", icon: "fa-comment", title: "Open war-room", sub: "Slack + Zoom" },
+];
+const STEP_COUNT = MAIN_STEPS.length + BRANCH_STEPS.length;
+
+const SAMPLE_RUNS: [string, string, "success" | "failed"][] = [
+  ["14m ago", "INC-48291", "success"],
+  ["2h ago", "INC-48279", "success"],
+  ["1d ago", "INC-48241", "success"],
+  ["1d ago", "INC-48238", "failed"],
+  ["2d ago", "INC-48201", "success"],
+];
+
+function FlowNode({ step, wide }: { step: FlowStep; wide?: boolean }) {
+  const c = NODE_COLOR[step.kind];
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Automation</a><span className="sn-bc-sep">›</span>
-        <span>Flow Designer · Sev-1 auto-response</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">FLOW-0042</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle" /> Active</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-bolt" /> 127 runs / week</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Sev-1 Auto-Response</h1>
-            <div className="sn-form-sub">Triggered when a Sev 1 is declared · last run 14 min ago</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-clock-rotate-left" /> History</button>
-            <button className="sn-btn"><i className="fa-solid fa-vial" /> Test Run</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-play" /> Activate</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Runs / week" v="127" s="last 7 days" tone="neutral" />
-        <Kpi l="Success rate" v="98.4%" s="125 / 127" tone="ok" />
-        <Kpi l="Avg duration" v="2.4s" s="end-to-end" tone="ok" />
-        <Kpi l="Steps" v="8" s="in this flow" tone="neutral" />
-        <Kpi l="Last run" v="14m ago" s="auto-triggered" tone="neutral" />
-        <Kpi l="State" v="Active" s="enabled" tone="ok" />
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="props" title="Flow Properties" collapsed={collapsed.props} onToggle={toggle}>
-            <FormRow>
-              <Field label="Name" value={<b>Sev-1 Auto-Response</b>} required />
-              <Field label="Application" value="Incident Management" required />
-            </FormRow>
-            <FormRow>
-              <Field label="Trigger" value="When Sev-1 incident declared" required />
-              <Field label="Run as" value="System Service Account" />
-            </FormRow>
-            <FormRow>
-              <Field label="Owner" value={<UserById id="u1" />} />
-              <Field label="Maintenance window" value="None" />
-            </FormRow>
-          </FormSection>
-
-          <FormSection id="canvas" title="Flow Canvas" badge="8 steps" collapsed={collapsed.canvas} onToggle={toggle}>
-            <div style={{ background: "#fafbfc", padding: 24, minHeight: 380, position: "relative", overflow: "hidden" }}>
-              <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-                <defs>
-                  <marker id="farr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7785" /></marker>
-                </defs>
-                <path d="M160 70 L160 130" stroke="#6b7785" markerEnd="url(#farr)" />
-                <path d="M160 190 L160 250" stroke="#6b7785" markerEnd="url(#farr)" />
-                <path d="M160 310 L80 370 M160 310 L240 370 M160 310 L400 370" stroke="#6b7785" markerEnd="url(#farr)" />
-              </svg>
-              <FlowNode x={80} y={20} kind="trigger" icon="fa-bolt" title="Sev-1 declared" sub="Trigger" />
-              <FlowNode x={80} y={130} kind="ai" icon="fa-sparkles" title="AI correlate & RCA" sub="Find similar in 90d" />
-              <FlowNode x={80} y={250} kind="logic" icon="fa-code-branch" title="Has runbook?" sub="Decision · KB match" />
-              <FlowNode x={10} y={370} kind="action" icon="fa-play" title="Run runbook" sub="pool-expansion-v3" />
-              <FlowNode x={150} y={370} kind="action" icon="fa-user-plus" title="Page on-call" sub="PagerDuty Tier 1" />
-              <FlowNode x={320} y={370} kind="action" icon="fa-comment" title="Open war-room" sub="Slack + Zoom" />
-            </div>
-          </FormSection>
-        </div>
-
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Recent Runs <span className="sn-side-count">5</span></div>
-            <div className="sn-side-body">
-              {[["14m ago","INC-48291","success"],["2h ago","INC-48279","success"],["1d ago","INC-48241","success"],["1d ago","INC-48238","failed"],["2d ago","INC-48201","success"]].map(([t, inc, st], i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title mono">{inc}</div><div className="sn-related-meta">{t}</div></div>
-                  <span className={`sn-state-pill ${st === "success" ? "svc-healthy" : "state-active"}`}><i className="fa-solid fa-circle" /> {st}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">AI Suggestions</div>
-            <div className="sn-side-body" style={{ padding: 14, fontSize: 12.5, lineHeight: 1.6, color: "#000" }}>
-              Add "Attach runbook link" after this step — runs of this flow without that attachment have 23% longer MTTR.
-            </div>
-          </div>
-        </aside>
-      </div>
+    <div className={cx(node, wide ? "w-full" : "w-[min(100%,260px)]")} style={{ borderLeftColor: c }}>
+      <Tile tone="muted" size="sm" style={{ color: c, background: `${c}20` }}><Icon className={`fa-solid ${step.icon}`} /></Tile>
+      <span>
+        <span className="text-sm font-semibold text-fg">{step.title}</span>
+        <span className="block text-xs text-fg-muted">{step.sub}</span>
+      </span>
     </div>
   );
 }
 
-function FlowNode({ x, y, kind, icon, title, sub }: { x: number; y: number; kind: string; icon: string; title: string; sub: string }) {
-  const c = ({ trigger: "#2563eb", ai: "#8b5cf6", logic: "#f59e0b", action: "#6b7785" } as Record<string, string>)[kind];
+export default function FlowScreen() {
+  const { setRoute } = useNav();
+  const owner = USERS.find((u) => u.id === "u1");
+  const sampleOk = SAMPLE_RUNS.filter((r) => r[2] === "success").length;
+
   return (
-    <div style={{ position: "absolute", left: x, top: y, width: 160, background: "white", border: `1.5px solid ${c}`, borderLeft: `5px solid ${c}`, borderRadius: 3, padding: 10 }}>
-      <div className="row row-8" style={{ marginBottom: 4 }}>
-        <div style={{ width: 22, height: 22, borderRadius: 4, background: c + "20", color: c, display: "grid", placeItems: "center", fontSize: 11 }}><i className={`fa-solid ${icon}`} /></div>
-        <b style={{ fontSize: 12, color: "#000" }}>{title}</b>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Automation" }, { label: "Flow Designer" }]} />
+
+      <div className={entityHead}>
+        <div className={entity}>
+          <span className={entityTile} aria-hidden="true"><Icon icon={WorkflowIcon} /></span>
+          <div>
+            <h1 className={entityTitle}>Sev-1 Auto-Response <Pill tone="ok"><PillDot />Active</Pill></h1>
+            <p className={entityMeta}><span className={ui.mono}>FLOW-0042</span><span>Triggered when a Sev 1 is declared</span></p>
+          </div>
+        </div>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button><Icon icon={HistoryIcon} /> History</Button>
+            <Button><Icon icon={TestTubeIcon} /> Test Run</Button>
+            <Button variant="primary"><Icon icon={PlayIcon} /> Activate</Button>
+          </div>
+        </div>
       </div>
-      <div style={{ fontSize: 10.5, color: "var(--fg-muted)" }}>{sub}</div>
-    </div>
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-list-ol" tone="info" label="Steps" value={fmt(STEP_COUNT)} note={`${BRANCH_STEPS.length} parallel actions`} />
+        <StatCard icon="fa-bolt" tone="purple" label="Trigger" value="Sev-1" note="incident declared" />
+        <StatCard icon="fa-toggle-on" tone="ok" label="State" value="Active" note="enabled" />
+      </div>
+
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <Panel title="Flow Properties">
+            <dl className={ui.dl}>
+              <dt>Name</dt><dd className="font-medium">Sev-1 Auto-Response</dd>
+              <dt>Application</dt><dd>Incident Management</dd>
+              <dt>Trigger</dt><dd>When Sev-1 incident declared</dd>
+              <dt>Run as</dt><dd>System Service Account</dd>
+              <dt>Owner</dt><dd>{owner?.name ?? "—"}</dd>
+              <dt>Maintenance window</dt><dd>None</dd>
+            </dl>
+          </Panel>
+
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="flow-canvas-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="flow-canvas-h">Flow Canvas</h2>
+              <span className="text-fg-muted text-xs">{STEP_COUNT} steps</span>
+            </div>
+            <ol className={flow} aria-label="Flow steps in order">
+              {MAIN_STEPS.map((s) => (
+                <li key={s.title}><FlowNode step={s} /></li>
+              ))}
+              <li>
+                <ul className={branch} aria-label="Actions run in parallel">
+                  {BRANCH_STEPS.map((s) => (
+                    <li key={s.title}><FlowNode step={s} wide /></li>
+                  ))}
+                </ul>
+              </li>
+            </ol>
+          </section>
+        </div>
+
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="flow-runs-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="flow-runs-h">Recent Runs</h2>
+              <Pill tone="muted">Sample data</Pill>
+            </div>
+            <ul className={ui.activity}>
+              {SAMPLE_RUNS.map(([t, inc, st], i) => (
+                <li key={i} className={ui.activityItem}>
+                  <span className={ui.activityText}><span className={ui.mono}>{inc}</span> <span className="text-fg-muted text-xs">· {t}</span></span>
+                  <Pill tone={st === "success" ? "ok" : "crit"}><PillDot />{st}</Pill>
+                </li>
+              ))}
+            </ul>
+            <span className="text-fg-muted text-xs">{sampleOk} of {SAMPLE_RUNS.length} sample runs succeeded</span>
+          </section>
+
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="flow-ai-h">
+            <div className={ui.panelHead}>
+              <h2 className={ui.panelTitle} id="flow-ai-h">AI Suggestions</h2>
+              <Pill tone="muted">Sample data</Pill>
+            </div>
+            <p className="text-xs">Add an "Attach runbook link" step after paging on-call so responders land on the right playbook.</p>
+          </section>
+        </div>
+      </div>
+
+      <p className="text-fg-muted text-xs">Flow execution history is not connected to the backend yet.</p>
+    </Page>
   );
 }

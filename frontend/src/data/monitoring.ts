@@ -1,4 +1,4 @@
-// Sample data for the monitoring-configuration screens (templates, domains,
+// Sample data for the monitoring-configuration screens (templates,
 // URL checks, Telnet checks). There is no backend API for these yet, so the
 // screens render this seed — the same approach as the Synthetics screen.
 // Swap each export for a hook once the endpoints exist.
@@ -132,44 +132,6 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
       { name: "Custom Metric", icon: "fa-chart-line" },
     ],
   },
-];
-
-export interface DomainRecord {
-  name: string;
-  type: string;
-  site: string;
-  ip: string;
-  dns: "Resolved" | "Error";
-  ssl: "Valid" | "Expiring" | "Expired";
-  status: "Active" | "Inactive";
-  sslExpiry: string;
-  created: string;
-  modified: string;
-  description: string;
-  services: { name: string; type: string; port: number; up: boolean }[];
-}
-
-const svc = (base: string): DomainRecord["services"] => [
-  { name: `${base} Web Portal`, type: "HTTP", port: 80, up: true },
-  { name: `${base} API`, type: "HTTPS", port: 443, up: true },
-  { name: `${base} Database`, type: "MySQL", port: 3306, up: true },
-  { name: `${base} Application`, type: "Application", port: 8080, up: true },
-  { name: `${base} Monitoring`, type: "Node Exporter", port: 9100, up: true },
-];
-
-export const DOMAINS: DomainRecord[] = [
-  { name: "nse.finspot.in", type: "Production", site: "Mumbai (NSE)", ip: "10.10.1.21", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "15 Jan 2027", created: "12 Mar 2026 10:15", modified: "20 Jun 2026 14:30", description: "NSE trading platform main domain", services: svc("NSE") },
-  { name: "bse.finspot.in", type: "Production", site: "Mumbai (BSE)", ip: "10.10.1.22", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "02 Feb 2027", created: "12 Mar 2026 10:18", modified: "18 Jun 2026 09:12", description: "BSE trading platform domain", services: svc("BSE") },
-  { name: "mcx.finspot.in", type: "Production", site: "Mumbai (MCX)", ip: "10.10.1.23", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "28 Dec 2026", created: "14 Mar 2026 11:40", modified: "16 Jun 2026 17:05", description: "MCX commodities platform domain", services: svc("MCX") },
-  { name: "cdsl.finspot.in", type: "Production", site: "Mumbai (CDSL)", ip: "10.10.2.11", dns: "Resolved", ssl: "Expiring", status: "Active", sslExpiry: "05 Nov 2026", created: "20 Mar 2026 09:02", modified: "21 Jun 2026 08:45", description: "CDSL depository integration", services: svc("CDSL").slice(0, 3) },
-  { name: "nsdl.finspot.in", type: "Production", site: "Mumbai (NSDL)", ip: "10.10.2.12", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "19 Mar 2027", created: "20 Mar 2026 09:10", modified: "12 Jun 2026 13:20", description: "NSDL depository integration", services: svc("NSDL").slice(0, 3) },
-  { name: "app.wecrew.in", type: "Application", site: "DR Site", ip: "10.20.1.10", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "11 Apr 2027", created: "02 Apr 2026 15:30", modified: "22 Jun 2026 10:00", description: "WeCrew customer application", services: svc("App").slice(0, 2) },
-  { name: "api.wecrew.in", type: "API", site: "Mumbai (NSE)", ip: "10.10.1.50", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "11 Apr 2027", created: "02 Apr 2026 15:32", modified: "22 Jun 2026 10:02", description: "WeCrew public API gateway", services: svc("API").slice(1, 2) },
-  { name: "monitoring.wecrew.in", type: "Monitoring", site: "All Sites", ip: "10.10.0.10", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "30 May 2027", created: "05 Apr 2026 12:00", modified: "19 Jun 2026 16:40", description: "LinkedEye monitoring endpoint", services: svc("Monitoring").slice(4) },
-  { name: "backup.finspot.in", type: "Backup", site: "DR Site", ip: "10.60.1.15", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "14 Feb 2027", created: "08 Apr 2026 08:20", modified: "10 Jun 2026 07:55", description: "Backup and archival service", services: [] },
-  { name: "vpn.finspot.in", type: "VPN", site: "Mumbai (NSE)", ip: "10.10.3.5", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "01 Mar 2027", created: "09 Apr 2026 18:10", modified: "15 Jun 2026 11:25", description: "Remote access VPN gateway", services: [] },
-  { name: "mail.wecrew.in", type: "Mail", site: "All Sites", ip: "10.10.0.25", dns: "Error", ssl: "Valid", status: "Inactive", sslExpiry: "22 Jan 2027", created: "10 Apr 2026 10:45", modified: "23 Jun 2026 06:30", description: "Corporate mail relay", services: [{ name: "SMTP Relay", type: "SMTP", port: 587, up: false }] },
-  { name: "test.finspot.in", type: "Test", site: "Chennai", ip: "10.30.1.100", dns: "Resolved", ssl: "Valid", status: "Active", sslExpiry: "07 Dec 2026", created: "11 Apr 2026 14:00", modified: "20 Jun 2026 15:15", description: "Pre-production test environment", services: svc("Test").slice(0, 2) },
 ];
 
 export interface UrlCheck {

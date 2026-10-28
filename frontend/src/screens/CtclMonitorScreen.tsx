@@ -1,8 +1,44 @@
-// CTCL Data Monitor — Noren OMS adapter-line queue dashboard.
-// Ported from design-reference/CTCL_Data_Monitor.html into the platform shell.
+// CTCL Data Monitor — Noren OMS adapter-line queue dashboard (LinkedEye layout).
+//
+// Lines and their queue series come from /trading/ctcl/lines/, the broker map
+// from /trading/ctcl/brokers/. Peaks, means, window figures and alerts are all
+// computed from those series. When the lines feed is empty the screen falls
+// back to the embedded seed series and says so. The 5-minute window-zoom
+// series have no feed yet and are labelled "Sample data — not connected".
 import React from "react";
 import { useCtclLines, useBrokers, type CtclLine, type BrokerCtcl } from "@/api/hooks";
-import "./tradingOps.css";
+import { useNav } from "@/hooks/useNav";
+import { Empty, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+import { Button, Card, Crumbs, Input, Page, PageHead, Tab, Table, Tabs, cx, toneBg, ui } from "@/components/ui";
+
+import { Icon } from "@/components/Icon";
+import { CheckIcon, FlaskConicalIcon, HistoryIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
+// ── Local class strings (were the trading-ops CSS rules) ─────────────────────
+// Table cells keep the cell size (13px); the old mono class only set 12px outside tables.
+const monoCell = "font-mono font-semibold";
+// In table cells (and the mini stat boxes) the old status-text classes lost to
+// the cell colour: bold in light mode, the tone colour only in dark mode.
+const CELL_TONE = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn" } as const;
+const DARK_INK = { crit: "dark:text-tone-crit", warn: "dark:text-tone-warn" } as const;
+/** Panel sub-title under the heading */
+const sub = "text-[12.5px] text-fg-muted -mt-1.5";
+/** Notice banner (card with a coloured left edge); tone picks the edge + icon colour. */
+const NOTE_TONE: Partial<Record<Tone, string>> = {
+  info: "border-l-info [&>.ld-icon]:text-info",
+  crit: "border-l-critical [&>.ld-icon]:text-critical",
+  warn: "border-l-warning [&>.ld-icon]:text-warning",
+  muted: "border-l-line-strong [&>.ld-icon]:text-fg-muted",
+};
+const note = (tone: Tone) =>
+  cx(ui.card, "flex items-start gap-3 px-4 py-3 border-l-4 text-sm text-fg leading-[1.5] [&_b]:text-fg [&>.ld-icon]:mt-[3px] [&>.ld-icon]:text-md [&>.ld-icon]:flex-none", NOTE_TONE[tone] ?? NOTE_TONE.info);
+const stackNotes = "flex flex-col gap-2.5";
+const legendInline = "list-none mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-fg-muted [&>li]:inline-flex [&>li]:items-center [&>li]:gap-1.5";
+// Mini stat row inside a card (peak / mean)
+const mini = "grid grid-cols-[repeat(auto-fit,minmax(90px,1fr))] gap-2 m-0";
+const miniBox = "px-2.5 py-2 rounded-sm bg-bg-muted min-w-0";
+const miniDt = "text-[11.5px] text-fg-muted";
+const miniDd = "mt-0.5 mb-0 text-lg font-bold text-fg tabular-nums";
 
 // ── Data (local fallbacks; identical to the backend seed) ─────────────────
 
@@ -56,11 +92,6 @@ const WC_48621: (number | null)[] = [610, 620, 625, 640, 648, 640, 630, 610];
 const WC_BSE: (number | null)[] = [720, 760, 790, 820, 850, 820, 790, 760];
 const WC_LABELS = ["15:15", "15:17", "15:18", "15:19", "15:20", "15:22", "15:25", "15:30"];
 
-// Peaks bar data
-const PEAK_LABELS = ["NSE-2729", "NSE-5864\n(close)", "NSE-48621", "BSE", "NFO", "BFO"];
-const PEAK_VALUES = [5538, 1114, 1071, 1222, 507, 420];
-const PEAK_COLORS = ["#DC2626", "#D97706", "#D97706", "#7C3AED", "#0891B2", "#C2410C"];
-
 // CTCL line identifiers (matches the useCtclLines() payload shape)
 const CTCL_LINES: CtclLine[] = [
   { id: "NSE-5864", segment: "NSE", role: "Line-1 Primary", samples: 29901, status: "Full Day", series: Q5864 },
@@ -74,251 +105,52 @@ const CTCL_LINES: CtclLine[] = [
   { id: "BFO-L1", segment: "BFO", role: "BSE F&O", samples: null, status: "Active", series: QBFO },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-  "Full Day": "b-green",
-  "Truncated ⚠": "b-red",
-  "Flash only": "b-amber",
-  Empty: "b-red",
-  Active: "b-green",
-};
 
-const BROKERS: BrokerCtcl[] = [
-  { n: "BetaFront", ctcls: { n1: "5864-101", n2: "2729-101", nf1: "13424-101", nf2: "57507-101", bse: "BSE-101", bfo: "BFO-101" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "IndMoney", ctcls: { n1: "5864-102", n2: "2729-102", nf1: "13424-102", nf2: "57507-102", bse: "BSE-102", bfo: "BFO-102" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "FlatTrade", ctcls: { n1: "5864-103", n2: "2729-103", nf1: "13424-103", nf2: "57507-103", bse: "BSE-103", bfo: "BFO-103" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "W2W", ctcls: { n1: "5864-104", n2: "2729-104", nf1: "13424-104", nf2: "—", bse: "BSE-104", bfo: "BFO-104" }, nse: 1, nfo: 0, bse: 1, bfo: 1 },
-  { n: "Lemonn", ctcls: { n1: "5864-105", n2: "2729-105", nf1: "13424-105", nf2: "57507-105", bse: "BSE-105", bfo: "BFO-105" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "Neo", ctcls: { n1: "5864-106", n2: "2729-106", nf1: "13424-106", nf2: "57507-106", bse: "BSE-106", bfo: "BFO-106" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "Fyers", ctcls: { n1: "5864-107", n2: "2729-107", nf1: "13424-107", nf2: "57507-107", bse: "BSE-107", bfo: "BFO-107" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "SMC Global", ctcls: { n1: "5864-108", n2: "2729-108", nf1: "—", nf2: "57507-108", bse: "BSE-108", bfo: "BFO-108" }, nse: 1, nfo: 1, bse: 0, bfo: 1 },
-  { n: "Marwadi", ctcls: { n1: "5864-109", n2: "2729-109", nf1: "—", nf2: "57507-109", bse: "BSE-109", bfo: "BFO-109" }, nse: 1, nfo: 1, bse: 0, bfo: 1 },
-  { n: "Geojit", ctcls: { n1: "5864-110", n2: "2729-110", nf1: "13424-110", nf2: "57507-110", bse: "BSE-110", bfo: "BFO-110" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "CapitalVia", ctcls: { n1: "5864-111", n2: "2729-111", nf1: "—", nf2: "57507-111", bse: "BSE-111", bfo: "—" }, nse: 1, nfo: 1, bse: 0, bfo: 0 },
-  { n: "Navia", ctcls: { n1: "5864-112", n2: "2729-112", nf1: "13424-112", nf2: "57507-112", bse: "BSE-112", bfo: "BFO-112" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "Profitmart", ctcls: { n1: "5864-113", n2: "2729-113", nf1: "13424-113", nf2: "57507-113", bse: "BSE-113", bfo: "BFO-113" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "Tradingo", ctcls: { n1: "5864-114", n2: "—", nf1: "—", nf2: "57507-114", bse: "BSE-114", bfo: "BFO-114" }, nse: 0, nfo: 1, bse: 1, bfo: 1 },
-  { n: "Nirmal Bang", ctcls: { n1: "5864-115", n2: "2729-115", nf1: "13424-115", nf2: "57507-115", bse: "BSE-115", bfo: "BFO-115" }, nse: 1, nfo: 1, bse: 1, bfo: 1 },
-  { n: "Stock19", ctcls: { n1: "5864-116", n2: "2729-116", nf1: "13424-116", nf2: "57507-116", bse: "BSE-116", bfo: "—" }, nse: 1, nfo: 1, bse: 1, bfo: 0 },
-  { n: "Asit C Mehta", ctcls: { n1: "—", n2: "2729-117", nf1: "—", nf2: "—", bse: "BSE-117", bfo: "BFO-117" }, nse: 0, nfo: 0, bse: 1, bfo: 1 },
-  { n: "SMIFS", ctcls: { n1: "—", n2: "2729-118", nf1: "—", nf2: "—", bse: "BSE-118", bfo: "BFO-118" }, nse: 0, nfo: 0, bse: 1, bfo: 1 },
+const STATUS_TONE: Record<string, Tone> = {
+  "Full Day": "ok",
+  "Truncated ⚠": "crit",
+  "Flash only": "warn",
+  Empty: "crit",
+  Active: "ok",
+};
+const statusText = (s: string) => s.replace(/\s*⚠\s*/g, "").trim();
+const statusTone = (s: string): Tone => STATUS_TONE[s] ?? (/truncat|empty/i.test(s) ? "crit" : /flash/i.test(s) ? "warn" : "muted");
+
+// Queue-depth thresholds per CTCL (operations recommendation; configuration, not a measurement).
+interface Threshold { id: string; metric: string; warn: string; crit: string; window: string; action: string; warnV?: number; critV?: number }
+const THRESHOLDS: Threshold[] = [
+  { id: "NSE-2729", metric: "Queue depth", warn: ">4,000", crit: ">5,000", window: "09:00–09:16", action: "Page on-call, check adapter process", warnV: 4000, critV: 5000 },
+  { id: "NSE-2729", metric: "Data present", warn: "—", crit: "No data after 09:17", window: "Continuous", action: "P1 escalate to Hoysala" },
+  { id: "NSE-5864", metric: "Queue depth", warn: ">1,000", crit: ">1,500", window: "15:15–15:30", action: "Alert, log for review", warnV: 1000, critV: 1500 },
+  { id: "NSE-48621", metric: "Queue depth", warn: ">900", crit: ">1,200", window: "09:00–09:30", action: "Investigate batch orders", warnV: 900, critV: 1200 },
+  { id: "BSE-L1", metric: "Samples/hr", warn: "<5,000", crit: "<500", window: "Continuous", action: "Check MySQL pipeline / batch insert" },
+  { id: "NFO-13424", metric: "Data window", warn: "—", crit: "<5 min data", window: "09:15", action: "Investigate adapter logging" },
+  { id: "All CTCLs", metric: "YoY queue change", warn: ">20% higher", crit: ">40% higher", window: "Open window", action: "Capacity review" },
+];
+const depthLimit = (id: string) => THRESHOLDS.find((t) => t.id === id && t.warnV != null);
+
+// The six lines charted on this page, with their seed fallback series.
+const CHARTED: { id: string; fb: (number | null)[]; color: string; title?: string }[] = [
+  { id: "NSE-5864", fb: Q5864, color: "#2f6bff" },
+  { id: "NSE-2729", fb: Q2729_FULL, color: "#e5383b" },
+  { id: "NSE-48621", fb: Q48621, color: "#0ea5e9" },
+  { id: "NFO-12492", fb: QNFO, color: "#16a34a", title: "NFO-12492 / 57507" },
+  { id: "BSE-L1", fb: QBSE, color: "#7c4dff", title: "BSE" },
+  { id: "BFO-L1", fb: QBFO, color: "#f5a524", title: "BFO" },
 ];
 
-// ── Chart engine (ported vanilla-canvas engine; null-aware, sparse dots) ──
-type TTEl = HTMLDivElement | null;
-
-function showTT(tt: TTEl, html: string, e: MouseEvent) {
-  if (!tt) return;
-  tt.innerHTML = html;
-  tt.classList.add("show");
-  let x = e.clientX + 14, y = e.clientY + 14;
-  if (x + 210 > window.innerWidth) x = e.clientX - 220;
-  if (y + 90 > window.innerHeight) y = e.clientY - 90;
-  tt.style.left = x + "px";
-  tt.style.top = y + "px";
-}
-function hideTT(tt: TTEl) {
-  if (tt) tt.classList.remove("show");
-}
-
-function fmtN(v: number | string | null | undefined): string {
-  if (v == null || v === "") return "—";
-  if (typeof v !== "number") return v;
-  return v >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : v.toFixed(v % 1 ? 1 : 0);
-}
-
-interface CtclDataset {
-  label: string;
-  data: (number | null)[];
-  color: string;
-  fill?: string;
-  w?: number;
-  dots?: boolean;
-}
-
-function lineChart(cvs: HTMLCanvasElement | null | undefined, tt: TTEl, labels: string[], datasets: CtclDataset[], opts?: { maxV?: number }) {
-  if (!cvs) return;
-  const ctx = cvs.getContext("2d");
-  if (!ctx) return;
-  const W = (cvs.parentElement && cvs.parentElement.clientWidth) || 400;
-  const H = parseInt(cvs.getAttribute("height") || "", 10) || 180;
-  cvs.width = W;
-  cvs.height = H;
-
-  const P = { t: 18, r: 16, b: 34, l: 52 };
-  const cw = W - P.l - P.r, ch = H - P.t - P.b;
-
-  const vals = datasets.flatMap((d) => d.data.filter((v): v is number => v != null));
-  const maxV = (opts && opts.maxV) || Math.max(...vals) * 1.1 || 10;
-  const minV = 0;
-
-  const xOf = (i: number, n: number) => P.l + (i / (n - 1)) * cw;
-  const yOf = (v: number) => P.t + ch - ((v - minV) / (maxV - minV)) * ch;
-
-  ctx.clearRect(0, 0, W, H);
-  ctx.font = "10px Inter,system-ui";
-  ctx.fillStyle = "#7B8BA0";
-
-  // Grid lines
-  const ticks = 5;
-  for (let i = 0; i <= ticks; i++) {
-    const v = minV + (maxV - minV) * (i / ticks);
-    const y = yOf(v);
-    ctx.strokeStyle = "#E1E5EC";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(P.l, y);
-    ctx.lineTo(P.l + cw, y);
-    ctx.stroke();
-    ctx.textAlign = "right";
-    ctx.fillText(fmtN(v), P.l - 5, y + 4);
-  }
-
-  // X labels
-  ctx.textAlign = "center";
-  const step = Math.ceil(labels.length / 10);
-  labels.forEach((lbl, i) => {
-    if (i % step === 0) ctx.fillText(lbl, xOf(i, labels.length), H - 4);
-  });
-
-  // Spike zone (only if labels include 10:00)
-  const si = labels.indexOf("10:00");
-  if (si >= 0) {
-    ctx.fillStyle = "rgba(220,38,38,.05)";
-    const x1 = xOf(si, labels.length) - 2, x2 = xOf(Math.min(si + 1, labels.length - 1), labels.length) + 2;
-    ctx.fillRect(x1, P.t, x2 - x1, ch);
-  }
-
-  // Datasets
-  datasets.forEach((ds) => {
-    const data = ds.data, n = data.length;
-    // Fill
-    if (ds.fill) {
-      ctx.beginPath();
-      let first = true;
-      data.forEach((v, i) => {
-        if (v == null) return;
-        if (first) { ctx.moveTo(xOf(i, n), yOf(v)); first = false; }
-        else ctx.lineTo(xOf(i, n), yOf(v));
-      });
-      ctx.lineTo(xOf(n - 1, n), P.t + ch);
-      ctx.lineTo(xOf(0, n), P.t + ch);
-      ctx.closePath();
-      ctx.fillStyle = ds.fill;
-      ctx.fill();
-    }
-    // Line (skip nulls)
-    ctx.strokeStyle = ds.color;
-    ctx.lineWidth = ds.w || 2;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    let seg = false;
-    data.forEach((v, i) => {
-      if (v == null) { seg = false; return; }
-      if (!seg) { ctx.beginPath(); ctx.moveTo(xOf(i, n), yOf(v)); seg = true; }
-      else ctx.lineTo(xOf(i, n), yOf(v));
-    });
-    if (seg) ctx.stroke();
-
-    // Dots for sparse data
-    if (ds.dots) {
-      data.forEach((v, i) => {
-        if (v == null) return;
-        ctx.beginPath();
-        ctx.arc(xOf(i, n), yOf(v), 3, 0, Math.PI * 2);
-        ctx.fillStyle = ds.color;
-        ctx.fill();
-      });
-    }
-  });
-
-  // Hover
-  cvs.onmousemove = (e: MouseEvent) => {
-    const rect = cvs.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    let best = 0, bestD = Infinity;
-    labels.forEach((_, i) => {
-      const d = Math.abs(xOf(i, labels.length) - mx);
-      if (d < bestD) { bestD = d; best = i; }
-    });
-    let html = `<strong>${labels[best]}</strong><br>`;
-    datasets.forEach((d) => {
-      const v = d.data[best];
-      html += `${d.label}: ${v == null ? "—" : fmtN(v)}<br>`;
-    });
-    showTT(tt, html, e);
-  };
-  cvs.onmouseleave = () => hideTT(tt);
-}
-
-function barChart(cvs: HTMLCanvasElement | null | undefined, tt: TTEl, labels: string[], values: number[], colors: string[]) {
-  if (!cvs) return;
-  const ctx = cvs.getContext("2d");
-  if (!ctx) return;
-  const W = (cvs.parentElement && cvs.parentElement.clientWidth) || 400;
-  const H = parseInt(cvs.getAttribute("height") || "", 10) || 200;
-  cvs.width = W;
-  cvs.height = H;
-
-  const P = { t: 20, r: 16, b: 40, l: 58 };
-  const cw = W - P.l - P.r, ch = H - P.t - P.b;
-  const n = labels.length;
-  const maxV = Math.max(...values) * 1.12;
-  const barW = Math.min((cw / n) * 0.55, 50);
-
-  const xOf = (i: number) => P.l + (i + 0.5) * (cw / n);
-  const yOf = (v: number) => P.t + ch - (v / maxV) * ch;
-
-  ctx.clearRect(0, 0, W, H);
-  ctx.font = "10px Inter,system-ui";
-  ctx.fillStyle = "#7B8BA0";
-
-  for (let i = 0; i <= 4; i++) {
-    const v = maxV * (i / 4);
-    const y = yOf(v);
-    ctx.strokeStyle = "#E1E5EC";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(P.l, y);
-    ctx.lineTo(P.l + cw, y);
-    ctx.stroke();
-    ctx.textAlign = "right";
-    ctx.fillText(fmtN(v), P.l - 5, y + 4);
-  }
-
-  labels.forEach((lbl, i) => {
-    const x = xOf(i), y = yOf(values[i]), h = yOf(0) - y;
-    ctx.fillStyle = colors[i];
-    ctx.fillRect(x - barW / 2, y, barW, h);
-    ctx.fillStyle = "#7B8BA0";
-    ctx.textAlign = "center";
-    // Multi-line label
-    const parts = lbl.split("\n");
-    parts.forEach((p, pi) => ctx.fillText(p, x, H - 6 - (parts.length - 1 - pi) * 12));
-    // Value on top
-    ctx.fillStyle = colors[i];
-    ctx.font = "bold 11px Inter,system-ui";
-    ctx.fillText(fmtN(values[i]), x, y - 5);
-    ctx.font = "10px Inter,system-ui";
-  });
-
-  cvs.onmousemove = (e: MouseEvent) => {
-    const rect = cvs.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    let best = 0, bestD = Infinity;
-    labels.forEach((_, i) => {
-      const d = Math.abs(xOf(i) - mx);
-      if (d < bestD) { bestD = d; best = i; }
-    });
-    showTT(tt, `<strong>${labels[best].replace("\n", " ")}</strong><br>Peak: ${fmtN(values[best])}`, e);
-  };
-  cvs.onmouseleave = () => hideTT(tt);
-}
-
-// ── Time-range filtering ───────────────────────────────────────────────────
+// ── Series helpers ──────────────────────────────────────────────────────────
 const toMin = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 };
+const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+/** Time labels for an n-point series spread evenly over 09:00–15:30. */
+function labelsFor(n: number): string[] {
+  if (n <= 1) return n ? ["09:00"] : [];
+  return Array.from({ length: n }, (_, i) => hm(540 + Math.round((i * 390) / (n - 1))));
+}
 
 /** Bracket [from, to] with the nearest sampled labels (inclusive). */
 function rangeIndices(labels: string[], from: string, to: string): [number, number] {
@@ -330,24 +162,108 @@ function rangeIndices(labels: string[], from: string, to: string): [number, numb
   return [lo, hi];
 }
 
-/** Slice a series whose resolution may differ from the label resolution. */
-function sliceSeries(data: (number | null)[], lo: number, hi: number, nLabels: number): (number | null)[] {
-  if (data.length === 0) return data;
-  const li = Math.round((lo / (nLabels - 1)) * (data.length - 1));
-  const hiI = Math.round((hi / (nLabels - 1)) * (data.length - 1));
-  return data.slice(li, hiI + 1);
+/** Cut a series to a time window: returns its labels and values. */
+function cut(data: (number | null)[], from: string, to: string) {
+  const labels = labelsFor(data.length);
+  if (!labels.length) return { labels, data };
+  const [lo, hi] = rangeIndices(labels, from, to);
+  return { labels: labels.slice(lo, hi + 1), data: data.slice(lo, hi + 1) };
+}
+
+interface Stats { peak: number | null; peakAt: string; mean: number | null; first: number | null; lastAt: string; points: number }
+function statsOf(data: (number | null)[]): Stats {
+  const labels = labelsFor(data.length);
+  let peak: number | null = null, peakAt = "—", sum = 0, n = 0, first: number | null = null, lastAt = "—";
+  data.forEach((v, i) => {
+    if (v == null) return;
+    if (first == null) first = v;
+    if (peak == null || v > peak) { peak = v; peakAt = labels[i]; }
+    sum += v; n++; lastAt = labels[i];
+  });
+  return { peak, peakAt, mean: n ? sum / n : null, first, lastAt, points: n };
+}
+
+const fmtN = (v: number | null | undefined) => (v == null ? "—" : Math.round(v).toLocaleString("en-US"));
+const compact = (v: number) => (v >= 1e3 ? `${+(v / 1e3).toFixed(1)}k` : String(Math.round(v)));
+
+// ── Line chart over time labels (SVG, theme tokens, null-aware) ─────────────
+interface LineSeries { label: string; data: (number | null)[]; color: string }
+
+function LineChart({ labels, series, maxV, height = 180, title }: { labels: string[]; series: LineSeries[]; maxV?: number; height?: number; title: string }) {
+  const W = 560, H = height, L = 46, R = 12, T = 14, B = 26;
+  const [hover, setHover] = React.useState<number | null>(null);
+  const ref = React.useRef<SVGSVGElement>(null);
+  const vals = series.flatMap((s) => s.data.filter((v): v is number => v != null));
+  if (!labels.length || !vals.length) return <Empty>No queue samples in this range.</Empty>;
+  const top = maxV ?? Math.max(10, ...vals) * 1.1;
+  const x = (i: number) => L + (labels.length === 1 ? (W - L - R) / 2 : (i / (labels.length - 1)) * (W - L - R));
+  const y = (v: number) => H - B - (Math.min(v, top) / top) * (H - T - B);
+  const step = Math.max(1, Math.ceil(labels.length / 8));
+  const onMove = (e: React.MouseEvent) => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const px = ((e.clientX - r.left) / r.width) * W;
+    setHover(Math.min(labels.length - 1, Math.max(0, Math.round(((px - L) / (W - L - R)) * (labels.length - 1)))));
+  };
+  const runs = (data: (number | null)[]) => {
+    const out: [number, number][][] = [];
+    let cur: [number, number][] = [];
+    data.forEach((v, i) => {
+      if (v == null) { if (cur.length) out.push(cur); cur = []; }
+      else cur.push([x(i), y(v)]);
+    });
+    if (cur.length) out.push(cur);
+    return out;
+  };
+  return (
+    <div className="relative min-w-0">
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block cursor-crosshair" role="img"
+        aria-label={`${title}: ${series.map((s) => { const st = statsOf(s.data); return `${s.label} peak ${fmtN(st.peak)}`; }).join("; ")}`}
+        onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <g key={f}>
+            <line x1={L} x2={W - R} y1={y(top * f)} y2={y(top * f)} className="stroke-line-subtle stroke-1" />
+            <text x={L - 6} y={y(top * f) + 4} textAnchor="end" className="text-xs fill-fg-muted font-sans">{compact(top * f)}</text>
+          </g>
+        ))}
+        {labels.map((lb, i) => (i % step === 0 || i === labels.length - 1) && (
+          <text key={lb + i} x={x(i)} y={H - 8} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} className="text-xs fill-fg-muted font-sans">{lb}</text>
+        ))}
+        {series.map((s) => {
+          const sparse = s.data.filter((v) => v != null).length <= 6;
+          return runs(s.data).map((run, ri) => {
+            const pts = run.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
+            return (
+              <g key={`${s.label}-${ri}`}>
+                {run.length > 1 && <polygon points={`${run[0][0].toFixed(1)},${y(0)} ${pts} ${run[run.length - 1][0].toFixed(1)},${y(0)}`} fill={s.color} fillOpacity={0.1} />}
+                {run.length > 1 && <polyline points={pts} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" />}
+                {(sparse || run.length === 1) && run.map(([px, py]) => <circle key={px} cx={px} cy={py} r={3} fill={s.color} />)}
+              </g>
+            );
+          });
+        })}
+        {hover != null && <line x1={x(hover)} x2={x(hover)} y1={T} y2={H - B} stroke="var(--border-strong)" strokeDasharray="3 3" />}
+      </svg>
+      {hover != null ? (
+        <div className="flex flex-wrap gap-x-3.5 gap-y-1 items-center px-2 py-1.5 mt-1 bg-bg-muted rounded-sm text-fg text-xs [&_span]:inline-flex [&_span]:items-center [&_span]:gap-[5px]">
+          <b>{labels[hover]}</b>
+          {series.map((s) => <span key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label} {fmtN(s.data[hover])}</span>)}
+        </div>
+      ) : (
+        <ul className={legendInline}>
+          {series.map((s) => <li key={s.label}><span className={ui.dot} style={{ background: s.color }} /> {s.label}</li>)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SampleBadge() {
+  return <Pill tone="warn"><Icon icon={FlaskConicalIcon} /> Sample data — not connected</Pill>;
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 type PanelId = "overview" | "queue" | "windows" | "ctclmap" | "alerts";
-
-const NAV: { id: PanelId; icon: string; label: string; count: string | null }[] = [
-  { id: "overview", icon: "📊", label: "Overview", count: "18" },
-  { id: "queue", icon: "📈", label: "Queue Size", count: "6" },
-  { id: "windows", icon: "⏱", label: "Trading Windows", count: null },
-  { id: "ctclmap", icon: "🗂", label: "CTCL Map", count: "18" },
-  { id: "alerts", icon: "🔔", label: "Alerts", count: null },
-];
 
 const PRESETS: { label: string; from: string; to: string }[] = [
   { label: "Full Day", from: "09:00", to: "15:30" },
@@ -357,7 +273,27 @@ const PRESETS: { label: string; from: string; to: string }[] = [
   { label: "Mid-Day", from: "12:00", to: "14:00" },
 ];
 
+const WINDOWS: { id: string; icon: string; title: string; from: string; to: string; agg: "max" | "mean" }[] = [
+  { id: "open", icon: "fa-bell", title: "Market Open · 09:10–09:20", from: "09:10", to: "09:20", agg: "max" },
+  { id: "pre", icon: "fa-clock", title: "Pre-Market · 09:00–09:15", from: "09:00", to: "09:15", agg: "max" },
+  { id: "close", icon: "fa-arrow-trend-down", title: "Square-Off · 15:15–15:30", from: "15:15", to: "15:30", agg: "max" },
+  { id: "mid", icon: "fa-sun", title: "Mid-Day · 11:00–14:00", from: "11:00", to: "14:00", agg: "mean" },
+];
+
+type Level = "crit" | "warn" | "ok";
+const levelOf = (id: string, v: number | null): Level => {
+  const t = depthLimit(id);
+  if (!t || v == null) return "ok";
+  return v > (t.critV ?? Infinity) ? "crit" : v > (t.warnV ?? Infinity) ? "warn" : "ok";
+};
+const LEVEL: Record<Level, { tone: Tone; label: string }> = {
+  crit: { tone: "crit", label: "Above critical" },
+  warn: { tone: "warn", label: "Above warning" },
+  ok: { tone: "ok", label: "Within thresholds" },
+};
+
 export default function CtclMonitorScreen() {
+  const { setRoute } = useNav();
   const [tab, setTab] = React.useState<PanelId>("overview");
   const [clock, setClock] = React.useState("—");
   const [trFrom, setTrFrom] = React.useState("09:00");
@@ -367,6 +303,8 @@ export default function CtclMonitorScreen() {
 
   const lines = useCtclLines().data ?? [];
   const brokers = useBrokers().data ?? [];
+  const seed = lines.length === 0;
+  const known: CtclLine[] = seed ? CTCL_LINES : lines;
 
   const seriesOf = React.useCallback(
     (id: string, fb: (number | null)[]): (number | null)[] => {
@@ -375,19 +313,13 @@ export default function CtclMonitorScreen() {
     },
     [lines],
   );
-
-  const canvases = React.useRef<Record<string, HTMLCanvasElement | null>>({});
-  const ttRef = React.useRef<HTMLDivElement | null>(null);
-  const setCanvas = (id: string) => (el: HTMLCanvasElement | null) => {
-    canvases.current[id] = el;
-  };
+  const metaOf = (id: string) => known.find((l) => l.id === id);
 
   // Live IST clock
   React.useEffect(() => {
     const p = (n: number) => String(n).padStart(2, "0");
     const tick = () => {
-      const now = new Date();
-      const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
+      const ist = new Date(Date.now() + 5.5 * 3600 * 1000);
       setClock(`${p(ist.getUTCHours())}:${p(ist.getUTCMinutes())}:${p(ist.getUTCSeconds())} IST`);
     };
     tick();
@@ -395,582 +327,463 @@ export default function CtclMonitorScreen() {
     return () => window.clearInterval(t);
   }, []);
 
-  // Draw charts on tab switch / applied range / data change / resize
-  React.useEffect(() => {
-    const q5864 = seriesOf("NSE-5864", Q5864);
-    const q2729 = seriesOf("NSE-2729", Q2729_FULL);
-    const q48621 = seriesOf("NSE-48621", Q48621);
-    const qnfo = seriesOf("NFO-12492", QNFO);
-    const qbse = seriesOf("BSE-L1", QBSE);
-    const qbfo = seriesOf("BFO-L1", QBFO);
-
-    const drawAllCharts = () => {
-      const cs = canvases.current;
-      const tt = ttRef.current;
-
-      // Overview: peaks bar
-      barChart(cs["c-peaks"], tt, PEAK_LABELS, PEAK_VALUES, PEAK_COLORS);
-
-      // Overview: NSE day overlay
-      lineChart(cs["c-nse-day"], tt, LABELS_30, [
-        { label: "NSE-5864", data: q5864, color: "#1552D4", fill: "rgba(21,82,212,.08)", w: 2 },
-        { label: "NSE-48621", data: q48621, color: "#0891B2", fill: "rgba(8,145,178,.08)", w: 2 },
-        { label: "NSE-2729", data: q2729, color: "#DC2626", fill: "rgba(220,38,38,.08)", w: 2, dots: true },
-      ]);
-
-      // Queue tab: individual CTCLs (filtered by the applied time range)
-      const [lo, hi] = rangeIndices(LABELS_30, applied.from, applied.to);
-      const ql = LABELS_30.slice(lo, hi + 1);
-      const cut = (d: (number | null)[]) => sliceSeries(d, lo, hi, LABELS_30.length);
-      lineChart(cs["c-q5864"], tt, ql, [{ label: "NSE-5864", data: cut(q5864), color: "#1552D4", fill: "rgba(21,82,212,.1)", w: 2 }]);
-      lineChart(cs["c-q2729"], tt, ql, [{ label: "NSE-2729", data: cut(q2729), color: "#DC2626", fill: "rgba(220,38,38,.1)", w: 2, dots: true }], { maxV: 6000 });
-      lineChart(cs["c-q48621"], tt, ql, [{ label: "NSE-48621", data: cut(q48621), color: "#2563EB", fill: "rgba(37,99,235,.1)", w: 2 }]);
-      lineChart(cs["c-qnfo"], tt, ql, [{ label: "NFO-12492", data: cut(qnfo), color: "#0891B2", fill: "rgba(8,145,178,.1)", w: 2 }]);
-      lineChart(cs["c-qbse"], tt, ql, [{ label: "BSE", data: cut(qbse), color: "#7C3AED", fill: "rgba(124,58,237,.1)", w: 2 }]);
-      lineChart(cs["c-qbfo"], tt, ql, [{ label: "BFO", data: cut(qbfo), color: "#C2410C", fill: "rgba(194,65,12,.1)", w: 2 }]);
-
-      // Window zooms
-      lineChart(cs["c-win-open-nse2"], tt, WO_LABELS,
-        [{ label: "NSE-2729", data: WO_NSE2, color: "#DC2626", fill: "rgba(220,38,38,.1)", w: 2.5, dots: true }], { maxV: 6000 });
-      lineChart(cs["c-win-open-nse1"], tt, WO_LABELS, [
-        { label: "NSE-48621", data: WO_NSE1, color: "#1552D4", fill: "rgba(21,82,212,.1)", w: 2 },
-        { label: "BSE", data: WO_BSE, color: "#7C3AED", fill: "rgba(124,58,237,.1)", w: 2 },
-      ]);
-      lineChart(cs["c-win-close-nse1"], tt, WC_LABELS,
-        [{ label: "NSE-5864", data: WC_NSE5, color: "#D97706", fill: "rgba(217,119,6,.1)", w: 2.5 }], { maxV: 1400 });
-      lineChart(cs["c-win-close-mix"], tt, WC_LABELS, [
-        { label: "NSE-48621", data: WC_48621, color: "#1552D4", fill: "rgba(21,82,212,.1)", w: 2 },
-        { label: "BSE", data: WC_BSE, color: "#7C3AED", fill: "rgba(124,58,237,.1)", w: 2 },
-      ]);
-    };
-
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(drawAllCharts);
-    });
-
-    let rz: number | undefined;
-    const onResize = () => {
-      window.clearTimeout(rz);
-      rz = window.setTimeout(drawAllCharts, 150);
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-      window.clearTimeout(rz);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [tab, applied, seriesOf]);
-
   const pickPreset = (i: number) => {
     setPreset(i);
     setTrFrom(PRESETS[i].from);
     setTrTo(PRESETS[i].to);
   };
 
+  // ── Derived figures ──
+  const charted = CHARTED.map((c) => {
+    const data = seriesOf(c.id, c.fb);
+    const meta = metaOf(c.id);
+    return { ...c, name: c.title ?? c.id, data, meta, stats: statsOf(data) };
+  });
+  const chartedOf = (id: string) => charted.find((c) => c.id === id);
+  const activeLines = known.filter((l) => statusTone(l.status) === "ok");
+  const problemLines = known.filter((l) => statusTone(l.status) !== "ok");
+  const segmentsActive = [...new Set(activeLines.map((l) => l.segment))];
+  const nseDayLabels = labelsFor(Math.max(...["NSE-5864", "NSE-48621", "NSE-2729"].map((id) => chartedOf(id)?.data.length ?? 0)));
+
+  const windowValue = (data: (number | null)[], from: string, to: string, agg: "max" | "mean") => {
+    const v = cut(data, from, to).data.filter((x): x is number => x != null);
+    if (!v.length) return null;
+    return agg === "max" ? Math.max(...v) : v.reduce((a, b) => a + b, 0) / v.length;
+  };
+
+  /** Brokers routed through a CTCL line: any CTCL code that starts with the line's number. */
+  const brokersOn = (lineId: string) => {
+    const num = lineId.split("-")[1];
+    return brokers.filter((b) => Object.values(b.ctcls).some((c) => c && c !== "—" && c.startsWith(`${num}-`)));
+  };
+
+  interface Alert { id: string; tone: Tone; prio: string; title: string; text: string }
+  const alerts: Alert[] = [
+    ...problemLines.map((l): Alert => {
+      const st = statsOf(chartedOf(l.id)?.data ?? l.series);
+      const crit = statusTone(l.status) === "crit";
+      return {
+        id: `status-${l.id}`, tone: crit ? "crit" : "warn", prio: crit ? "P1" : "P2",
+        title: `${l.id} — ${statusText(l.status)}`,
+        text: st.points
+          ? `${l.role}. Queue data ends at ${st.lastAt}${l.samples != null ? ` (${fmt(l.samples)} samples)` : ""}; peak ${fmtN(st.peak)} at ${st.peakAt}. Check that the adapter queue logging process is running on the Noren server.`
+          : `${l.role}. ${l.samples ? `${fmt(l.samples)} samples, ` : ""}no queue series for the day. Check the adapter queue logging process.`,
+      };
+    }),
+    ...charted.flatMap((c): Alert[] => {
+      const lvl = levelOf(c.id, c.stats.peak);
+      const t = depthLimit(c.id);
+      if (lvl === "ok" || !t) return [];
+      return [{
+        id: `depth-${c.id}`, tone: lvl === "crit" ? "crit" : "warn", prio: lvl === "crit" ? "P1" : "P2",
+        title: `${c.name} — queue depth ${fmtN(c.stats.peak)} at ${c.stats.peakAt}`,
+        text: `Above the ${lvl === "crit" ? "critical" : "warning"} threshold (${lvl === "crit" ? t.crit : t.warn}, window ${t.window}). ${t.action}.`,
+      }];
+    }),
+  ];
+  const p1 = alerts.filter((a) => a.prio === "P1").length;
+
+  const NAV: { id: PanelId; icon: string; label: string; count?: number }[] = [
+    { id: "overview", icon: "fa-chart-pie", label: "Overview" },
+    { id: "queue", icon: "fa-chart-line", label: "Queue Size", count: charted.length },
+    { id: "windows", icon: "fa-stopwatch", label: "Trading Windows" },
+    { id: "ctclmap", icon: "fa-table-cells", label: "CTCL Map", count: brokers.length },
+    { id: "alerts", icon: "fa-bell", label: "Alerts", count: alerts.length },
+  ];
+
   const lineTable = (rows: CtclLine[], roleHead: string) => (
-    <table className="dtable">
-      <thead><tr><th>CTCL ID</th><th>{roleHead}</th><th>Samples</th><th>Status</th></tr></thead>
-      <tbody>
-        {rows.map((l) => (
-          <tr key={l.id}>
-            <td className="mono ctcl-id">{l.id}</td>
-            <td>{l.role}</td>
-            <td>{l.samples == null ? "—" : l.samples.toLocaleString()}</td>
-            <td><span className={`badge ${STATUS_BADGE[l.status] || "b-gray"}`}>{l.status}</span></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    rows.length ? (
+      <Table>
+          <thead><tr><th scope="col">CTCL ID</th><th scope="col">{roleHead}</th><th scope="col">Samples</th><th scope="col">Status</th></tr></thead>
+          <tbody>
+            {rows.map((l) => (
+              <tr key={l.id}>
+                <td className={monoCell}>{l.id}</td>
+                <td>{l.role}</td>
+                <td className={monoCell}>{l.samples == null ? "—" : l.samples.toLocaleString("en-US")}</td>
+                <td><Pill tone={statusTone(l.status)}>{statusText(l.status)}</Pill></td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+    ) : <Empty>No lines reported.</Empty>
+  );
+
+  const seedNote = seed && (
+    <div className={note("warn")} role="status">
+      <Icon icon={UnplugIcon} />
+      <p><b>No data from /trading/ctcl/lines/.</b> Lines, peaks and charts below use the embedded seed series, not a live feed.</p>
+    </div>
   );
 
   return (
-    <div className="page page-fade trading-ctcl">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Trading Ops</a><span className="sn-bc-sep">›</span>
-        <span>CTCL Monitor</span>
-      </div>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "BOD / EOD" }, { label: "CTCL Monitor" }]} />
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">TRADING OPS</span>
-          <span className="tb-pill warn"><span className="tb-pulse" />NSE-2729 Truncated</span>
-          <span className="tb-pill ok"><span className="tb-pulse" />4 Segments Active</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>CTCL Data Monitor</h1>
-            <div className="sn-form-sub">Finspot Technology Solutions — Noren OMS Infrastructure</div>
-          </div>
-          <div className="sn-form-actions">
-            <span className="tc-clock">{clock}</span>
-          </div>
-        </div>
-      </div>
+      <PageHead
+        title="CTCL Data Monitor"
+        subtitle="Noren OMS adapter-line queue depth per CTCL, trading-window behaviour and the broker → CTCL map"
+        actions={
+          <>
+            {problemLines.map((l) => (
+              <Pill key={l.id} tone={statusTone(l.status)}><span className={ui.pillDot} aria-hidden="true" /> {l.id} {statusText(l.status)}</Pill>
+            ))}
+            <Pill tone={segmentsActive.length ? "ok" : "muted"}><span className={ui.pillDot} aria-hidden="true" /> {segmentsActive.length} segments active</Pill>
+            <span className={cx(ui.mono, "text-fg-muted")} aria-label="Current time in IST">{clock}</span>
+          </>
+        }
+      />
 
-      {/* Sub-nav */}
-      <nav className="subnav">
+      <Tabs aria-label="CTCL monitor sections">
         {NAV.map((t) => (
-          <button key={t.id} className={`snav${tab === t.id ? " active" : ""}`} onClick={() => setTab(t.id)}>
-            {t.icon} {t.label} {t.count !== null && <span className="snav-cnt">{t.count}</span>}
-          </button>
+          <Tab key={t.id} active={tab === t.id} id={`ctcl-tab-${t.id}`} aria-controls="ctcl-panel" onClick={() => setTab(t.id)}>
+            <Icon name={t.icon} /> {t.label}{t.count != null && <> <span className="text-fg-muted">({t.count})</span></>}
+          </Tab>
         ))}
-      </nav>
+      </Tabs>
 
-      <main className="tc-body">
+      <div id="ctcl-panel" role="tabpanel" aria-labelledby={`ctcl-tab-${tab}`} className="flex flex-col gap-4 min-w-0">
+        {tab !== "ctclmap" && seedNote}
+
         {/* ═══ OVERVIEW ═══ */}
         {tab === "overview" && (
-          <section className="panel active" id="p-overview">
-            <div className="abar amber">
-              ⚠ <span><strong>NSE-2729 data truncated:</strong> Queue log stops at 09:15:53 (only 8,556 samples). Pre-market peak 5,538 — 40% higher than 2025 (3,955). Investigate adapter queue logging process for full-day coverage.</span>
+          <>
+            {problemLines.length > 0 && (
+              <div className={note("warn")} role="alert">
+                <Icon icon={TriangleAlertIcon} />
+                <p>
+                  {problemLines.map((l, i) => {
+                    const st = statsOf(chartedOf(l.id)?.data ?? l.series);
+                    return (
+                      <React.Fragment key={l.id}>
+                        {i > 0 && " · "}
+                        <b>{l.id} {statusText(l.status).toLowerCase()}:</b>{" "}
+                        {st.points ? `queue data ends at ${st.lastAt}, peak ${fmtN(st.peak)}` : "no queue series"}
+                        {l.samples != null ? ` (${fmt(l.samples)} samples)` : ""}
+                      </React.Fragment>
+                    );
+                  })}
+                  . Investigate the adapter queue logging process for full-day coverage.
+                </p>
+              </div>
+            )}
+            <div className={cx(ui.grid, ui.cols[6])}>
+              <StatCard icon="fa-network-wired" tone="info" label="CTCL lines" value={`${activeLines.length}/${known.length}`} note={`active · ${[...new Set(known.map((l) => l.segment))].join(" · ")}`} onClick={() => setTab("ctclmap")} />
+              <StatCard icon="fa-users" tone="purple" label="Broker clients" value={fmt(brokers.length)} note="mapped to CTCL codes" onClick={() => setTab("ctclmap")} />
+              {charted.map((c) => {
+                const lvl = levelOf(c.id, c.stats.peak);
+                return (
+                  <StatCard key={c.id} icon="fa-arrow-up" tone={lvl === "ok" ? "info" : lvl}
+                    label={`${c.name} peak`} value={fmtN(c.stats.peak)} note={c.stats.points ? `at ${c.stats.peakAt}` : "no samples"} onClick={() => setTab("queue")} />
+                );
+              })}
             </div>
 
-            <div className="slbl">Platform Overview — Today</div>
-            <div className="krow">
-              <div className="kpi ka-blue">
-                <div className="kpi-lbl">CTCL Lines</div>
-                <div className="kpi-val">6<span className="kpi-unit">active</span></div>
-                <div className="kpi-sub">NSE×2 · NFO×2 · BSE · BFO</div>
+            <div className={ui.splitWide}>
+              <div className={stackNotes}>
+                <Panel title="Queue peak by CTCL">
+                  <p className={sub}>Peak queue depth per adapter line over the day</p>
+                  <ul className={ui.bars}>
+                    {(() => {
+                      const max = Math.max(1, ...charted.map((c) => c.stats.peak ?? 0));
+                      return charted.map((c) => (
+                        <li key={c.id} className={ui.barItemWide}>
+                          <span className={ui.barLabel}>{c.name}</span>
+                          <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${((c.stats.peak ?? 0) / max) * 100}%`, background: c.color }} /></span>
+                          <span className={cx(ui.barValue, "min-w-16")}>{fmtN(c.stats.peak)}</span>
+                        </li>
+                      ));
+                    })()}
+                  </ul>
+                </Panel>
+                <Panel title="NSE adapter lines — intraday queue (09:00–15:30)">
+                  <LineChart title="NSE adapter queue depth through the day" labels={nseDayLabels}
+                    series={["NSE-5864", "NSE-48621", "NSE-2729"].map((id) => chartedOf(id)!).map((c) => ({ label: c.name, data: c.data, color: c.color }))} />
+                </Panel>
               </div>
-              <div className="kpi ka-teal">
-                <div className="kpi-lbl">Broker Clients</div>
-                <div className="kpi-val">18</div>
-                <div className="kpi-sub">NSE/BSE/NFO/BFO segments</div>
-              </div>
-              <div className="kpi ka-red">
-                <div className="kpi-lbl">NSE-2729 Peak</div>
-                <div className="kpi-val">5,538</div>
-                <div className="kpi-sub">09:15:12 · Pre-market</div>
-              </div>
-              <div className="kpi ka-amber">
-                <div className="kpi-lbl">NSE-5864 Peak</div>
-                <div className="kpi-val">1,114</div>
-                <div className="kpi-sub">15:20 close window</div>
-              </div>
-              <div className="kpi ka-orange">
-                <div className="kpi-lbl">NSE-48621 Peak</div>
-                <div className="kpi-val">1,071</div>
-                <div className="kpi-sub">09:00 · drained 15 min</div>
-              </div>
-              <div className="kpi ka-purple">
-                <div className="kpi-lbl">BSE Peak</div>
-                <div className="kpi-val">1,222</div>
-                <div className="kpi-sub">09:15 market open rush</div>
-              </div>
-              <div className="kpi ka-teal">
-                <div className="kpi-lbl">NFO-12492 Peak</div>
-                <div className="kpi-val">507</div>
-                <div className="kpi-sub">AMO line · normal</div>
-              </div>
-              <div className="kpi ka-green">
-                <div className="kpi-lbl">NFO-57507 Peak</div>
-                <div className="kpi-val">507</div>
-                <div className="kpi-sub">Line-2 · AMO</div>
-              </div>
-            </div>
 
-            <div className="g73">
-              <div>
-                <div className="slbl">All-CTCL Queue Peaks — Day View</div>
-                <div className="card">
-                  <div className="ch"><div><div className="ct">Queue Peak Comparison by CTCL</div><div className="cs">Peak queue depth per adapter line</div></div><span className="badge b-amber">NSE-2729 ⚠</span></div>
-                  <div className="cw"><canvas ref={setCanvas("c-peaks")} height={200} /></div>
+              <Panel title="Segment health">
+                <div className={stackNotes}>
+                  {[...new Set(known.map((l) => l.segment))].map((seg) => {
+                    const segLines = known.filter((l) => l.segment === seg);
+                    const worst: Tone = segLines.some((l) => statusTone(l.status) === "crit") ? "crit" : segLines.some((l) => statusTone(l.status) === "warn") ? "warn" : "ok";
+                    return (
+                      <Card as="section" key={seg} className={ui.panel} aria-label={`${seg} segment`}>
+                        <div className={ui.panelHead}>
+                          <h3 className="font-medium">{seg}</h3>
+                          <Pill tone={worst}>{worst === "ok" ? "Normal" : "Monitor"}</Pill>
+                        </div>
+                        <dl className={ui.dl}>
+                          {segLines.map((l) => {
+                            const c = chartedOf(l.id);
+                            return (
+                              <React.Fragment key={l.id}>
+                                <dt>{l.id}</dt>
+                                <dd>
+                                  <Pill tone={statusTone(l.status)}>{statusText(l.status)}</Pill>
+                                  {c?.stats.points ? <span className="text-fg-muted text-xs"> · peak {fmtN(c.stats.peak)}</span> : null}
+                                </dd>
+                              </React.Fragment>
+                            );
+                          })}
+                        </dl>
+                      </Card>
+                    );
+                  })}
                 </div>
-                <div className="card">
-                  <div className="ch"><div><div className="ct">NSE Adapter Lines — Intraday Queue (09:00–15:30)</div><div className="cs">NSE-5864 vs NSE-48621 vs NSE-2729</div></div></div>
-                  <div className="cw"><canvas ref={setCanvas("c-nse-day")} height={180} /></div>
-                </div>
-              </div>
-              <div>
-                <div className="slbl">Segment Health</div>
-                <div className="win-grid" style={{ gridTemplateColumns: "1fr" }}>
-                  <div className="win-card">
-                    <div className="win-head"><span className="win-title">NSE</span><span className="badge b-amber">Monitor</span></div>
-                    <div className="win-body">
-                      <div className="win-stat-row"><span className="win-stat-lbl">Line-1 (5864) Status</span><span className="win-stat-val ok">FULL DAY ✓</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Line-2 (2729) Status</span><span className="win-stat-val alert">TRUNCATED ⚠</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Open Peak (2729)</span><span className="win-stat-val alert">5,538</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Close Peak (5864)</span><span className="win-stat-val warn">1,114</span></div>
-                    </div>
-                  </div>
-                  <div className="win-card">
-                    <div className="win-head"><span className="win-title">NFO</span><span className="badge b-green">Normal</span></div>
-                    <div className="win-body">
-                      <div className="win-stat-row"><span className="win-stat-lbl">Line-1 (13424) Status</span><span className="win-stat-val warn">Flash only (09:15)</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Line-2 (12492/57507)</span><span className="win-stat-val ok">Normal ✓</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">AMO Peak (57507)</span><span className="win-stat-val ok">507</span></div>
-                    </div>
-                  </div>
-                  <div className="win-card">
-                    <div className="win-head"><span className="win-title">BSE</span><span className="badge b-green">Normal</span></div>
-                    <div className="win-body">
-                      <div className="win-stat-row"><span className="win-stat-lbl">Open Peak</span><span className="win-stat-val warn">1,222</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Day Mean</span><span className="win-stat-val ok">~380</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Samples</span><span className="win-stat-val ok">99,219</span></div>
-                    </div>
-                  </div>
-                  <div className="win-card">
-                    <div className="win-head"><span className="win-title">BFO</span><span className="badge b-green">Normal</span></div>
-                    <div className="win-body">
-                      <div className="win-stat-row"><span className="win-stat-lbl">Status</span><span className="win-stat-val ok">Active ✓</span></div>
-                      <div className="win-stat-row"><span className="win-stat-lbl">Open Peak</span><span className="win-stat-val ok">~420</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </Panel>
             </div>
-          </section>
+          </>
         )}
 
         {/* ═══ QUEUE SIZE ═══ */}
         {tab === "queue" && (
-          <section className="panel active" id="p-queue">
-            <div className="abar blue">
-              ℹ <span>Select a CTCL line to view its full queue depth profile. Use the custom time range selector to zoom into specific trading windows (market open 09:10–09:20 · square-off 15:15–15:30).</span>
+          <>
+            <Card as="section" className={ui.panel} aria-labelledby="ctcl-range-h">
+              <div className={ui.panelHead}><h2 id="ctcl-range-h" className={ui.panelTitle}>Time range</h2></div>
+              <p className={sub}>Zoom every line into a trading window (market open 09:10–09:20 · square-off 15:15–15:30). Ranges snap to the nearest samples.</p>
+              <div className="flex flex-wrap items-end gap-2.5">
+                <div className={ui.field}>
+                  <label htmlFor="tr-from">From</label>
+                  <Input id="tr-from" type="time" value={trFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrFrom(e.target.value)} />
+                </div>
+                <div className={ui.field}>
+                  <label htmlFor="tr-to">To</label>
+                  <Input id="tr-to" type="time" value={trTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrTo(e.target.value)} />
+                </div>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Range presets">
+                  {PRESETS.map((p, i) => (
+                    <Button key={p.label} size="sm" aria-pressed={preset === i} onClick={() => pickPreset(i)}>
+                      {preset === i && <Icon icon={CheckIcon} />} {p.label}
+                    </Button>
+                  ))}
+                </div>
+                <Button variant="primary" onClick={() => setApplied({ from: trFrom, to: trTo })}>Apply</Button>
+              </div>
+            </Card>
+
+            <div className={cx(ui.grid, ui.cols[2])}>
+              {charted.map((c) => {
+                const view = cut(c.data, applied.from, applied.to);
+                const lvl = levelOf(c.id, c.stats.peak);
+                return (
+                  <Card as="section" key={c.id} className={ui.panel} aria-labelledby={`q-${c.id}`}>
+                    <div className={ui.panelHead}>
+                      <h2 id={`q-${c.id}`} className={ui.panelTitle}>{c.name} {c.meta && <Pill tone="info">{c.meta.role}</Pill>}</h2>
+                      {c.meta && <Pill tone={statusTone(c.meta.status)}>{statusText(c.meta.status)}</Pill>}
+                    </div>
+                    <p className={sub}>
+                      {c.meta?.samples != null ? `${fmt(c.meta.samples)} samples` : "samples not reported"}
+                      {c.stats.points ? ` · data ${labelsFor(c.data.length)[c.data.findIndex((v) => v != null)]}–${c.stats.lastAt}` : ""}
+                    </p>
+                    <dl className={mini}>
+                      <div className={miniBox}><dt className={miniDt}>Peak</dt><dd className={cx(miniDd, lvl !== "ok" && DARK_INK[lvl])}>{fmtN(c.stats.peak)}</dd></div>
+                      <div className={miniBox}><dt className={miniDt}>Peak at</dt><dd className={miniDd}>{c.stats.peakAt}</dd></div>
+                      <div className={miniBox}><dt className={miniDt}>Day mean</dt><dd className={miniDd}>{fmtN(c.stats.mean)}</dd></div>
+                    </dl>
+                    <LineChart title={`${c.name} queue depth ${applied.from}–${applied.to}`} labels={view.labels}
+                      series={[{ label: c.name, data: view.data, color: c.color }]} height={160} />
+                  </Card>
+                );
+              })}
             </div>
-
-            {/* Time range controls */}
-            <div className="card mb0" style={{ marginBottom: 14 }}>
-              <div className="trange">
-                <label>From</label>
-                <input type="time" id="tr-from" value={trFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrFrom(e.target.value)} />
-                <label>To</label>
-                <input type="time" id="tr-to" value={trTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTrTo(e.target.value)} />
-                {PRESETS.map((p, i) => (
-                  <button key={p.label} className={`preset-btn${preset === i ? " active" : ""}`} onClick={() => pickPreset(i)}>
-                    {p.label}
-                  </button>
-                ))}
-                <button className="apply-btn" onClick={() => setApplied({ from: trFrom, to: trTo })}>Apply</button>
-              </div>
-            </div>
-
-            <div className="qrow">
-              <div className="ctcl-card">
-                <div className="ctcl-card-head">
-                  <div>
-                    <div className="ctcl-card-title">NSE-5864 <span className="badge b-blue" style={{ marginLeft: 6 }}>Line-1</span></div>
-                    <div className="ctcl-meta">Full day · 29,901 samples · Primary NSE adapter</div>
-                  </div>
-                  <span className="badge b-amber">Close spike 1,114</span>
-                </div>
-                <div className="ctcl-stats">
-                  <div className="cstat"><div className="cstat-val">720</div><div className="cstat-lbl">Open Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">1,114</div><div className="cstat-lbl">Close Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">~440</div><div className="cstat-lbl">Day Mean</div></div>
-                </div>
-                <div className="chart-canvas-wrap"><canvas ref={setCanvas("c-q5864")} height={160} /></div>
-              </div>
-
-              <div className="ctcl-card">
-                <div className="ctcl-card-head">
-                  <div>
-                    <div className="ctcl-card-title">NSE-2729 <span className="badge b-red" style={{ marginLeft: 6 }}>Line-2 ⚠</span></div>
-                    <div className="ctcl-meta">Pre-market only · 8,556 samples · Truncated 09:15:53</div>
-                  </div>
-                  <span className="badge b-red">5,538 peak ⚠</span>
-                </div>
-                <div className="ctcl-stats">
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--red)" }}>5,538</div><div className="cstat-lbl">Max Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">2,991</div><div className="cstat-lbl">09:00 Start</div></div>
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--amber)" }}>09:15:53</div><div className="cstat-lbl">Data Ends</div></div>
-                </div>
-                <div className="chart-canvas-wrap"><canvas ref={setCanvas("c-q2729")} height={160} /></div>
-              </div>
-
-              <div className="ctcl-card">
-                <div className="ctcl-card-head">
-                  <div>
-                    <div className="ctcl-card-title">NSE-48621 <span className="badge b-blue" style={{ marginLeft: 6 }}>Line-3</span></div>
-                    <div className="ctcl-meta">Full day · 1,347 samples · AMO + regular</div>
-                  </div>
-                  <span className="badge b-amber">Peak 1,071 at open</span>
-                </div>
-                <div className="ctcl-stats">
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--amber)" }}>1,071</div><div className="cstat-lbl">Open Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">443</div><div className="cstat-lbl">Day Mean</div></div>
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--green)" }}>~15min</div><div className="cstat-lbl">Drain Time</div></div>
-                </div>
-                <div className="chart-canvas-wrap"><canvas ref={setCanvas("c-q48621")} height={160} /></div>
-              </div>
-
-              <div className="ctcl-card">
-                <div className="ctcl-card-head">
-                  <div>
-                    <div className="ctcl-card-title">NFO-12492 / 57507 <span className="badge b-teal" style={{ marginLeft: 6 }}>AMO</span></div>
-                    <div className="ctcl-meta">NFO Line-2 · Full day · 266 samples</div>
-                  </div>
-                  <span className="badge b-green">Normal</span>
-                </div>
-                <div className="ctcl-stats">
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--green)" }}>507</div><div className="cstat-lbl">Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">~180</div><div className="cstat-lbl">Mean</div></div>
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--green)" }}>OK</div><div className="cstat-lbl">Status</div></div>
-                </div>
-                <div className="chart-canvas-wrap"><canvas ref={setCanvas("c-qnfo")} height={160} /></div>
-              </div>
-
-              <div className="ctcl-card">
-                <div className="ctcl-card-head">
-                  <div>
-                    <div className="ctcl-card-title">BSE <span className="badge b-purple" style={{ marginLeft: 6 }}>Line-1</span></div>
-                    <div className="ctcl-meta">Full day · 99,219 samples (post-fix)</div>
-                  </div>
-                  <span className="badge b-green">Normal</span>
-                </div>
-                <div className="ctcl-stats">
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--amber)" }}>1,222</div><div className="cstat-lbl">Open Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">~380</div><div className="cstat-lbl">Day Mean</div></div>
-                  <div className="cstat"><div className="cstat-val">99,219</div><div className="cstat-lbl">Samples</div></div>
-                </div>
-                <div className="chart-canvas-wrap"><canvas ref={setCanvas("c-qbse")} height={160} /></div>
-              </div>
-
-              <div className="ctcl-card">
-                <div className="ctcl-card-head">
-                  <div>
-                    <div className="ctcl-card-title">BFO <span className="badge b-orange" style={{ marginLeft: 6 }}>Line-1</span></div>
-                    <div className="ctcl-meta">Commodity segment · Full day</div>
-                  </div>
-                  <span className="badge b-green">Normal</span>
-                </div>
-                <div className="ctcl-stats">
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--green)" }}>420</div><div className="cstat-lbl">Peak</div></div>
-                  <div className="cstat"><div className="cstat-val">~210</div><div className="cstat-lbl">Mean</div></div>
-                  <div className="cstat"><div className="cstat-val" style={{ color: "var(--green)" }}>OK</div><div className="cstat-lbl">Status</div></div>
-                </div>
-                <div className="chart-canvas-wrap"><canvas ref={setCanvas("c-qbfo")} height={160} /></div>
-              </div>
-            </div>
-          </section>
+          </>
         )}
 
         {/* ═══ TRADING WINDOWS ═══ */}
         {tab === "windows" && (
-          <section className="panel active" id="p-windows">
-            <div className="slbl">Critical Trading Windows — Queue Behaviour</div>
-
-            <div className="win-grid">
-              {/* Open window */}
-              <div className="win-card">
-                <div className="win-head" style={{ background: "var(--red-lt)" }}>
-                  <span className="win-title" style={{ color: "var(--red)" }}>🔔 Market Open · 09:10–09:20</span>
-                  <span className="badge b-red">High Risk</span>
-                </div>
-                <div className="win-body">
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-2729 Peak</span><span className="win-stat-val alert">5,538</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-5864 Queue</span><span className="win-stat-val warn">720</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-48621 Queue</span><span className="win-stat-val warn">1,071</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">BSE Queue</span><span className="win-stat-val warn">1,222</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NFO Queue</span><span className="win-stat-val ok">~280</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">BFO Queue</span><span className="win-stat-val ok">~190</span></div>
-                </div>
-              </div>
-
-              {/* Pre-market */}
-              <div className="win-card">
-                <div className="win-head" style={{ background: "var(--amber-lt)" }}>
-                  <span className="win-title" style={{ color: "var(--amber)" }}>⏰ Pre-Market · 09:00–09:15</span>
-                  <span className="badge b-amber">Monitor</span>
-                </div>
-                <div className="win-body">
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-2729 Start</span><span className="win-stat-val warn">2,991</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-2729 Peak @09:15</span><span className="win-stat-val alert">5,538</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">YoY Change</span><span className="win-stat-val alert">+40% vs 2025</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-48621 Pre-mkt</span><span className="win-stat-val warn">823</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">BSE Pre-mkt</span><span className="win-stat-val warn">~800</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NFO Pre-mkt</span><span className="win-stat-val ok">~150</span></div>
-                </div>
-              </div>
-
-              {/* Square-off */}
-              <div className="win-card">
-                <div className="win-head" style={{ background: "var(--amber-lt)" }}>
-                  <span className="win-title" style={{ color: "var(--amber)" }}>📉 Square-Off · 15:15–15:30</span>
-                  <span className="badge b-amber">Watch</span>
-                </div>
-                <div className="win-body">
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-5864 Peak</span><span className="win-stat-val alert">1,114</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-48621 Close</span><span className="win-stat-val warn">660</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">BSE Close</span><span className="win-stat-val warn">~750</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NFO Close</span><span className="win-stat-val ok">~200</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">Alert threshold</span><span className="win-stat-val">NSE-5864: 1,000</span></div>
-                </div>
-              </div>
-
-              {/* Mid-day */}
-              <div className="win-card">
-                <div className="win-head" style={{ background: "var(--green-lt)" }}>
-                  <span className="win-title" style={{ color: "var(--green)" }}>✅ Mid-Day · 11:00–14:00</span>
-                  <span className="badge b-green">Stable</span>
-                </div>
-                <div className="win-body">
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-5864 Mean</span><span className="win-stat-val ok">~430</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NSE-48621 Mean</span><span className="win-stat-val ok">418–421</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">BSE Mean</span><span className="win-stat-val ok">~340</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">NFO Mean</span><span className="win-stat-val ok">~120</span></div>
-                  <div className="win-stat-row"><span className="win-stat-lbl">All segments</span><span className="win-stat-val ok">Normal ✓</span></div>
-                </div>
-              </div>
+          <>
+            <p className={sub}>Window figures are computed from each line's intraday series; short windows are bracketed by the nearest samples.</p>
+            <div className={cx(ui.grid, ui.cols[2])}>
+              {WINDOWS.map((w) => {
+                const rows = charted.map((c) => ({ c, v: windowValue(c.data, w.from, w.to, w.agg) }));
+                const lv: Level = w.agg === "mean" ? "ok" : rows.some((r) => levelOf(r.c.id, r.v) === "crit") ? "crit" : rows.some((r) => levelOf(r.c.id, r.v) === "warn") ? "warn" : "ok";
+                return (
+                  <Card as="section" key={w.id} className={ui.panel} aria-labelledby={`win-${w.id}`}>
+                    <div className={ui.panelHead}>
+                      <h2 id={`win-${w.id}`} className={ui.panelTitle}><Icon name={w.icon} className="text-fg-muted" /> {w.title}</h2>
+                      <Pill tone={LEVEL[lv].tone}>{LEVEL[lv].label}</Pill>
+                    </div>
+                    <Table>
+                        <thead><tr><th scope="col">CTCL</th><th scope="col">{w.agg === "max" ? "Peak queue" : "Mean queue"}</th><th scope="col">Threshold</th></tr></thead>
+                        <tbody>
+                          {rows.map(({ c, v }) => {
+                            const l = w.agg === "max" ? levelOf(c.id, v) : "ok";
+                            const t = depthLimit(c.id);
+                            return (
+                              <tr key={c.id}>
+                                <td className="font-medium">{c.name}</td>
+                                <td className={cx(monoCell, l !== "ok" && CELL_TONE[l])}>{fmtN(v)}</td>
+                                <td>{t ? `warn ${t.warn} · crit ${t.crit}` : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </Table>
+                  </Card>
+                );
+              })}
             </div>
 
-            <div className="slbl mt14">Window Zoom — Open (09:10–09:20)</div>
-            <div className="g2">
-              <div className="card">
-                <div className="ch"><div><div className="ct">NSE-2729 Queue — Open Window 09:10–09:20</div><div className="cs">Pre-market build-up &amp; AMO flush</div></div><span className="badge b-red">5,538 peak</span></div>
-                <div className="cw"><canvas ref={setCanvas("c-win-open-nse2")} height={180} /></div>
-              </div>
-              <div className="card">
-                <div className="ch"><div><div className="ct">NSE-48621 + BSE Queue — Open Window</div></div></div>
-                <div className="cw"><canvas ref={setCanvas("c-win-open-nse1")} height={180} /></div>
-              </div>
+            <div className={cx(ui.grid, ui.cols[2])}>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-o1">
+                <div className={ui.panelHead}><h2 id="zoom-o1" className={ui.panelTitle}>NSE-2729 — open window (5-min)</h2><SampleBadge /></div>
+                <p className={sub}>Pre-market build-up &amp; AMO flush · 5-minute samples have no feed yet</p>
+                <LineChart title="NSE-2729 open window (sample data)" labels={WO_LABELS} maxV={6000} series={[{ label: "NSE-2729", data: WO_NSE2, color: "#e5383b" }]} />
+              </Card>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-o2">
+                <div className={ui.panelHead}><h2 id="zoom-o2" className={ui.panelTitle}>NSE-48621 + BSE — open window (5-min)</h2><SampleBadge /></div>
+                <LineChart title="NSE-48621 and BSE open window (sample data)" labels={WO_LABELS} series={[
+                  { label: "NSE-48621", data: WO_NSE1, color: "#2f6bff" },
+                  { label: "BSE", data: WO_BSE, color: "#7c4dff" },
+                ]} />
+              </Card>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-c1">
+                <div className={ui.panelHead}><h2 id="zoom-c1" className={ui.panelTitle}>NSE-5864 — square-off window</h2><SampleBadge /></div>
+                <p className={sub}>Close-side pressure · minute samples have no feed yet</p>
+                <LineChart title="NSE-5864 square-off window (sample data)" labels={WC_LABELS} maxV={1400} series={[{ label: "NSE-5864", data: WC_NSE5, color: "#f5a524" }]} />
+              </Card>
+              <Card as="section" className={ui.panel} aria-labelledby="zoom-c2">
+                <div className={ui.panelHead}><h2 id="zoom-c2" className={ui.panelTitle}>NSE-48621 + BSE — square-off window</h2><SampleBadge /></div>
+                <LineChart title="NSE-48621 and BSE square-off window (sample data)" labels={WC_LABELS} series={[
+                  { label: "NSE-48621", data: WC_48621, color: "#2f6bff" },
+                  { label: "BSE", data: WC_BSE, color: "#7c4dff" },
+                ]} />
+              </Card>
             </div>
-
-            <div className="slbl mt14">Window Zoom — Square-Off (15:15–15:30)</div>
-            <div className="g2">
-              <div className="card">
-                <div className="ch"><div><div className="ct">NSE-5864 — Square-Off Window 15:15–15:30</div><div className="cs">Close-side pressure peak 1,114</div></div><span className="badge b-amber">1,114 ⚠</span></div>
-                <div className="cw"><canvas ref={setCanvas("c-win-close-nse1")} height={180} /></div>
-              </div>
-              <div className="card">
-                <div className="ch"><div><div className="ct">NSE-48621 + BSE — Square-Off Window</div></div></div>
-                <div className="cw"><canvas ref={setCanvas("c-win-close-mix")} height={180} /></div>
-              </div>
-            </div>
-          </section>
+          </>
         )}
 
         {/* ═══ CTCL MAP ═══ */}
         {tab === "ctclmap" && (
-          <section className="panel active" id="p-ctclmap">
-            <div className="slbl">CTCL / Adapter → Broker Mapping (18 Clients)</div>
-            <div className="abar blue">ℹ <span>CTCL IDs are per-segment per-line. Each broker accesses Noren OMS through specific CTCL codes assigned per exchange segment (NSE/NFO/BSE/BFO). Status reflects last polling cycle.</span></div>
-
-            <div className="card">
-              <div style={{ overflowX: "auto" }}>
-                <table className="ctcl-table" id="ctcl-matrix">
-                  <thead>
-                    <tr>
-                      <th>Broker</th>
-                      <th>CTCL (NSE-L1)</th>
-                      <th>CTCL (NSE-L2)</th>
-                      <th>CTCL (NFO-L1)</th>
-                      <th>CTCL (NFO-L2)</th>
-                      <th>CTCL (BSE)</th>
-                      <th>CTCL (BFO)</th>
-                      <th className="center">NSE</th>
-                      <th className="center">NFO</th>
-                      <th className="center">BSE</th>
-                      <th className="center">BFO</th>
-                      <th>Overall</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {brokers.map((b) => {
-                      const segs = [b.nse, b.nfo, b.bse, b.bfo];
-                      const fail = segs.filter((s) => s === 0).length;
-                      const ok = segs.filter((s) => s === 1).length;
-                      const sc = (v: number) => (
-                        <div className="sc-wrap"><div className={`sc ${v ? "ok" : "fail"}`}>{v ? "✓" : "✗"}</div></div>
-                      );
-                      const ctclCell = (id: string | undefined) =>
-                        !id || id === "—" ? <span style={{ color: "var(--ink4)" }}>—</span> : <span className="ctcl-id">{id}</span>;
-                      return (
-                        <tr key={b.n}>
-                          <td><div className="broker-name">{b.n}</div></td>
-                          <td>{ctclCell(b.ctcls.n1)}</td>
-                          <td>{ctclCell(b.ctcls.n2)}</td>
-                          <td>{ctclCell(b.ctcls.nf1)}</td>
-                          <td>{ctclCell(b.ctcls.nf2)}</td>
-                          <td>{ctclCell(b.ctcls.bse)}</td>
-                          <td>{ctclCell(b.ctcls.bfo)}</td>
-                          <td>{sc(b.nse)}</td>
-                          <td>{sc(b.nfo)}</td>
-                          <td>{sc(b.bse)}</td>
-                          <td>{sc(b.bfo)}</td>
-                          <td>
-                            {fail > 0
-                              ? <span className="ov-tag ov-fail">⚠ {fail} seg(s)</span>
-                              : <span className="ov-tag ov-ok">✓ {ok}/4</span>}
+          <>
+            <Panel title={`CTCL / adapter → broker mapping (${fmt(brokers.length)} clients)`}>
+              <p className={sub}>CTCL IDs are per segment and per line. Each broker reaches Noren OMS through the CTCL codes assigned per exchange segment; segment status reflects the last polling cycle.</p>
+              {brokers.length ? (
+                <Table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Broker</th>
+                        <th scope="col">CTCL (NSE-L1)</th>
+                        <th scope="col">CTCL (NSE-L2)</th>
+                        <th scope="col">CTCL (NFO-L1)</th>
+                        <th scope="col">CTCL (NFO-L2)</th>
+                        <th scope="col">CTCL (BSE)</th>
+                        <th scope="col">CTCL (BFO)</th>
+                        <th scope="col" className="text-center">NSE</th>
+                        <th scope="col" className="text-center">NFO</th>
+                        <th scope="col" className="text-center">BSE</th>
+                        <th scope="col" className="text-center">BFO</th>
+                        <th scope="col">Overall</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brokers.map((b: BrokerCtcl) => {
+                        const segs = [b.nse, b.nfo, b.bse, b.bfo];
+                        const fail = segs.filter((s) => s === 0).length;
+                        const ok = segs.filter((s) => s === 1).length;
+                        const sc = (v: number, seg: string) => (
+                          <td className="text-center">
+                            <span className={cx("inline-grid place-items-center w-6 h-6 rounded-[6px] text-xs", toneBg[v ? "ok" : "crit"])}>
+                              <Icon name={v ? "fa-check" : "fa-xmark"} />
+                              <span className="sr-only">{seg} {v ? "ok" : "failed"}</span>
+                            </span>
                           </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                        );
+                        const ctclCell = (id: string | undefined) =>
+                          !id || id === "—" ? <td>—</td> : <td className={monoCell}>{id}</td>;
+                        return (
+                          <tr key={b.n}>
+                            <td className="font-medium">{b.n}</td>
+                            {ctclCell(b.ctcls.n1)}
+                            {ctclCell(b.ctcls.n2)}
+                            {ctclCell(b.ctcls.nf1)}
+                            {ctclCell(b.ctcls.nf2)}
+                            {ctclCell(b.ctcls.bse)}
+                            {ctclCell(b.ctcls.bfo)}
+                            {sc(b.nse, "NSE")}
+                            {sc(b.nfo, "NFO")}
+                            {sc(b.bse, "BSE")}
+                            {sc(b.bfo, "BFO")}
+                            <td>
+                              {fail > 0
+                                ? <Pill tone="crit"><Icon icon={TriangleAlertIcon} /> {fail} seg(s)</Pill>
+                                : <Pill tone="ok"><Icon icon={CheckIcon} /> {ok}/4</Pill>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+              ) : <Empty>No broker mapping from /trading/ctcl/brokers/.</Empty>}
+            </Panel>
 
-            <div className="slbl mt14">CTCL Line Identifiers</div>
-            <div className="g3">
-              <div className="card">
-                <div className="ch"><div><div className="ct">NSE Lines</div></div></div>
-                <div className="cb">{lineTable(lines.filter((l) => l.segment === "NSE"), "Role")}</div>
-              </div>
-              <div className="card">
-                <div className="ch"><div><div className="ct">NFO Lines</div></div></div>
-                <div className="cb">{lineTable(lines.filter((l) => l.segment === "NFO"), "Role")}</div>
-              </div>
-              <div className="card">
-                <div className="ch"><div><div className="ct">BSE / BFO Lines</div></div></div>
-                <div className="cb">{lineTable(lines.filter((l) => l.segment === "BSE" || l.segment === "BFO"), "Segment")}</div>
-              </div>
+            <div className={cx(ui.grid, ui.cols[3])}>
+              <Panel title="NSE lines">{lineTable(lines.filter((l) => l.segment === "NSE"), "Role")}</Panel>
+              <Panel title="NFO lines">{lineTable(lines.filter((l) => l.segment === "NFO"), "Role")}</Panel>
+              <Panel title="BSE / BFO lines">{lineTable(lines.filter((l) => l.segment === "BSE" || l.segment === "BFO"), "Segment")}</Panel>
             </div>
-          </section>
+          </>
         )}
 
         {/* ═══ ALERTS ═══ */}
         {tab === "alerts" && (
-          <section className="panel active" id="p-alerts">
-            <div className="slbl">Active Incidents</div>
-
-            <div className="abar red">
-              🚨 <span><strong>P1 — NSE-2729 Data Truncation:</strong> Queue log stops at 09:15:53. Pre-market peak 5,538 (40% above 2025 baseline 3,955). Possible causes: adapter queue monitoring process died, file rotation issue on second CTCL, or AMO flush caused OOM crash. Action: check if NSE-2729 adapter queue logging process is running post market open on the Noren server.</span>
-            </div>
-            <div className="abar amber">
-              ⚠ <span><strong>P2 — NSE-5864 Close Spike:</strong> Queue hits 1,114 at 15:20–15:30 (above alert threshold 1,000). Morning peak normal (720). Monitor close window daily. Consider alert on &gt;1,000 for 3 consecutive samples.</span>
-            </div>
-            <div className="abar amber">
-              ⚠ <span><strong>P2 — BSE Pipeline Break (historical):</strong> BSE queue data previously dropped from 99,219 to 163 samples due to MySQL max_allowed_packet overflow in executemany batch. Fix deployed (batch chunks of 1,000 rows). Verify fix is active on both production servers.</span>
-            </div>
-            <div className="abar blue">
-              ℹ <span><strong>Info — NSE-48621 Open Surge:</strong> Peak 1,071 at 09:00, drains in ~15 min. Expected behaviour. No action required. Alert threshold recommended at 1,200 for anomaly detection.</span>
-            </div>
-
-            <div className="slbl mt14">Recommended Alert Thresholds</div>
-            <div className="card">
-              <table className="dtable">
-                <thead><tr><th>CTCL</th><th>Metric</th><th>Warn (P2)</th><th>Critical (P1)</th><th>Window</th><th>Action</th></tr></thead>
-                <tbody>
-                  <tr><td className="mono ctcl-id">NSE-2729</td><td>Queue depth</td><td>&gt;4,000</td><td>&gt;5,000</td><td>09:00–09:16</td><td>Page on-call, check adapter process</td></tr>
-                  <tr><td className="mono ctcl-id">NSE-2729</td><td>Data present</td><td>—</td><td>No data after 09:17</td><td>Continuous</td><td>P1 escalate to Hoysala</td></tr>
-                  <tr><td className="mono ctcl-id">NSE-5864</td><td>Queue depth</td><td>&gt;1,000</td><td>&gt;1,500</td><td>15:15–15:30</td><td>Alert, log for review</td></tr>
-                  <tr><td className="mono ctcl-id">NSE-48621</td><td>Queue depth</td><td>&gt;900</td><td>&gt;1,200</td><td>09:00–09:30</td><td>Investigate batch orders</td></tr>
-                  <tr><td className="mono ctcl-id">BSE-L1</td><td>Samples/hr</td><td>&lt;5,000</td><td>&lt;500</td><td>Continuous</td><td>Check MySQL pipeline / batch insert</td></tr>
-                  <tr><td className="mono ctcl-id">NFO-13424</td><td>Data window</td><td>—</td><td>&lt;5 min data</td><td>09:15</td><td>Investigate adapter logging</td></tr>
-                  <tr><td className="mono ctcl-id">All CTCLs</td><td>YoY queue change</td><td>&gt;20% higher</td><td>&gt;40% higher</td><td>Open window</td><td>Capacity review</td></tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="slbl mt14">Broker Impact — NSE-2729 Truncation</div>
-            <div className="card">
-              <div className="cb">
-                <div className="flex-wrap" id="broker-impact">
-                  {brokers.map((b) => (
-                    <span key={b.n} className="badge b-red">{b.n}</span>
+          <>
+            <Panel title={`Active alerts (${alerts.length}${p1 ? ` · ${p1} P1` : ""})`}>
+              <p className={sub}>Raised from line status and from each line's queue peak against the thresholds below.</p>
+              {alerts.length ? (
+                <div className={stackNotes}>
+                  {alerts.map((a) => (
+                    <div key={a.id} className={note(a.tone)}>
+                      <Icon name={a.tone === "crit" ? "fa-circle-exclamation" : "fa-triangle-exclamation"} />
+                      <p><Pill tone={a.tone}>{a.prio}</Pill> <b>{a.title}.</b> {a.text}</p>
+                    </div>
                   ))}
                 </div>
-                <div style={{ fontSize: 11.5, color: "var(--ink3)", marginTop: 10 }}>All 18 broker clients route NSE orders through the NSE-2729 / NSE-5864 CTCL lines. Queue truncation means post 09:15 queue depth is unmonitored for these clients on Line-2.</div>
-              </div>
-            </div>
-          </section>
-        )}
-      </main>
+              ) : <Empty>No active alerts.</Empty>}
+            </Panel>
 
-      <div className="tc-tooltip" ref={ttRef} />
-    </div>
+            <div className={note("muted")}>
+              <Icon icon={HistoryIcon} />
+              <p><b>Historical note (not live) — BSE pipeline break:</b> BSE queue data once dropped from 99,219 to 163 samples because of a MySQL max_allowed_packet overflow in the executemany batch. Fix deployed (batches of 1,000 rows); verify it is active on both production servers.</p>
+            </div>
+
+            <Panel title="Recommended alert thresholds">
+              <Table>
+                  <thead><tr><th scope="col">CTCL</th><th scope="col">Metric</th><th scope="col">Warn (P2)</th><th scope="col">Critical (P1)</th><th scope="col">Window</th><th scope="col">Action</th></tr></thead>
+                  <tbody>
+                    {THRESHOLDS.map((t) => (
+                      <tr key={`${t.id}-${t.metric}`}>
+                        <td className={monoCell}>{t.id}</td>
+                        <td>{t.metric}</td>
+                        <td className={CELL_TONE.warn}>{t.warn}</td>
+                        <td className={CELL_TONE.crit}>{t.crit}</td>
+                        <td>{t.window}</td>
+                        <td className={ui.cellWrap}>{t.action}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+            </Panel>
+
+            {problemLines.map((l) => {
+              const hit = brokersOn(l.id);
+              return (
+                <Panel key={l.id} title={`Broker impact — ${l.id} ${statusText(l.status).toLowerCase()}`}>
+                  {hit.length ? (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        {hit.map((b) => <Pill key={b.n} tone="crit">{b.n}</Pill>)}
+                      </div>
+                      <p className="text-xs text-fg-muted">{hit.length} of {brokers.length} broker clients have a CTCL code on {l.id}; queue depth on this line is unmonitored for them while its data is missing.</p>
+                    </>
+                  ) : <Empty>No mapped broker routes through {l.id}.</Empty>}
+                </Panel>
+              );
+            })}
+          </>
+        )}
+      </div>
+    </Page>
   );
 }

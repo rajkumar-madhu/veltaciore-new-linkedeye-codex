@@ -1,116 +1,136 @@
-// Knowledge base in ServiceNow form-style.
-// Ported from screens/knowledge.jsx.
+// Knowledge base (article list + article view).
+// Ported from screens/knowledge.jsx; LinkedEye layout.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
-import { Kpi, FormSection, Field, UserById } from "@/components/primitives";
+import { Empty, Panel, Pill, PillDot, countBy, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import { useArticles } from "@/api/hooks";
-import { ARTICLES } from "@/data/itsm";
 import { USERS } from "@/data/core";
+
+
+import { Tile, buttonClass, cx, ui } from "@/components/ui";
+import { chipClass, chipLabel, ddTone, entityTile, monoLink, sd } from "@/components/RecordList";
+import { Icon } from "@/components/Icon";
+import { BookOpenIcon, BotIcon, ChevronRightIcon, Grid3x3Icon, PencilIcon, PlusIcon, PrinterIcon, ShareIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
+const CATEGORIES: { label: string; id: string; icon: string }[] = [
+  { label: "Runbooks", id: "runbooks", icon: "fa-book" },
+  { label: "Process", id: "process", icon: "fa-diagram-project" },
+  { label: "Onboarding", id: "onboarding", icon: "fa-door-open" },
+  { label: "Known errors", id: "known errors", icon: "fa-bug" },
+];
+const userName = (id: string) => USERS.find((u) => u.id === id)?.name ?? id;
+
+function Summary({ icon, tone, label, value, note }: { icon: string; tone: Tone; label: string; value: React.ReactNode; note: string }) {
+  return (
+    <div className={cx(ui.card, "flex items-center gap-4 px-4.5 py-4 text-left cursor-default")}>
+      <Tile tone={tone}><Icon name={icon} /></Tile>
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-sm text-fg-muted">{label}</span>
+        <span className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{value}</span>
+        <span className="text-sm text-fg-muted">{note}</span>
+      </span>
+    </div>
+  );
+}
 
 export default function KnowledgeScreen() {
   const { setRoute } = useNav();
   const { data } = useArticles();
   const articles = data ?? [];
   const [cat, setCat] = React.useState("all");
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
   const filtered = cat === "all" ? articles : articles.filter(a => a.cat.toLowerCase() === cat);
 
+  const views = articles.reduce((s, a) => s + a.views, 0);
+  const rated = articles.filter((a) => typeof a.rating === "number" && !Number.isNaN(a.rating));
+  const avgRating = rated.length ? (rated.reduce((s, a) => s + a.rating, 0) / rated.length).toFixed(1) : "—";
+  const catCount = new Set(articles.map((a) => a.cat)).size;
+  const tags = countBy(articles.filter((a) => a.tag), (a) => a.tag).slice(0, 9);
+  const current = CATEGORIES.find((c) => c.id === cat);
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Knowledge Management</a><span className="sn-bc-sep">›</span>
-        <span>Articles</span>
-      </div>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
+        <Icon icon={ChevronRightIcon} />
+        <span>Knowledge Base</span>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">KB</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {articles.length} articles</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-book" /> 4 categories</span>
+      <div className={ui.head}>
+        <div>
+          <h1 className={ui.h1}>Knowledge Base</h1>
+          <p className={ui.headSub}>{fmt(articles.length)} articles in {catCount} categories · AI-assisted authoring</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Knowledge Base</h1>
-            <div className="sn-form-sub">{articles.reduce((s,a) => s + a.views, 0).toLocaleString()} views · AI-assisted authoring · {articles.filter(a => a.cat === "Runbooks").length} runbooks published</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-robot" /> Generate from Incident</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New Article</button>
-          </div>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={BotIcon} /> Generate from Incident</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={PlusIcon} /> New Article</button>
         </div>
       </div>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="Total articles" v={articles.length} s="published" tone="neutral" />
-        <Kpi l="Runbooks" v={articles.filter(a => a.cat === "Runbooks").length} s="operational" tone="ok" />
-        <Kpi l="Known errors" v={articles.filter(a => a.cat === "Known errors").length} s="documented" tone="warn" />
-        <Kpi l="Avg rating" v="4.6 / 5" s="from users" tone="ok" />
-        <Kpi l="Views (30d)" v={(articles.reduce((s,a) => s + a.views, 0) / 1000).toFixed(1) + "k"} s="engagement" tone="neutral" />
-        <Kpi l="Stale > 90d" v="2" s="needs review" tone="warn" />
+      <div className={cx(ui.grid, ui.cols[5])}>
+        <Summary icon="fa-book-open" tone="info" label="Total articles" value={fmt(articles.length)} note="published" />
+        <Summary icon="fa-book" tone="ok" label="Runbooks" value={fmt(articles.filter(a => a.cat === "Runbooks").length)} note="operational" />
+        <Summary icon="fa-bug" tone="warn" label="Known errors" value={fmt(articles.filter(a => a.cat === "Known errors").length)} note="documented" />
+        <Summary icon="fa-star" tone="purple" label="Avg rating" value={avgRating === "—" ? avgRating : `${avgRating} / 5`} note={`across ${rated.length} articles`} />
+        <Summary icon="fa-eye" tone="muted" label="Total views" value={fmt(views)} note="all time" />
       </div>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="cats" title="Categories" collapsed={collapsed.cats} onToggle={toggle}>
-            <div className="sn-kind-grid">
-              {[
-                ["Runbooks","runbooks","fa-book","#2563eb"],
-                ["Process","process","fa-diagram-project","#8b5cf6"],
-                ["Onboarding","onboarding","fa-door-open","#10b981"],
-                ["Known errors","known errors","fa-bug","#f59e0b"],
-              ].map(([l, id, ic, col]) => {
-                const n = articles.filter(a => a.cat.toLowerCase() === id).length;
-                return (
-                  <div key={id} className="sn-kind-card" onClick={() => setCat(cat === id ? "all" : id)} style={{ borderLeft: cat === id ? `3px solid ${col}` : "" }}>
-                    <div className="sn-kind-icon" style={{ color: col, background: col + "14" }}><i className={`fa-solid ${ic}`} /></div>
-                    <div className="sn-kind-body">
-                      <div className="sn-kind-count">{n}</div>
-                      <div className="sn-kind-label">{l}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </FormSection>
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="Filter by category">
+        <button type="button" className={chipClass(cat === "all")} aria-pressed={cat === "all"} onClick={() => setCat("all")}>
+          <Icon icon={Grid3x3Icon} />
+          <span className={chipLabel(cat === "all")}>All</span>
+          <span className="text-md font-bold">{articles.length}</span>
+        </button>
+        {CATEGORIES.map(({ label, id, icon }) => (
+          <button key={id} type="button" className={chipClass(cat === id)} aria-pressed={cat === id} onClick={() => setCat(cat === id ? "all" : id)}>
+            <Icon name={icon} />
+            <span className={chipLabel(cat === id)}>{label}</span>
+            <span className="text-md font-bold">{articles.filter(a => a.cat.toLowerCase() === id).length}</span>
+          </button>
+        ))}
+      </div>
 
-          <FormSection id="articles" title={cat === "all" ? "All Articles" : cat} badge={`${filtered.length} items`} collapsed={collapsed.articles} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:90}}>Number</th><th>Title</th><th style={{width:120}}>Category</th><th style={{width:130}}>Author</th><th style={{width:90}}>Views</th><th style={{width:80}}>Rating</th><th style={{width:120}}>Updated</th></tr></thead>
-              <tbody>
-                {filtered.map(a => (
-                  <tr key={a.id} onClick={() => setRoute("knowledge-article")} style={{ cursor: "pointer" }}>
-                    <td><a className="sn-link mono"><b>{a.id}</b></a></td>
-                    <td><b>{a.title}</b><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>#{a.tag}</div></td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {a.cat}</span></td>
-                    <td><UserById id={a.author} /></td>
-                    <td className="mono">{a.views.toLocaleString()}</td>
-                    <td className="mono tone-ok"><b>{a.rating}</b></td>
-                    <td className="text-mute" style={{ fontSize: 11.5 }}>{a.upd}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
+      <div className={ui.split}>
+        <Panel title={`${current ? current.label : "All Articles"} (${filtered.length})`}>
+          {filtered.length ? (
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
+                <thead>
+                  <tr><th scope="col">Number</th><th scope="col">Title</th><th scope="col">Category</th><th scope="col">Author</th><th scope="col">Views</th><th scope="col">Rating</th><th scope="col">Updated</th></tr>
+                </thead>
+                <tbody>
+                  {filtered.map(a => (
+                    <tr key={a.id}>
+                      <td><button type="button" className={monoLink} onClick={() => setRoute("knowledge-article")}>{a.id}</button></td>
+                      <td className={ui.cellWrap}><span className="font-medium">{a.title}</span><span className={cx(ui.sub, ui.mono)}>#{a.tag}</span></td>
+                      <td><Pill tone="muted">{a.cat}</Pill></td>
+                      <td>{userName(a.author)}</td>
+                      <td className={sd.cellMono}>{fmt(a.views)}</td>
+                      <td className={cx(sd.cellMono, "dark:text-tone-ok")}>{a.rating}</td>
+                      <td>{a.upd}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>{articles.length ? "No articles in this category." : "No published articles for this tenant yet."}</Empty>
+          )}
+        </Panel>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">AI Authoring</div>
-            <div className="sn-side-body" style={{ padding: 14 }}>
-              <div style={{ fontSize: 12.5, color: "#000", lineHeight: 1.6 }}>Based on your last 4 resolved incidents, Argus-LinkedEye can draft 2 new runbooks.</div>
-              <button className="sn-btn primary" style={{ marginTop: 10, width: "100%", justifyContent: "center" }}>Review drafts</button>
-            </div>
-          </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">Trending Tags</div>
-            <div className="sn-side-body" style={{ padding: 12, display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {["payments","k8s","incident","database","auth","postmortem","on-call","chatops","cdn"].map(t => (
-                <span key={t} className="sn-state-pill state-neutral" style={{ fontSize: 11 }}>#{t}</span>
-              ))}
-            </div>
-          </div>
+        <aside className={ui.rail} aria-label="Authoring">
+          <Panel title="AI Authoring">
+            <p className={sd.entryText}>Argus-LinkedEye can draft runbooks from recently resolved incidents.</p>
+            <button type="button" className={buttonClass("primary")}>Review drafts</button>
+          </Panel>
+          <Panel title="Top tags">
+            {tags.length ? (
+              <ul className={sd.tagsStart} aria-label="Tags">
+                {tags.map(([t, n]) => <li key={t} className={ui.tag}>#{t} <span className="text-fg-muted">{n}</span></li>)}
+              </ul>
+            ) : (
+              <Empty>No tags yet.</Empty>
+            )}
+          </Panel>
         </aside>
       </div>
     </div>
@@ -121,97 +141,103 @@ export function KnowledgeArticleScreen() {
   const { setRoute } = useNav();
   const { data } = useArticles();
   const a = (data ?? [])[0];
+  const crumbs = (last: string) => (
+    <nav className={ui.crumbs} aria-label="Breadcrumb">
+      <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
+      <Icon icon={ChevronRightIcon} />
+      <button type="button" className={ui.link} onClick={() => setRoute("knowledge")}>Knowledge Base</button>
+      <Icon icon={ChevronRightIcon} />
+      <span>{last}</span>
+    </nav>
+  );
   if (!a) {
     return (
-      <div className="page page-fade sn-dash">
-        <div className="sn-breadcrumb">
-          <a className="sn-link" onClick={() => setRoute("knowledge")}>Knowledge Base</a><span className="sn-bc-sep">›</span>
-          <span>Article</span>
-        </div>
-        <div className="sn-empty" style={{ margin: 24 }}>
-          <i className="fa-solid fa-book-open" /><h4>No articles</h4>
-          <p>The knowledge base has no published articles for this tenant.</p>
+      <div className={ui.page}>
+        {crumbs("Article")}
+        <div className={ui.card}>
+          <Empty>
+            <Icon icon={BookOpenIcon} /> <b>No articles</b>
+            <br />The knowledge base has no published articles for this tenant.
+          </Empty>
         </div>
       </div>
     );
   }
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link" onClick={() => setRoute("knowledge")}>Knowledge Base</a><span className="sn-bc-sep">›</span>
-        <span>{a.id}</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">{a.id}</span>
-          <span className="sn-pill svc-healthy" style={{ background: "#ecfdf3", color: "#027a48" }}><i className="fa-solid fa-circle" /> Published</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-circle" /> {a.cat}</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>{a.title}</h1>
-            <div className="sn-form-sub">By {USERS.find(u => u.id === a.author)?.name} · updated {a.upd} · {a.views.toLocaleString()} views · ★ {a.rating}</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-share" /> Share</button>
-            <button className="sn-btn"><i className="fa-solid fa-pen" /> Edit</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-print" /> Print</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <div className="sn-form-section">
-            <div className="sn-section-content">
-              <div style={{ padding: "20px 28px", maxWidth: 820, fontSize: 14, lineHeight: 1.75, color: "#000" }}>
-                <h3 style={{ fontSize: 16, fontWeight: 600, margin: "16px 0 8px" }}>Symptoms</h3>
-                <p>Elevated 5xx response rate on <code style={{ background: "#eaf0f7", padding: "1px 6px", borderRadius: 3, fontFamily: "var(--font-mono)", fontSize: 12.5, color: "#c62828" }}>checkout-api</code>, correlated with timeouts against Stripe. p95 latency climbs above 5s, error rate exceeds 10%.</p>
-                <h3 style={{ fontSize: 16, fontWeight: 600, margin: "20px 0 8px" }}>Cause</h3>
-                <p>The most common trigger is exhaustion of the database connection pool on <code style={{ background: "#eaf0f7", padding: "1px 6px", borderRadius: 3, fontFamily: "var(--font-mono)", fontSize: 12.5, color: "#c62828" }}>payments-primary</code>. This leaves checkout-api workers blocked on DB acquisition, exhausting Stripe HTTP client pools.</p>
-                <h3 style={{ fontSize: 16, fontWeight: 600, margin: "20px 0 8px" }}>Resolution</h3>
-                <ol style={{ paddingLeft: 22 }}>
-                  <li>Confirm via <a className="sn-link">payments-primary connection pool dashboard</a>.</li>
-                  <li>If utilization is 100%, run <a className="sn-link">pool-expansion-v3</a> runbook.</li>
-                  <li>Roll back any deploy in the last 2 hours that touched pool config.</li>
-                  <li>Monitor 10 minutes; update status page when recovery holds.</li>
-                </ol>
-                <div style={{ background: "#eaf0f7", borderLeft: "3px solid #016", padding: "12px 16px", borderRadius: 3, margin: "20px 0", fontSize: 13 }}>
-                  <b>Tip</b> · Argus-LinkedEye can auto-execute step 2 when this runbook is tagged on an active incident.
-                </div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, margin: "20px 0 8px" }}>Related</h3>
-                <ul style={{ paddingLeft: 22 }}>
-                  <li><a className="sn-link">KB-2113</a> · How to declare and lead a Sev-1 incident</li>
-                  <li><a className="sn-link">PRB-3912</a> · Connection pool sizing regression</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className={ui.page}>
+      {crumbs(a.id)}
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Article Properties</div>
-            <div className="sn-side-body">
-              <Field label="Number" value={<span className="mono">{a.id}</span>} />
-              <Field label="Category" value={a.cat} />
-              <Field label="Tag" value={<span className="mono">#{a.tag}</span>} />
-              <Field label="Author" value={<UserById id={a.author} />} />
-              <Field label="Updated" value={a.upd} />
-              <Field label="Views" value={a.views.toLocaleString()} />
-              <Field label="Rating" value={<span className="tone-ok"><b>{a.rating}</b> / 5</span>} />
-              <Field label="State" value={<span className="sn-state-pill svc-healthy"><i className="fa-solid fa-circle" /> Published</span>} />
-            </div>
+      <div className={sd.entityHead}>
+        <div className={sd.entity}>
+          <span className={entityTile("info")} aria-hidden="true"><Icon icon={BookOpenIcon} /></span>
+          <div>
+            <span className={sd.number}>{a.id}</span>
+            <h1 className={sd.entityTitle}>
+              {a.title}
+              <Pill tone="ok"><PillDot />Published</Pill>
+              <Pill tone="muted">{a.cat}</Pill>
+            </h1>
+            <p className={sd.entityMeta}>
+              <span>By {userName(a.author)}</span>
+              <span>Updated {a.upd}</span>
+              <span>{fmt(a.views)} views</span>
+              <span>Rating {a.rating} / 5</span>
+            </p>
           </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">Was this helpful?</div>
-            <div className="sn-side-body" style={{ padding: 14 }}>
-              <div className="row row-8">
-                <button className="sn-btn" style={{ flex: 1 }}><i className="fa-solid fa-thumbs-up" /> Yes</button>
-                <button className="sn-btn" style={{ flex: 1 }}><i className="fa-solid fa-thumbs-down" /> No</button>
-              </div>
-              <div className="text-mute" style={{ fontSize: 11, marginTop: 10 }}>96% found this helpful · 184 ratings</div>
-            </div>
+        </div>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <button type="button" className={buttonClass()}><Icon icon={ShareIcon} /> Share</button>
+            <button type="button" className={buttonClass()}><Icon icon={PencilIcon} /> Edit</button>
+            <button type="button" className={buttonClass("primary")}><Icon icon={PrinterIcon} /> Print</button>
           </div>
+        </div>
+      </div>
+
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-label="Article">
+          <div className={sd.prose}>
+            <h3>Symptoms</h3>
+            <p>Elevated 5xx response rate on <code>checkout-api</code>, correlated with timeouts against Stripe. p95 latency climbs above 5s, error rate exceeds 10%.</p>
+            <h3>Cause</h3>
+            <p>The most common trigger is exhaustion of the database connection pool on <code>payments-primary</code>. This leaves checkout-api workers blocked on DB acquisition, exhausting Stripe HTTP client pools.</p>
+            <h3>Resolution</h3>
+            <ol>
+              <li>Confirm via the payments-primary connection pool dashboard.</li>
+              <li>If utilization is 100%, run the <code>pool-expansion-v3</code> runbook.</li>
+              <li>Roll back any deploy in the last 2 hours that touched pool config.</li>
+              <li>Monitor 10 minutes; update status page when recovery holds.</li>
+            </ol>
+            <div className={sd.callout}>
+              <b>Tip</b> · Argus-LinkedEye can auto-execute step 2 when this runbook is tagged on an active incident.
+            </div>
+            <h3>Related</h3>
+            <ul>
+              <li><span className={ui.mono}>KB-2113</span> · How to declare and lead a Sev-1 incident</li>
+              <li><span className={ui.mono}>PRB-3912</span> · Connection pool sizing regression</li>
+            </ul>
+          </div>
+        </section>
+
+        <aside className={ui.rail} aria-label="Article details">
+          <Panel title="Article Properties">
+            <dl className={ui.dl}>
+              <dt>Number</dt><dd className={ui.mono}>{a.id}</dd>
+              <dt>Category</dt><dd>{a.cat}</dd>
+              <dt>Tag</dt><dd className={ui.mono}>#{a.tag}</dd>
+              <dt>Author</dt><dd>{userName(a.author)}</dd>
+              <dt>Updated</dt><dd>{a.upd}</dd>
+              <dt>Views</dt><dd>{fmt(a.views)}</dd>
+              <dt>Rating</dt><dd className={ddTone.ok}>{a.rating} / 5</dd>
+              <dt>State</dt><dd><Pill tone="ok"><PillDot />Published</Pill></dd>
+            </dl>
+          </Panel>
+          <Panel title="Was this helpful?">
+            <div className={sd.actions}>
+              <button type="button" className={buttonClass()}><Icon icon={ThumbsUpIcon} /> Yes</button>
+              <button type="button" className={buttonClass()}><Icon icon={ThumbsDownIcon} /> No</button>
+            </div>
+          </Panel>
         </aside>
       </div>
     </div>

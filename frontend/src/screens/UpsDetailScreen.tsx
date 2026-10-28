@@ -1,266 +1,254 @@
-// UPS monitoring — LinkedEye-style detail page for UPS units (APC-style):
-// front panel with 230V LCD + battery bank, load/runtime, battery health,
-// input/output power, outlet groups, and event history.
+// UPS node page in the Netdata Cloud layout, same skeleton as
+// ServerDetailScreen: header with model / IP / site / uptime and tags; KPI
+// cards; tabbed SNMP charts; recent alerts; relationships and configuration.
+//
+// Live numbers come from Prometheus via the metrics API (SNMP family). Load is
+// read from the device record's role ("Row A · 142 kW load · 87% load").
+// Battery, runtime and outlet groups need the UPS-MIB metrics, which are not
+// collected yet, so those panels are labelled as sample data.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
-import { useDevice } from "@/api/hooks";
+import { useTimeRange } from "@/store/timeRange";
+import { useDevice, useDeviceMetrics, useInfraAlerts } from "@/api/hooks";
 import { DEVICES } from "@/data/infra";
 import type { Device } from "@/lib/types";
-import {
-  Card, DetailHeader, Donut, FooterStrip, HBar, KpiTile, LineChart,
-  LiveBadge, StatusPill,
-} from "@/components/deviceDetail";
+import { Empty, Panel, Pill, PillDot } from "@/components/ld";
+import { Crumbs, Tab, Tabs, Table, buttonClass, cx, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
+import { LiveButton, MetricsBody, RangeSelect, SampleNotice } from "@/components/MetricCharts";
+import { Kpi, lastOf, node, seriesOf } from "@/components/KpiCard";
+import { DeviceFamily } from "@/components/DeviceFamily";
 
-const LOAD = [82, 84, 83, 86, 88, 85, 86, 87, 85, 86, 87, 86];
-const BATT = [100, 100, 100, 100, 98, 97, 97, 98, 99, 100, 100, 100];
-const V_IN = [229, 231, 230, 228, 226, 230, 231, 229, 230, 231, 230, 230];
-const V_OUT = [230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230, 230];
+import { Icon } from "@/components/Icon";
+import { BatteryChargingIcon, ExternalLinkIcon, FlaskConicalIcon, NetworkIcon, UnplugIcon } from "lucide-react";
+const STATUS: Record<string, { label: string; tone: Tone }> = {
+  ok: { label: "Online", tone: "ok" },
+  warn: { label: "Warning", tone: "warn" },
+  critical: { label: "Critical", tone: "crit" },
+  down: { label: "Offline", tone: "crit" },
+  unknown: { label: "Unknown", tone: "muted" },
+};
+const sevTone = (s: string): Tone => (s === "critical" ? "crit" : s === "warning" || s === "warn" ? "warn" : "info");
+const sevLabel = (s: string) => (s === "critical" ? "Critical" : s === "warning" || s === "warn" ? "Warning" : "Info");
 
-const OUTLETS = [
-  { name: "Group 1 — Network core", load: 24, state: "up" as const, devices: "FW/RTR/SW" },
-  { name: "Group 2 — Compute A", load: 31, state: "up" as const, devices: "ESX-BLR-01/02" },
-  { name: "Group 3 — Compute B", load: 22, state: "up" as const, devices: "DB servers" },
-  { name: "Group 4 — Storage", load: 9, state: "warn" as const, devices: "SAN + NAS" },
+/** Rated capacity from the model ("APC Symmetra PX 160kW" → 160) and load from the role. */
+function loadOf(d: Device) {
+  const pct = /(\d+(?:\.\d+)?)\s*%\s*load/i.exec(d.role || "");
+  const kw = /(\d+(?:\.\d+)?)\s*kW\s*load/i.exec(d.role || "");
+  const rated = /(\d+(?:\.\d+)?)\s*kW/i.exec(d.model || "");
+  return { pct: pct ? +pct[1] : null, kw: kw ? +kw[1] : null, rated: rated ? +rated[1] : null };
+}
+
+// Illustrative only — UPS-MIB battery / outlet metrics are not collected yet.
+const SAMPLE_BATTERY: string[][] = [
+  ["Charge", "100%"], ["Runtime at current load", "11 min 42 s"], ["Last self-test", "Passed"], ["Battery temperature", "26 °C"], ["Replacement due", "Pack 4"],
 ];
-
-const EVENTS: [string, string, "ok" | "warn" | "crit"][] = [
-  ["10:22 IST", "Self-test passed (runtime calibrated)", "ok"],
-  ["09:41 IST", "Battery runtime below 12 min at current load", "warn"],
-  ["Jun 12", "Input power restored · on utility", "ok"],
-  ["Jun 12", "On battery · utility failure 14 s", "crit"],
-  ["Jun 02", "Battery pack 2 replaced", "ok"],
+const SAMPLE_OUTLETS: string[][] = [
+  ["Group 1 — Network core", "24%", "On"], ["Group 2 — Compute A", "31%", "On"], ["Group 3 — Compute B", "22%", "On"], ["Group 4 — Storage", "9%", "On"],
 ];
-
-const BATT_CELLS = [
-  { name: "Pack 1", pct: 100, color: "#16a34a" },
-  { name: "Pack 2", pct: 100, color: "#22c55e" },
-  { name: "Pack 3", pct: 96, color: "#84cc16" },
-  { name: "Pack 4", pct: 91, color: "#f59e0b" },
-];
-
-const TABS = ["Overview", "Battery", "Power", "Outlets", "Environment", "Events", "Logs", "Alerts", "Settings"];
 
 export default function UpsDetailScreen() {
   const { setRoute } = useNav();
-  const paramId = useUiStore(s => s.params.deviceId as string | undefined);
-  const seed = DEVICES.find(d => d.id === paramId && d.kind === "ups")
-    ?? DEVICES.find(d => d.kind === "ups") ?? DEVICES[0];
+  const paramId = useUiStore((s) => s.params.deviceId as string | undefined);
+  const seed = DEVICES.find((x) => x.id === paramId && x.kind === "ups")
+    ?? DEVICES.find((x) => x.kind === "ups") ?? DEVICES[0];
   const { data: live } = useDevice(seed.id);
   const d: Device = live ?? seed;
 
+  const { preset, from, to } = useTimeRange();
+  const metrics = useDeviceMetrics(d.id, preset, from, to);
+  const alerts = (useInfraAlerts().data ?? []).filter((a) => a.device === d.id);
   const [tab, setTab] = React.useState("Overview");
-  const [tick, setTick] = React.useState(0);
-  React.useEffect(() => {
-    const t = setInterval(() => setTick(x => x + 1), 10_000);
-    return () => clearInterval(t);
-  }, []);
-  const jitter = (v: number, amp: number) => Math.max(0, Math.round(v + Math.sin(tick * 1.6) * amp));
+  React.useEffect(() => setTab("Overview"), [d.id]);
 
-  const vendor = (d.model || "").split(" ")[0].toUpperCase();
-  const loadPct = jitter(86, 2);
+  const m = metrics.data;
+  const connected = m?.source === "prometheus";
+  const st = STATUS[d.status] ?? STATUS.unknown;
+  const vendor = d.vendor || (d.model || "").split(" ")[0];
+  const load = loadOf(d);
+  const uptime = seriesOf(m, "uptime");
+  const fromRecord = `device record · ${d.lastSeen || "—"}`;
 
-  const frontPanel = (
-    <Card title={<span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>Device Front Panel <LiveBadge /></span>}
-      right={<span style={{ fontSize: 11, color: "#6b7785" }}>runtime at current load: <b style={{ color: "#b45309" }}>11m 42s</b></span>}>
-      <div style={{ background: "linear-gradient(180deg,#23272e 0%,#181c22 60%,#12151b 100%)", border: "1px solid #3a4048", borderRadius: 8, padding: "18px 20px", display: "flex", alignItems: "center", gap: 20, boxShadow: "inset 0 1px 0 rgba(255,255,255,.06), 0 3px 10px rgba(15,25,35,.25)" }}>
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ fontWeight: 900, fontSize: 13, color: "#c9d1da", letterSpacing: 0.8 }}>{vendor}</div>
-          <div style={{ fontSize: 9, color: "#8b95a3", marginBottom: 8 }}>{d.model.split(" ").slice(1).join(" ")}</div>
-          {(["ONLINE", "ON BATT", "FAULT"] as const).map((l, i) => (
-            <div key={l} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: i === 0 ? "#22c55e" : "#3a4048", boxShadow: i === 0 ? "0 0 4px #22c55e" : "none" }} />
-              <span style={{ fontSize: 7, fontFamily: "var(--font-mono)", color: "#8b95a3" }}>{l}</span>
-            </div>
-          ))}
-        </div>
-        {/* vents */}
-        <div style={{ width: 80, alignSelf: "stretch", borderRadius: 3, backgroundImage: "radial-gradient(circle, #3a404a 1.4px, transparent 1.5px)", backgroundSize: "6px 6px", border: "1px solid #333945", flexShrink: 0 }} />
-        <div style={{ flex: 1 }} />
-        {/* 230V LCD */}
-        <div style={{ background: "#082f49", border: "1px solid #0c4a6e", borderRadius: 4, padding: "12px 26px", color: "#67e8f9", fontFamily: "var(--font-mono)", textAlign: "center", boxShadow: "inset 0 0 14px rgba(103,232,249,.3)", flexShrink: 0 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>230<span style={{ fontSize: 12 }}>V</span></div>
-          <div style={{ fontSize: 10, color: "#38bdf8", marginTop: 3 }}>Online · {loadPct}% load</div>
-          <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 6 }}>
-            {Array.from({ length: 10 }, (_, i) => (
-              <span key={i} style={{ width: 8, height: 12, borderRadius: 1, background: i < Math.round(loadPct / 10) ? (loadPct > 85 ? "#f59e0b" : "#22c55e") : "#0c2436" }} />
-            ))}
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-        {/* battery bank */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, auto)", gap: 6, flexShrink: 0 }}>
-          {BATT_CELLS.map(b => (
-            <div key={b.name} style={{ textAlign: "center" }} title={`${b.name} · ${b.pct}%`}>
-              <div style={{ width: 20, height: 34, border: "1.5px solid #4a5158", borderRadius: 3, position: "relative", overflow: "hidden", background: "#12151b" }}>
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${b.pct}%`, background: b.color, opacity: 0.85 }} />
-              </div>
-              <span style={{ fontSize: 6.5, color: "#8b95a3", fontFamily: "var(--font-mono)" }}>{b.name.split(" ")[1]}</span>
-            </div>
-          ))}
-        </div>
-        {/* breakers */}
-        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-          {Array.from({ length: 4 }, (_, i) => (
-            <span key={i} style={{ width: 12, height: 24, background: "#101418", border: "1px solid #2c313a", borderRadius: 2, boxShadow: "inset 0 -11px 0 #16a34a" }} title={`breaker ${i + 1} · on`} />
-          ))}
-        </div>
-      </div>
-    </Card>
+  const tabs = ["Overview", "Performance", "Battery & Outlets", `Alerts (${alerts.length})`, "Relationships", "Configuration"];
+  const is = (name: string) => tab === name || (name === "Alerts" && tab.startsWith("Alerts"));
+  const goTab = (prefix: string) => setTab(tabs.find((t) => t.startsWith(prefix)) ?? "Overview");
+
+  const tags: { icon: string; label: string }[] = [
+    ...(d.role ? [{ icon: "fa-solid fa-tag", label: d.role.split("·")[0].trim() }] : []),
+    { icon: "fa-solid fa-car-battery", label: "UPS" },
+    ...(vendor ? [{ icon: "fa-solid fa-industry", label: vendor }] : []),
+    { icon: "fa-solid fa-satellite-dish", label: (d.agent || "snmp").toUpperCase() },
+  ];
+
+  const charts = (groups: string[]) => <MetricsBody data={m} isLoading={metrics.isLoading} isError={metrics.isError} groups={groups} quietWhenOff compact />;
+
+  const infoPanel = (
+    <Panel title="Device Information">
+      <dl className={ui.dl}>
+        <dt>Hostname</dt><dd>{d.hostname || d.id}</dd>
+        <dt>IP address</dt><dd className={ui.mono}>{d.ip || "—"}</dd>
+        <dt>Model</dt><dd>{d.model || "—"}</dd>
+        <dt>Vendor</dt><dd>{vendor || "—"}</dd>
+        <dt>Serial number</dt><dd className={ui.mono}>{d.serial_number || "—"}</dd>
+        <dt>Firmware</dt><dd>{d.os || "—"}</dd>
+        <dt>Site / location</dt><dd>{d.site}{d.location ? ` · ${d.location}` : ""}</dd>
+        <dt>Role</dt><dd>{d.role || "—"}</dd>
+        <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+      </dl>
+    </Panel>
   );
 
-  const outletTable = (
-    <Card pad={0}>
-      <div style={{ padding: "12px 16px 0", fontWeight: 700, fontSize: 13 }}>Outlet Groups</div>
-      <table className="sn-list-table" style={{ fontSize: 12 }}>
-        <thead><tr><th>Group</th><th style={{ width: 160 }}>Feeds</th><th style={{ width: 190 }}>Load</th><th style={{ width: 110 }}>State</th></tr></thead>
-        <tbody>
-          {OUTLETS.map(o => (
-            <tr key={o.name}>
-              <td style={{ fontWeight: 600 }}>{o.name}</td>
-              <td className="mono" style={{ fontSize: 11 }}>{o.devices}</td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <HBar pct={o.load} color="#16a34a" />
-                  <span className="mono" style={{ fontSize: 11, width: 30 }}>{o.load}%</span>
-                </div>
-              </td>
-              <td><StatusPill s={o.state} /></td>
-            </tr>
+  const loadPanel = (
+    <Panel title="Output Load">
+      {load.pct != null ? (
+        <>
+          <ul className={ui.bars}>
+            <li className={ui.barItem}>
+              <span className={ui.barLabel}>Load</span>
+              <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${Math.min(100, load.pct)}%`, background: load.pct > 90 ? "#e5383b" : load.pct > 80 ? "#f5a524" : "#16a34a" }} /></span>
+              <span className={ui.barValue}>{Math.round(load.pct)}%</span>
+            </li>
+          </ul>
+          <p className="text-fg-muted text-xs">
+            {load.kw != null ? `${load.kw} kW` : "—"}{load.rated != null ? ` of ${load.rated} kW rated` : ""} · from the device record
+          </p>
+        </>
+      ) : (
+        <Empty>Output load is not reported for this UPS yet.</Empty>
+      )}
+    </Panel>
+  );
+
+  const alertsPanel = (limit?: number) => (
+    <Panel title="Recent Alerts" action={limit ? { label: "View all alerts", onClick: () => goTab("Alerts") } : { label: "Open alert console", onClick: () => setRoute("alerts") }}>
+      {alerts.length ? (
+        <ul className={ui.activity}>
+          {alerts.slice(0, limit).map((a) => (
+            <li key={a.id} className={ui.activityItem}>
+              <Pill tone={sevTone(a.sev)}>{sevLabel(a.sev)}</Pill>
+              <span className={ui.activityText}>{a.title}{a.detail ? <span className="text-fg-muted"> · {a.detail}</span> : null}</span>
+              <span className="text-fg-muted whitespace-nowrap">{a.since}</span>
+            </li>
           ))}
-        </tbody>
-      </table>
-    </Card>
+        </ul>
+      ) : (
+        <Empty>No active alerts on {d.id}.</Empty>
+      )}
+    </Panel>
   );
 
-  const eventsPanel = (
-    <Card title="Recent Events">
-      {EVENTS.map(([t, v, s], i) => (
-        <div key={i} style={{ display: "flex", gap: 10, padding: "6px 0", borderBottom: "1px solid #f3f5f7", fontSize: 12, alignItems: "center" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: s === "ok" ? "#16a34a" : s === "warn" ? "#f59e0b" : "#ef4444", flexShrink: 0 }} />
-          <span className="mono" style={{ width: 62, color: "#8a94a3", fontSize: 11 }}>{t}</span>
-          <span style={{ color: "#3d4a5c" }}>{v}</span>
-        </div>
-      ))}
-    </Card>
+  const sampleTable = (title: string, cols: string[], rows: string[][]) => (
+    <Panel title={`${title} · Sample data — not connected`}>
+      <p className={node.sample}><Icon icon={FlaskConicalIcon} /> Illustrative values, not from {d.id}. This panel fills in once UPS-MIB battery and outlet metrics are collected.</p>
+      <Table>
+          <thead><tr>{cols.map((c) => <th key={c} scope="col">{c}</th>)}</tr></thead>
+          <tbody>
+            {rows.map((r) => <tr key={r[0]}>{r.map((v, i) => <td key={i}>{v}</td>)}</tr>)}
+          </tbody>
+        </Table>
+    </Panel>
   );
 
-  const batteryPanel = (
-    <Card title="Battery">
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-          <span style={{ color: "#6b7785" }}>Charge</span><b className="mono">100%</b>
-        </div>
-        <HBar pct={100} />
-      </div>
-      {([["Runtime @ load", "11m 42s", "#b45309"], ["Last self-test", "Passed · 10:22 IST", "#16a34a"], ["Battery temp", "26 °C", ""], ["Replacement due", "Pack 4 · 2027-01", "#b45309"], ["Cycles", "14", ""]] as [string, string, string][]).map(([l, v, tone]) => (
-        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #f3f5f7", fontSize: 12 }}>
-          <span style={{ color: "#6b7785" }}>{l}</span>
-          <span style={{ fontWeight: 600, color: tone || "#16212e" }}>{v}</span>
-        </div>
-      ))}
-    </Card>
+  const configPanel = (
+    <div className={cx(ui.grid, ui.cols[2])}>
+      {infoPanel}
+      <Panel title="Monitoring">
+        <dl className={ui.dl}>
+          <dt>Collector</dt><dd>{d.agent || "—"}</dd>
+          <dt>Metric family</dt><dd>{m?.family ?? "—"}</dd>
+          <dt>Metrics source</dt><dd>{m?.sample ? <Pill tone="muted">Sample data</Pill> : connected ? <Pill tone="ok">Prometheus · connected</Pill> : <Pill tone="muted">{m?.source === "unsupported" ? "Not supported" : "Not connected"}</Pill>}</dd>
+          <dt>Uptime</dt><dd>{d.uptime || "—"}</dd>
+          <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+        </dl>
+      </Panel>
+    </div>
   );
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link" onClick={() => setRoute("infra")}>Infra</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra-assets")}>Devices</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Power</a><span className="sn-bc-sep">›</span>
-        <span>{d.id}</span>
-      </div>
+    <div className={ui.page}>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Nodes", onClick: () => setRoute("infra-assets") }, { label: d.id }]} />
 
-      <DetailHeader d={d} tabs={TABS} tab={tab} setTab={setTab} category="ups" />
-
-      <div style={{ padding: "16px 24px", display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          {(tab === "Overview" || tab === "Battery" || tab === "Power") && frontPanel}
-
-          {tab === "Overview" && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-              <KpiTile label="Output Load" value={`${loadPct}%`} delta="137 kW of 160" up={false} good={loadPct < 85} sub="" />
-              <KpiTile label="Runtime" value="11m 42s" delta="below 12m threshold" up={false} good={false} sub="" />
-              <KpiTile label="Battery Charge" value="100%" delta="4 packs" up good sub="" />
-              <KpiTile label="Input Power" value="230 V" delta="utility OK · 50 Hz" up good sub="" />
-            </div>
-          )}
-
-          {(tab === "Overview" || tab === "Power" || tab === "Battery") && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              <Card title="Output Load (%)" right={<b className="mono" style={{ fontSize: 12.5, color: loadPct > 85 ? "#f59e0b" : "#16a34a" }}>{loadPct}%</b>} pad={14}>
-                <LineChart series={[LOAD]} colors={["#f59e0b"]} yTicks={["100%", "75%", "50%", "25%", "0%"]} />
-              </Card>
-              <Card title="Battery Charge (%)" right={<b className="mono" style={{ fontSize: 12.5, color: "#16a34a" }}>100%</b>} pad={14}>
-                <LineChart series={[BATT]} colors={["#16a34a"]} yTicks={["100%", "75%", "50%", "25%", "0%"]} />
-              </Card>
-              <Card title="Input / Output Voltage" right={<span style={{ fontSize: 10.5 }}><b className="mono" style={{ color: "#2563eb" }}>In 230V</b> <b className="mono" style={{ color: "#16a34a" }}>Out 230V</b></span>} pad={14}>
-                <LineChart series={[V_IN, V_OUT]} colors={["#2563eb", "#16a34a"]} yTicks={["240", "235", "230", "225", "220"]} />
-              </Card>
-            </div>
-          )}
-
-          {(tab === "Overview" || tab === "Outlets") && outletTable}
-          {(tab === "Events" || tab === "Environment") && eventsPanel}
-
-          {(tab === "Logs" || tab === "Alerts" || tab === "Settings") && (
-            <Card>
-              <div style={{ textAlign: "center", color: "#6b7785", fontSize: 13, padding: 8 }}>
-                <i className="fa-solid fa-arrow-up-right-from-square" style={{ marginRight: 8 }} />
-                Full {tab.toLowerCase()} for {d.id} live in the device monitoring workspace —
-                <a className="sn-link" style={{ marginLeft: 6 }} onClick={() => setRoute("infra-device", { deviceId: d.id })}>open device monitoring</a>
-              </div>
-            </Card>
-          )}
+      <div className={node.head}>
+        <div className={node.entity}>
+          <span className={node.deviceTile} aria-hidden="true"><Icon icon={BatteryChargingIcon} /></span>
+          <div>
+            <h1 className={node.title}>
+              {d.hostname || d.id}
+              <Pill tone={st.tone}><PillDot /> {st.label}</Pill>
+            </h1>
+            <p className={node.meta}>
+              <span>{d.model || "UPS"}</span>
+              <span className={ui.mono}>{d.ip}</span>
+              <span>Site: <b>{d.site || "—"}</b></span>
+              <span>Uptime: <b>{d.uptime || "—"}</b></span>
+            </p>
+            <p className={node.meta}>
+              <span>{d.os || "—"}</span>
+              <span>Last seen: {d.lastSeen || "—"}</span>
+            </p>
+          </div>
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card title="Device Health">
-            {([["Output load", loadPct], ["Battery charge", 100]] as [string, number][]).map(([l, v]) => (
-              <div key={l} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: "#6b7785" }}>{l}</span><b className="mono">{v}%</b>
-                </div>
-                <HBar pct={v} color={l === "Output load" && v > 85 ? "#f59e0b" : "#16a34a"} />
-              </div>
-            ))}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 14px", marginTop: 12, fontSize: 12 }}>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>Mode</div><b style={{ fontSize: 12, color: "#16a34a" }}>Online (double-conv.)</b></div>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>Frequency</div><b className="mono" style={{ fontSize: 15 }}>50 Hz</b></div>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>Bypass</div><b style={{ fontSize: 12 }}>Available</b></div>
-              <div><div style={{ color: "#6b7785", fontSize: 11 }}>On battery (30d)</div><b className="mono" style={{ fontSize: 12 }}>1× · 14 s</b></div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 14, paddingTop: 12, borderTop: "1px solid #f0f2f5" }}>
-              {([["fa-temperature-half", "Ambient", "23 °C"], ["fa-droplet", "Humidity", "47%"], ["fa-plug", "Breakers", "4 / 4"]] as [string, string, string][]).map(([ic, l, v]) => (
-                <div key={l} style={{ textAlign: "center" }}>
-                  <i className={`fa-solid ${ic}`} style={{ color: "#2563eb", fontSize: 13 }} />
-                  <div style={{ fontSize: 9.5, color: "#8a94a3", margin: "3px 0 1px" }}>{l}</div>
-                  <b className="mono" style={{ fontSize: 12 }}>{v}</b>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="Battery Packs">
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <Donut parts={BATT_CELLS.map(b => ({ pct: 25, color: b.color }))} />
-              <div style={{ flex: 1, fontSize: 11.5 }}>
-                {BATT_CELLS.map(b => (
-                  <div key={b.name} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-                    <span style={{ color: "#3d4a5c" }}><span style={{ color: b.color }}>●</span> {b.name}</span>
-                    <span className="mono" style={{ color: b.pct < 95 ? "#b45309" : "#6b7785" }}>{b.pct}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-
-          {batteryPanel}
-          {eventsPanel}
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <RangeSelect />
+            <LiveButton />
+            <button type="button" className={buttonClass()} onClick={() => setRoute("infra-topology")}><Icon icon={NetworkIcon} /> View in map</button>
+            <button type="button" className={buttonClass()} onClick={() => setRoute("infra-device", { deviceId: d.id })}><Icon icon={ExternalLinkIcon} /> Device monitoring</button>
+          </div>
+          <ul className={ui.tags} aria-label="Tags">
+            {tags.map((t) => <li key={t.label} className={ui.tag}><Icon className={t.icon} /> {t.label}</li>)}
+          </ul>
         </div>
       </div>
 
-      <FooterStrip />
+      {m?.sample && <SampleNotice />}
+      {!metrics.isLoading && !connected && (
+        <div className={cx(ui.card, ui.notice)} role="status">
+          <Icon icon={UnplugIcon} />
+          <div>
+            <b>{m?.source === "unsupported" ? "No metrics for this device type yet" : "Prometheus is not connected"}</b>
+            <p className="text-fg-muted text-xs">{m?.message ?? "The metrics API is not reachable from this browser."} Cards show the last values from the device record; charts fill in once the SNMP exporter is scraped.</p>
+          </div>
+        </div>
+      )}
+
+      <div className={node.kpis}>
+        <Kpi icon="fa-gauge-high" tone={load.pct != null && load.pct > 85 ? "warn" : "ok"} label="Output Load" value={load.pct != null ? `${Math.round(load.pct)}%` : "n/a"}
+          sub={load.pct != null ? fromRecord : "not reported"} />
+        <Kpi icon="fa-bolt" tone="info" label="Power Draw" value={load.kw != null ? `${load.kw} kW` : "n/a"}
+          sub={load.rated != null ? `of ${load.rated} kW rated` : load.kw != null ? fromRecord : "not reported"} />
+        <Kpi icon="fa-plug-circle-check" tone={st.tone} label="Power State" value={st.label} sub={fromRecord} />
+        <Kpi icon="fa-bell" tone={alerts.length ? "crit" : "ok"} label="Active Alerts" value={String(alerts.length)} sub={alerts.length ? alerts[0].title : "none open"} />
+        <Kpi icon="fa-clock" tone="info" label="Uptime" value={uptime ? `${lastOf(uptime)!.toFixed(1)} d` : d.uptime || "n/a"} sub={uptime ? "sysUpTime" : fromRecord} points={uptime?.points} />
+      </div>
+
+      <Tabs aria-label={`${d.id} sections`}>
+        {tabs.map((t) => (
+          <Tab key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Tab>
+        ))}
+      </Tabs>
+
+      {is("Overview") && (
+        <>
+          {charts(["cpu", "network", "uptime"])}
+          <div className={cx(ui.grid, ui.cols[3])}>
+            {loadPanel}
+            {infoPanel}
+            {alertsPanel(5)}
+          </div>
+        </>
+      )}
+      {is("Performance") && charts(["cpu", "network", "errors", "ports", "uptime"])}
+      {is("Battery & Outlets") && (
+        <div className={cx(ui.grid, ui.cols[2])}>
+          {sampleTable("Battery", ["Metric", "Value"], SAMPLE_BATTERY)}
+          {sampleTable("Outlet Groups", ["Group", "Load", "State"], SAMPLE_OUTLETS)}
+        </div>
+      )}
+      {is("Alerts") && alertsPanel()}
+      {is("Relationships") && <DeviceFamily deviceId={d.id} />}
+      {is("Configuration") && configPanel}
     </div>
   );
 }

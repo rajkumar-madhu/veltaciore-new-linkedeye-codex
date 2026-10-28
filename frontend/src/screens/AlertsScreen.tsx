@@ -1,169 +1,207 @@
-// Alerts screen — ServiceNow form-style
-// Ported from screens/alerts.jsx.
+// Alert console — opened from the header bell. Every active alert raised by
+// device monitoring: severity summary cards, a severity / site / search filter
+// bar, the alert table (device opens its detail page) and by-rule / by-site
+// breakdowns. Live data only (/infra/alerts/, /infra/devices/); the API has no
+// acknowledge / resolve endpoint yet, so the console is read-only.
 import React from "react";
-import { Kpi, FormSection, Field } from "@/components/primitives";
+import { useNav } from "@/hooks/useNav";
+import { deviceRoute } from "@/lib/deviceRoute";
+import { useDevices, useInfraAlerts } from "@/api/hooks";
+import type { InfraAlert } from "@/lib/types";
+import { Empty, PALETTE, Panel, Pill, StatCard, countBy, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, SearchBox, Select, Table, TextButton, cx, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
 
-interface AlertCondition {
-  name: string;
-  type: string;
-  target: string;
-  window: string;
-  priority: string;
-  state: string;
-  since: string;
-  policy: string;
-}
+
+import { Icon } from "@/components/Icon";
+import { FilterIcon, LayersIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
+type Sev = "critical" | "warning" | "info";
+const sevOf = (s: string): Sev => (s === "critical" ? "critical" : s === "warning" || s === "warn" ? "warning" : "info");
+const SEV: Record<Sev, { label: string; tone: Tone; icon: string; rank: number }> = {
+  critical: { label: "Critical", tone: "crit", icon: "fa-circle-xmark", rank: 0 },
+  warning: { label: "Warning", tone: "warn", icon: "fa-triangle-exclamation", rank: 1 },
+  info: { label: "Info", tone: "info", icon: "fa-circle-info", rank: 2 },
+};
+
+const ANY = "";
+const filterIcon = "w-[38px] h-[38px] rounded bg-bg-muted grid place-items-center text-fg-muted";
+const linkMono = "font-mono !text-xs font-semibold";
 
 export default function AlertsScreen() {
-  const [tab, setTab] = React.useState("all");
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+  const { setRoute } = useNav();
+  const alertsQ = useInfraAlerts();
+  const alerts = alertsQ.data ?? [];
+  const devices = useDevices().data ?? [];
+  const idp = React.useId();
 
-  const conditions: AlertCondition[] = [
-    { name: "Apdex below 0.7 · checkout-api", type: "NRQL", target: "< 0.7", window: "5m", priority: "critical", state: "triggered", since: "12m", policy: "Checkout SLOs" },
-    { name: "Error rate > 1% · checkout-api", type: "NRQL", target: "> 1%", window: "5m", priority: "critical", state: "triggered", since: "12m", policy: "Checkout SLOs" },
-    { name: "Stripe external errors > 5%", type: "NRQL", target: "> 5%", window: "5m", priority: "critical", state: "triggered", since: "10m", policy: "Payments deps" },
-    { name: "DB connection pool > 90%", type: "Metric", target: "> 0.9", window: "2m", priority: "warning", state: "warning", since: "8m", policy: "Infra capacity" },
-    { name: "Synthetic: checkout flow", type: "Synth", target: "any fail", window: "1m", priority: "critical", state: "triggered", since: "4m", policy: "Synthetics" },
-    { name: "Heap usage > 85% · payments-svc", type: "Metric", target: "> 0.85", window: "2m", priority: "warning", state: "ok", since: "—", policy: "JVM health" },
-    { name: "Log: timeout pattern surge", type: "Log", target: "> 100/min", window: "5m", priority: "critical", state: "triggered", since: "10m", policy: "Log alerts" },
-    { name: "p95 > 1s · payments-svc", type: "NRQL", target: "> 1000ms", window: "5m", priority: "warning", state: "warning", since: "14m", policy: "Latency SLOs" },
-    { name: "Pod CrashLoopBackOff", type: "Infra", target: "> 5/10m", window: "10m", priority: "critical", state: "ok", since: "—", policy: "K8s health" },
-    { name: "Disk usage > 90%", type: "Metric", target: "> 0.9", window: "5m", priority: "warning", state: "ok", since: "—", policy: "Infra capacity" },
-  ];
-  const filtered = tab === "all" ? conditions : tab === "triggered" ? conditions.filter(c => c.state === "triggered") : tab === "warning" ? conditions.filter(c => c.state === "warning") : conditions.filter(c => c.state === "ok");
+  const [sev, setSev] = React.useState(ANY);
+  const [site, setSite] = React.useState(ANY);
+  const [query, setQuery] = React.useState("");
+
+  const kindOf = React.useMemo(() => new Map(devices.map((d) => [d.id, d.kind])), [devices]);
+  const openDevice = (a: InfraAlert) => {
+    setRoute(deviceRoute(a.deviceKind ?? kindOf.get(a.device)), { deviceId: a.device });
+  };
+
+  const bySev = (s: Sev) => alerts.filter((a) => sevOf(a.sev) === s).length;
+  const sites = countBy(alerts, (a) => a.site || "—").map(([s]) => s).sort();
+
+  const q = query.trim().toLowerCase();
+  const visible = alerts
+    .filter((a) => {
+      if (sev && sevOf(a.sev) !== sev) return false;
+      if (site && (a.site || "—") !== site) return false;
+      if (q && ![a.title, a.detail, a.device, a.rule, a.id].some((v) => (v ?? "").toLowerCase().includes(q))) return false;
+      return true;
+    })
+    .sort((a, b) => SEV[sevOf(a.sev)].rank - SEV[sevOf(b.sev)].rank);
+
+  const reset = () => { setSev(ANY); setSite(ANY); setQuery(""); };
+
+  const byRule = countBy(alerts, (a) => a.rule || "—").slice(0, 8);
+  const ruleMax = byRule[0]?.[1] ?? 1;
+  const bySite = countBy(alerts, (a) => a.site || "—").slice(0, 8);
+  const siteMax = bySite[0]?.[1] ?? 1;
+  const affected = new Set(alerts.map((a) => a.device)).size;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Observe</a><span className="sn-bc-sep">›</span>
-        <span>Alert Conditions</span>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Alerts" }]} />
+
+      <PageHead
+        title="Alert Console"
+        subtitle="Active alerts raised by device monitoring across every site · refreshes every 30s"
+        actions={<>
+          <Button onClick={() => setRoute("alert-grouping")}>
+            <Icon icon={LayersIcon} /> Alert grouping
+          </Button>
+          <Button onClick={() => setRoute("monitors")}>
+            <Icon icon={SlidersHorizontalIcon} /> Monitors
+          </Button>
+        </>}
+      />
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-bell" tone="info" label="Active alerts" value={fmt(alerts.length)} note={`${fmt(affected)} devices affected`} onClick={reset} />
+        <StatCard icon={SEV.critical.icon} tone="crit" label="Critical" value={fmt(bySev("critical"))} note="needs response now" onClick={() => setSev("critical")} />
+        <StatCard icon={SEV.warning.icon} tone="warn" label="Warning" value={fmt(bySev("warning"))} note="at risk" onClick={() => setSev("warning")} />
+        <StatCard icon={SEV.info.icon} tone="ok" label="Info" value={fmt(bySev("info"))} note="informational" onClick={() => setSev("info")} />
       </div>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">ALERTS</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> {conditions.filter(c => c.state === "triggered").length} Triggered</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {conditions.filter(c => c.state === "warning").length} Warning</span>
-          <span className="sn-pill state-neutral">{conditions.length} total</span>
+      <form
+        className={cx(ui.card, ui.filters)}
+        onSubmit={(e) => e.preventDefault()}
+        onReset={(e) => { e.preventDefault(); reset(); }}
+      >
+        <span className={filterIcon} aria-hidden="true"><Icon icon={FilterIcon} /></span>
+        <div className={ui.filterField}>
+          <label htmlFor={`${idp}-sev`}>Severity</label>
+          <Select id={`${idp}-sev`} value={sev} onChange={(e) => setSev(e.target.value)}>
+            <option value={ANY}>All severities</option>
+            {(Object.keys(SEV) as Sev[]).map((s) => <option key={s} value={s}>{SEV[s].label}</option>)}
+          </Select>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Alert Conditions</h1>
-            <div className="sn-form-sub">Evaluated every 10–60s · 5 destinations configured</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-clock-rotate-left" /> History</button>
-            <button className="sn-btn"><i className="fa-solid fa-volume-xmark" /> Muted</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New Condition</button>
-          </div>
+        <div className={ui.filterField}>
+          <label htmlFor={`${idp}-site`}>Site</label>
+          <Select id={`${idp}-site`} value={site} onChange={(e) => setSite(e.target.value)}>
+            <option value={ANY}>All sites</option>
+            {sites.map((s) => <option key={s} value={s}>{s}</option>)}
+          </Select>
         </div>
-      </div>
+        <div className={cx(ui.filterField, ui.fieldGrow)}>
+          <label htmlFor={`${idp}-q`} className="sr-only">Search alerts</label>
+          <SearchBox icon={<Icon icon={SearchIcon} />} id={`${idp}-q`} type="search" placeholder="Search by alert, device, rule or ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+        <Button type="reset">Reset</Button>
+      </form>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="Total" v={conditions.length} s="all conditions" tone="neutral" />
-        <Kpi l="Triggered" v={conditions.filter(c => c.state === "triggered").length} s="needs response" tone="crit" />
-        <Kpi l="Warning" v={conditions.filter(c => c.state === "warning").length} s="at risk" tone="warn" />
-        <Kpi l="Healthy" v={conditions.filter(c => c.state === "ok").length} s="meeting SLO" tone="ok" />
-        <Kpi l="Policies" v="6" s="grouped" tone="neutral" />
-        <Kpi l="Destinations" v="5" s="Slack · PD · email" tone="neutral" />
-      </div>
-
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <div className="sn-activity-section">
-            <div className="sn-activity-tabs">
-              {[["all","All"],["triggered","Triggered"],["warning","Warning"],["ok","Healthy"]].map(([id,l]) => (
-                <button key={id} className={`sn-act-tab${tab===id?" active":""}`} onClick={() => setTab(id)}>{l}</button>
-              ))}
-            </div>
-            <table className="sn-list-table">
-              <thead>
-                <tr>
-                  <th>Condition</th><th style={{width:80}}>Type</th><th style={{width:120}}>Threshold</th>
-                  <th style={{width:80}}>Window</th><th style={{width:100}}>Priority</th>
-                  <th style={{width:140}}>State</th><th style={{width:140}}>Policy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c, i) => (
-                  <tr key={i}>
-                    <td><b>{c.name}</b></td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {c.type}</span></td>
-                    <td className="mono">{c.target}</td>
-                    <td className="mono">{c.window}</td>
-                    <td><span className={`sn-state-pill ${c.priority === "critical" ? "state-active" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {c.priority}</span></td>
-                    <td>
-                      <span className={`sn-state-pill ${c.state === "triggered" ? "state-active" : c.state === "warning" ? "state-mitigating" : "svc-healthy"}`}>
-                        <i className="fa-solid fa-circle" /> {c.state} {c.state !== "ok" && c.since}
-                      </span>
-                    </td>
-                    <td className="mono text-mute">{c.policy}</td>
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby={`${idp}-list-h`}>
+          <div className={ui.panelHead}>
+            <h2 id={`${idp}-list-h`} className={ui.panelTitle}>Alerts ({fmt(visible.length)})</h2>
+            <span className="text-fg-muted text-xs">Read-only · acknowledge and resolve from the source monitor</span>
+          </div>
+          {alertsQ.isLoading ? (
+            <Empty>Loading alerts…</Empty>
+          ) : visible.length ? (
+            <Table>
+                <thead>
+                  <tr>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Alert</th>
+                    <th scope="col">Device</th>
+                    <th scope="col">Site</th>
+                    <th scope="col">Rule</th>
+                    <th scope="col">Since</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {visible.map((a) => {
+                    const s = SEV[sevOf(a.sev)];
+                    return (
+                      <tr key={a.id}>
+                        <td><Pill tone={s.tone}><Icon className={`fa-solid ${s.icon}`} /> {s.label}</Pill></td>
+                        <td className={ui.cellWrap}>
+                          <span className="font-medium">{a.title}</span>
+                          {a.detail && <span className={ui.sub}>{a.detail}</span>}
+                        </td>
+                        <td>
+                          <TextButton className={linkMono} onClick={() => openDevice(a)} title={`Open ${a.device}`}>
+                            {a.device}
+                          </TextButton>
+                        </td>
+                        <td>{a.site || "—"}</td>
+                        <td><span className="font-mono text-[12.5px] text-accent">{a.rule || "—"}</span></td>
+                        <td className="whitespace-nowrap">{a.since}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+            </Table>
+          ) : (
+            <Empty>{alerts.length ? "No alerts match these filters." : alertsQ.isError ? "The alerts API is not reachable from this browser." : "No active alerts. All clear."}</Empty>
+          )}
+        </section>
 
-          <FormSection id="policies" title="Notification Policies" badge="6 policies" collapsed={collapsed.policies} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Policy</th><th style={{width:120}}>Conditions</th><th style={{width:180}}>On-call</th><th>Destination</th></tr></thead>
-              <tbody>
-                {[
-                  ["Checkout SLOs","18","payments-oncall","Slack #checkout-alerts"],
-                  ["Payments deps","12","payments-oncall","PagerDuty: payments"],
-                  ["JVM health","24","platform-oncall","Slack #platform-alerts"],
-                  ["Synthetics","8","sre-oncall","Slack #sre"],
-                  ["RUM","14","web-oncall","Email web-team@"],
-                  ["Anomaly","42","sre-oncall","Slack #anomalies"],
-                ].map((r,i) => (
-                  <tr key={i}>
-                    <td><b>{r[0]}</b></td>
-                    <td className="mono">{r[1]} conditions</td>
-                    <td className="mono">{r[2]}</td>
-                    <td className="mono">{r[3]}</td>
-                  </tr>
+        <div className={ui.rail}>
+          <Panel title="Alerts by rule">
+            {byRule.length ? (
+              <ul className={ui.bars}>
+                {byRule.map(([label, value], i) => (
+                  <li key={label} className={ui.barItem}>
+                    <span className={cx(ui.barLabel, ui.mono)} title={label}>{label}</span>
+                    <span className={ui.barTrack}>
+                      <span className={ui.barFill} style={{ width: `${(value / ruleMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                    </span>
+                    <span className={ui.barValue}>{value}</span>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </FormSection>
+              </ul>
+            ) : (
+              <Empty>No active alerts.</Empty>
+            )}
+          </Panel>
+          <Panel title="Alerts by site">
+            {bySite.length ? (
+              <ul className={ui.bars}>
+                {bySite.map(([label, value], i) => (
+                  <li key={label} className={ui.barItem}>
+                    <span className={ui.barLabel}>
+                      <TextButton onClick={() => setSite(label)}>{label}</TextButton>
+                    </span>
+                    <span className={ui.barTrack}>
+                      <span className={ui.barFill} style={{ width: `${(value / siteMax) * 100}%`, background: PALETTE[(i + 2) % PALETTE.length] }} />
+                    </span>
+                    <span className={ui.barValue}>{value}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>No active alerts.</Empty>
+            )}
+          </Panel>
         </div>
-
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Destinations</div>
-            <div className="sn-side-body">
-              {[
-                ["fa-brands fa-slack", "Slack", "5 channels"],
-                ["fa-solid fa-bell", "PagerDuty", "3 services"],
-                ["fa-solid fa-envelope", "Email", "12 lists"],
-                ["fa-solid fa-link", "Webhook", "2 URLs"],
-              ].map(([ic, name, count], i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title"><i className={ic} style={{ marginRight: 6, width: 14 }} /> {name}</div><div className="sn-related-meta">{count}</div></div>
-                  <i className="fa-solid fa-chevron-right text-mute" style={{ fontSize: 11 }} />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">Recent Activity</div>
-            <div className="sn-side-body">
-              {[
-                ["Apdex below 0.7","12m ago","critical"],
-                ["Stripe ext err","10m ago","critical"],
-                ["Heap > 85%","2h ago","resolved"],
-              ].map(([t, time, sev], i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title">{t}</div><div className="sn-related-meta">{time}</div></div>
-                  <span className={`sn-state-pill ${sev === "resolved" ? "svc-healthy" : "state-active"}`}><i className="fa-solid fa-circle" /> {sev}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
-    </div>
+    </Page>
   );
 }

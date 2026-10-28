@@ -14,7 +14,7 @@ for the Finspot/LinkedEye estate.
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite, TanStack Query, Zustand, React Router, custom design system (`src/styles.css`, ported from the prototype) |
+| Frontend | React 18 + TypeScript + Vite, Tailwind CSS (LinkedEye theme, `docs/ui-conventions.md`), Lucide icons, TanStack Query, Zustand, React Router |
 | Backend | Django 5 + DRF, django-filter, Gunicorn/Uvicorn |
 | Workers | Celery + Redis 7 (SNMP/node-exporter/blackbox polling, alert rules, EOD `L_ORDERLATENCY*.csv` batch) |
 | Database | PostgreSQL 16 (SQLite fallback for zero-config dev) |
@@ -51,6 +51,36 @@ on operational lists) when it is.
 ```bash
 docker compose up --build
 ```
+
+## Live monitoring data (Prometheus + Loki)
+
+Device, server and VM charts, processes, services, iDRAC / iLO and event logs
+read your own Prometheus and Loki. In development (`DJANGO_DEBUG=1`) with no
+`PROMETHEUS_URL` / `LOKI_URL` set, they draw generated sample values so every
+panel has something to show; each one is labelled "Sample data". Samples switch
+off as soon as the URL is set, and are never used in production
+(`METRICS_SAMPLE_DATA=0` turns them off in development too). A configured
+source that is down still says "not connected".
+
+1. `cp .env.example .env` and set `PROMETHEUS_URL` (plus `PROMETHEUS_TOKEN` if
+   it needs one) and `LOKI_URL` / `LOKI_HOST_LABEL`. `.env` is git-ignored;
+   never commit tokens.
+2. `docker compose up -d` (compose reads `.env`). Outside Docker, export the
+   same variables before starting the API.
+3. Check what the API can see:
+
+   ```bash
+   docker compose exec api python manage.py check_monitoring --devices
+   ```
+
+   It prints the Prometheus version, scrape jobs (targets up / total), which
+   exporter families have series, and for each device whether its selector
+   (IP / port, or `metrics_labels`) matches any series. A device listed as
+   "no series" needs its IP corrected or `metrics_labels` set, e.g.
+   `{"instance": "srv01.example:9182"}`.
+
+The API host must be able to reach Prometheus and Loki; if they are only on
+your internal network, run the API there.
 
 ## Tests
 

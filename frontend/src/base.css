@@ -1,0 +1,154 @@
+/* LinkedEye base: design tokens (CSS variables, light / dark / density),
+ * the element reset and defaults, and the @keyframes the Tailwind
+ * animate-[…] utilities use. Everything else is Tailwind utilities in the
+ * components; tailwind.config.js maps these variables to theme colours. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  /* Core palette */
+  --navy-900: #07211C;
+  --navy-800: #0B2A23;
+  --navy-700: #12362C;
+  --navy-600: #1A463A;
+  --blue-600: #0E9488;
+  --blue-500: #14B8A6;
+  --blue-400: #5EEAD4;
+  --blue-50:  #effbf8;
+  --purple-500: #8b5cf6;
+
+  /* State */
+  --critical: #ef4444;
+  --critical-bg: #fef2f2;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
+
+  /* Surfaces (light) */
+  --bg: #f6f7f9;
+  --bg-raised: #ffffff;
+  --bg-muted: #f1f3f6;
+  --bg-hover: #f3f4f6;
+
+  /* Text */
+  --fg: #0a1433;
+  --fg-muted: #4b5563;
+  --fg-subtle: #6b7785;
+  --fg-faint: #9ca3af;
+
+  /* Lines */
+  --border: #e5e8eb;
+  --border-strong: #d1d5db;
+  --border-subtle: #eef0f3;
+
+  /* Layout */
+  --sidebar: 232px;
+  --header: 52px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+
+  /* Type */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(10, 20, 51, 0.04);
+  --shadow-md: 0 2px 8px rgba(10, 20, 51, 0.06), 0 1px 2px rgba(10, 20, 51, 0.04);
+  --shadow-lg: 0 12px 40px rgba(10, 20, 51, 0.12), 0 2px 8px rgba(10, 20, 51, 0.06);
+  --shadow-pop: 0 24px 60px rgba(10, 20, 51, 0.24);
+
+  --accent: var(--blue-600);
+}
+[data-theme="dark"] {
+  --bg: #08091a;
+  --bg-raised: #0f1228;
+  --bg-muted: #141835;
+  --bg-hover: #1a1f3f;
+  --fg: #eef1ff;
+  --fg-muted: #a8aed0;
+  --fg-subtle: #6d7299;
+  --fg-faint: #4b4f73;
+  --border: #1c2046;
+  --border-strong: #2a2f5c;
+  --border-subtle: #141735;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.5);
+  --critical-bg: rgba(239, 68, 68, 0.12);
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --info-bg: rgba(59, 130, 246, 0.12);
+}
+[data-density="compact"] { --header: 44px; --sidebar: 220px; }
+[data-density="comfy"] { --header: 60px; --sidebar: 248px; }
+html, body, #root {
+  height: 100%;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+code, kbd, pre { font-family: var(--font-mono); }
+.ld-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex: none; overflow: visible; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
+}
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@keyframes pfade { from { opacity: 1; transform: none; } to { opacity: 1; transform: none; } }
+:root {
+  /* Slightly cooler, crisper neutrals */
+  --bg: #fafbfc;
+  --bg-raised: #ffffff;
+  --bg-muted: #f4f6f8;
+  --bg-hover: #f0f3f6;
+  --border: #e6e9ec;
+  --border-strong: #cdd2d8;
+  --border-subtle: #eef0f3;
+  --fg: #0c1726;
+  --fg-muted: #475467;
+  --fg-subtle: #667085;
+  --fg-faint: #98a2b3;
+  --shadow-sm: 0 1px 0 rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.04);
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  letter-spacing: -0.005em;
+}
+[class*="mono"] { font-feature-settings: "tnum", "ss01"; }
+* { transition-property: background-color, border-color, color, box-shadow; transition-duration: 80ms; }
+@keyframes dpulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(16,185,129,.18); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,.04); } }
+:root { --bg-card: var(--bg-raised); }
+@keyframes lp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@keyframes modalpop { from { transform: translateY(10px) scale(.985); } to { transform: none; } }
+@keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.45);} 70% { box-shadow: 0 0 0 7px rgba(16,185,129,0);} 100% { box-shadow:0 0 0 0 rgba(16,185,129,0);} }
+:root { --brand-1: #15B583; --brand-2: #0E8F66; --brand-grad: linear-gradient(135deg, #15B583, #0E8F66); }
+@keyframes auroraSpin { to { transform: rotate(360deg); } }
+@keyframes oncallPulse { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,.5); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+:root { --heal-mint: #5eead4; --heal-emerald: #15B583; }
+input:focus, textarea:focus { outline-color: var(--heal-emerald); }
+@keyframes route-loading-spin {
+  to { transform: rotate(360deg); }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@keyframes ld-devices-flow { to { stroke-dashoffset: -26; } }

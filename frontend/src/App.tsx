@@ -5,6 +5,7 @@ import { Sidebar, Header, TenantSwitcher } from "@/components/Shell";
 import { useUiStore, NO_TENANT } from "@/store/ui";
 import { useNav } from "@/hooks/useNav";
 import { useTenants } from "@/api/hooks";
+import { cx } from "@/components/ui";
 
 /**
  * Sync the acting tenant to the live backend. Offline (data undefined) we keep
@@ -79,6 +80,7 @@ const VmDetailScreen = React.lazy(() => import("@/screens/VmDetailScreen"));
 const DomainsScreen = React.lazy(() => import("@/screens/DomainsScreen"));
 const UrlCheckerScreen = React.lazy(() => import("@/screens/UrlCheckerScreen"));
 const TelnetMonitoringScreen = React.lazy(() => import("@/screens/TelnetMonitoringScreen"));
+const HeatmapScreen = React.lazy(() => import("@/screens/HeatmapScreen"));
 const APMScreen = React.lazy(() => import("@/screens/APMScreen"));
 const APMCatalogScreen = React.lazy(() => import("@/screens/APMCatalogScreen"));
 const AppDetailScreen = React.lazy(() => import("@/screens/AppDetailScreen"));
@@ -101,10 +103,12 @@ const BodChecksScreen = React.lazy(() => import("@/screens/BodChecksScreen"));
 const BodEodScreen = React.lazy(() => import("@/screens/BodEodScreen"));
 const SiteDetailScreen = React.lazy(() => import("@/screens/SiteDetailScreen"));
 
+const ROUTE_MSG = "min-h-[45vh] grid place-content-center justify-items-center gap-2.5 text-fg-muted text-xs";
+
 function RouteLoading() {
   return (
-    <div className="route-loading" role="status" aria-live="polite">
-      <span className="route-loading-spinner" aria-hidden="true" />
+    <div className={ROUTE_MSG} role="status" aria-live="polite">
+      <span className="w-[22px] h-[22px] border-2 border-line border-t-accent rounded-[50%] animate-[route-loading-spin_0.7s_linear_infinite] motion-reduce:animate-none" aria-hidden="true" />
       <span>Loading workspace…</span>
     </div>
   );
@@ -133,9 +137,9 @@ class RouteErrorBoundary extends React.Component<
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="route-loading" role="alert">
+      <div className={ROUTE_MSG} role="alert">
         <span>This page failed to load.</span>
-        <button className="btn" type="button" onClick={() => window.location.reload()}>
+        <button className="inline-flex items-center gap-1.5 h-8 py-1.5 px-3 text-[12.5px] font-medium tracking-[-0.005em] rounded-[5px] border border-line-strong bg-bg-raised text-fg whitespace-nowrap cursor-pointer [transition:all_.12s] hover:bg-bg-muted hover:border-fg-faint" type="button" onClick={() => window.location.reload()}>
           Reload
         </button>
       </div>
@@ -176,10 +180,24 @@ export default function App() {
 
   return (
     <>
-      <div className={`app${noChrome ? " no-chrome" : ""} nav-${nav}`}>
+      {/* group/app + data-nav drive the sidebar / header variants in Shell.tsx */}
+      <div
+        data-nav={nav}
+        className={cx(
+          "group/app grid h-screen overflow-hidden",
+          noChrome
+            ? "grid-cols-[1fr] grid-rows-[1fr] [grid-template-areas:'main']"
+            : cx(
+                "grid-cols-[var(--sidebar)_1fr] grid-rows-[var(--header)_1fr] [grid-template-areas:'sidebar_header'_'sidebar_main']",
+                // icon rail (68px) when collapsed and on narrow screens; no rail on phones
+                "max-[900px]:[--sidebar:68px] max-[560px]:[--sidebar:0px]",
+              ),
+          nav === "collapsed" && "[--sidebar:68px]",
+        )}
+      >
         {!noChrome && <Sidebar />}
         {!noChrome && <Header />}
-        <main className="main">
+        <main className="[grid-area:main] overflow-auto relative [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:[background:var(--border-strong)_padding-box_content-box] [&::-webkit-scrollbar-thumb]:rounded-[5px] [&::-webkit-scrollbar-thumb]:[border:2px_solid_var(--bg)] [&::-webkit-scrollbar-thumb:hover]:[background:var(--fg-faint)_padding-box_content-box]">
           <RouteErrorBoundary key={location.pathname}>
           <React.Suspense fallback={<RouteLoading />}>
             <Routes>
@@ -232,6 +250,7 @@ export default function App() {
             <Route path="/domains" element={<DomainsScreen />} />
             <Route path="/url-checker" element={<UrlCheckerScreen />} />
             <Route path="/telnet-monitoring" element={<TelnetMonitoringScreen />} />
+            <Route path="/heatmap" element={<HeatmapScreen />} />
             <Route path="/apm" element={<APMScreen />} />
             <Route path="/apm-catalog" element={<APMCatalogScreen />} />
             <Route path="/app-detail" element={<AppDetailScreen />} />

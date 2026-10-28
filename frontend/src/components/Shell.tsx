@@ -7,7 +7,10 @@ import { useNav } from "@/hooks/useNav";
 import { useTenants, useIncidents, useIncidentRecords, useProblemRecords, useChangeRecords, useDevices, useInfraAlerts } from "@/api/hooks";
 import { useAuth } from "@/auth/auth";
 import type { Tenant } from "@/lib/types";
+import { cx } from "@/components/ui";
 
+import { Icon } from "@/components/Icon";
+import { BellIcon, ChevronDownIcon, CircleHelpIcon, EyeIcon, InboxIcon, LogOutIcon, MenuIcon, PlusIcon, SearchIcon, SettingsIcon, SlidersHorizontalIcon, UserIcon, XIcon } from "lucide-react";
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrator",
   "infra-admin": "Infra Admin",
@@ -62,6 +65,7 @@ const NAV: NavNode[] = [
   { group: "monitoring", label: "Monitoring", icon: "fa-desktop", also: ["server-detail", "switch-detail", "vm-detail", "infra-device", "node"], items: [
     { id: "infra", label: "Overview", icon: "fa-chart-pie" },
     { id: "host-map", label: "Infrastructure", icon: "fa-hexagon-nodes" },
+    { id: "heatmap", label: "Heatmap", icon: "fa-table-cells" },
     { id: "infra-vms", label: "Virtual Machines", icon: "fa-cube" },
     { id: "infra-topology", label: "Network Devices", icon: "fa-network-wired" },
     { id: "url-checker", label: "URL Checker", icon: "fa-link" },
@@ -122,6 +126,35 @@ export function colorFor(name: string): string {
   )[name] || "linear-gradient(135deg,#2563eb,#8b5cf6)";
 }
 
+// Variants keyed on the app shell (App.tsx names the group: group/app + data-nav)
+// and on <body data-sidebar="light">.
+// Hidden in the icon rail: chosen with the menu button, or the default on narrow screens.
+const RAIL_HIDE = "group-data-[nav=collapsed]/app:hidden max-[900px]:group-data-[nav=auto]/app:hidden";
+const RAIL_CENTER = "group-data-[nav=collapsed]/app:justify-center group-data-[nav=collapsed]/app:px-0 max-[900px]:group-data-[nav=auto]/app:justify-center max-[900px]:group-data-[nav=auto]/app:px-0";
+const FOCUS_SB = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5b9bff] focus-visible:outline-offset-1";
+
+/** A sidebar row (leaf, sub-page or group head). */
+function sbItem({ active, activeGroup, sub }: { active?: boolean; activeGroup?: boolean; sub?: boolean }) {
+  return cx(
+    "flex items-center gap-3 w-[calc(100%-16px)] mx-2 mt-0 mb-0.5 rounded-[8px] [border:0] text-left relative cursor-pointer [transition:background_.12s,color_.12s]",
+    FOCUS_SB, RAIL_CENTER,
+    sub ? "min-h-0 py-1.5 pl-[46px] pr-3 text-[12.5px]" : "min-h-[38px] py-2 px-3 text-base",
+    active
+      ? "bg-accent !text-[#5eead4] font-semibold [box-shadow:0_2px_8px_rgba(22,98,224,0.3)]"
+      : cx(
+          "bg-transparent font-normal hover:bg-white/[.07] hover:text-white [[data-sidebar=light]_&:hover]:bg-bg-hover [[data-sidebar=light]_&:hover]:text-fg",
+          activeGroup ? "text-white [[data-sidebar=light]_&]:text-accent" : "text-[#d4daea] [[data-sidebar=light]_&]:text-fg-muted",
+        ),
+  );
+}
+
+const SB_ICON = "w-[18px] h-[18px] grid place-items-center text-md shrink-0";
+
+const SB_BADGE: Record<string, string> = {
+  critical: "bg-[#e5383b] text-white",
+  warning: "bg-[#f5a524] text-[#3b2300]",
+};
+
 export function Sidebar() {
   const { route, setRoute } = useNav();
   const tenant = useUiStore((s) => s.tenant);
@@ -154,74 +187,96 @@ export function Sidebar() {
       <button
         type="button"
         key={i.id}
-        className={`sb-item${sub ? " sb-sub" : ""}${route === i.id ? " active" : ""}`}
+        className={sbItem({ active: route === i.id, sub })}
         aria-current={route === i.id ? "page" : undefined}
         title={i.label}
         onClick={() => go(i.id)}
       >
-        {!sub && <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${i.icon}`} /></span>}
-        <span className="sb-label">{i.label}</span>
-        {badge && <span className={`sb-badge ${badge.kind}`}>{badge.n}</span>}
-        {!badge && i.kbd && <kbd>{i.kbd}</kbd>}
+        {!sub && <span className={SB_ICON} aria-hidden="true"><Icon className={`fa-solid ${i.icon}`} /></span>}
+        <span className={cx("flex-1", RAIL_HIDE)}>{i.label}</span>
+        {badge && (
+          <span className={cx("text-2xs font-bold py-0.5 px-2 rounded-[999px] min-w-[18px] text-center", RAIL_HIDE,
+            route === i.id ? "bg-white/25 text-white" : SB_BADGE[badge.kind] ?? "bg-white/[.12] text-white")}>{badge.n}</span>
+        )}
+        {!badge && i.kbd && (
+          <kbd className={cx("text-[10px] py-px px-[5px] rounded-[4px]", RAIL_HIDE,
+            route === i.id ? "bg-white/20 text-white" : "bg-white/[.08] text-white/50 [[data-sidebar=light]_&]:bg-bg-muted [[data-sidebar=light]_&]:text-fg-subtle")}>{i.kbd}</kbd>
+        )}
       </button>
     );
   };
 
   return (
-    <aside className="sidebar">
-      <div className="sb-head">
-        <div className="sb-logo" aria-hidden="true"><i className="fa-solid fa-eye" /></div>
-        <div className="sb-brand">
-          <b>LinkedEye</b>
-          <span>ITSM &amp; Monitoring Platform</span>
+    <aside className={cx(
+      "[grid-area:sidebar] flex flex-col bg-[#0f1b3d] text-white/[.82] border-r border-r-[#1b2a55]",
+      "[[data-sidebar=light]_&]:bg-bg-raised [[data-sidebar=light]_&]:text-fg [[data-sidebar=light]_&]:border-r-line",
+      // narrow screens: the expanded menu is a drawer over the page; the rail is hidden on phones
+      "max-[900px]:group-data-[nav=expanded]/app:fixed max-[900px]:group-data-[nav=expanded]/app:inset-y-0 max-[900px]:group-data-[nav=expanded]/app:left-0 max-[900px]:group-data-[nav=expanded]/app:right-auto max-[900px]:group-data-[nav=expanded]/app:w-[264px] max-[900px]:group-data-[nav=expanded]/app:z-[90] max-[900px]:group-data-[nav=expanded]/app:[box-shadow:0_0_0_100vmax_rgba(15,23,42,0.45)]",
+      "max-[560px]:group-data-[nav=auto]/app:hidden",
+    )}>
+      <div className={cx("flex items-center gap-2.5 min-h-16 py-3.5 px-4 border-b border-b-[#1f2d58] [[data-sidebar=light]_&]:border-b-line", RAIL_CENTER)}>
+        <div className="w-[34px] h-[34px] rounded-[10px] bg-[#1662e0] grid place-items-center text-white font-bold text-md tracking-[-0.02em] [box-shadow:0_4px_12px_rgba(22,98,224,0.35)]" aria-hidden="true"><Icon icon={EyeIcon} /></div>
+        <div className={cx("flex flex-col gap-px min-w-0", RAIL_HIDE)}>
+          <b className="text-2xl font-bold tracking-[-0.01em] text-white [[data-sidebar=light]_&]:text-fg">LinkedEye</b>
+          <span className="text-[10.5px] tracking-normal text-[#aab4d0] whitespace-nowrap overflow-hidden text-ellipsis [[data-sidebar=light]_&]:text-fg-subtle">ITSM &amp; Monitoring Platform</span>
         </div>
       </div>
 
-      <nav className="sb-nav" aria-label="Main">
+      <nav className="flex-1 overflow-y-auto pt-2 px-3 pb-3 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-white/[.12] [&::-webkit-scrollbar-thumb]:rounded-[2px]" aria-label="Main">
         {NAV.map((n) => {
           if (!isGroup(n)) return leaf(n);
           const expanded = isOpen(n.group);
           const here = activeGroup === n.group;
           return (
-            <div key={n.group} className={`sb-group${here ? " here" : ""}`}>
+            <div key={n.group}>
               <button
                 type="button"
-                className={`sb-item sb-group-head${here ? " active-group" : ""}`}
+                className={sbItem({ activeGroup: here })}
                 aria-expanded={expanded}
                 aria-controls={`sb-${n.group}`}
                 title={n.label}
                 onClick={() => setOpen((o) => ({ ...o, [n.group]: !expanded }))}
               >
-                <span className="sb-icon" aria-hidden="true"><i className={`fa-solid ${n.icon}`} /></span>
-                <span className="sb-label">{n.label}</span>
-                <i className={`fa-solid fa-chevron-${expanded ? "down" : "right"} sb-caret`} aria-hidden="true" />
+                <span className={SB_ICON} aria-hidden="true"><Icon className={`fa-solid ${n.icon}`} /></span>
+                <span className={cx("flex-1", RAIL_HIDE)}>{n.label}</span>
+                <Icon className={cx(`fa-solid fa-chevron-${expanded ? "down" : "right"}`, "text-[10px] opacity-60 ml-auto", RAIL_HIDE)} />
               </button>
-              {expanded && <div id={`sb-${n.group}`} className="sb-children">{n.items.map((i) => leaf(i, true))}</div>}
+              {expanded && <div id={`sb-${n.group}`} className={cx("flex flex-col mt-0.5 mb-1.5", RAIL_HIDE)}>{n.items.map((i) => leaf(i, true))}</div>}
             </div>
           );
         })}
       </nav>
 
-      <div className="sb-foot">
-        <button type="button" className="tenant-switch" onClick={() => setSwitcher(true)} title={`${ORG.name} · switch client`}>
-          <span className="t-icon" style={{ background: colorFor(tenant.color) }} aria-hidden="true">{tenant.code}</span>
-          <span className="t-body">
-            <span className="t-unit-label">Client</span>
-            <span className="t-org">{tenant.name}</span>
+      <div className="flex flex-col gap-2 p-3 border-t border-t-[#1f2d58] [[data-sidebar=light]_&]:border-t-line">
+        <button type="button" className={cx(
+          "flex items-center gap-2.5 w-full m-0 min-h-[52px] py-2 px-3 rounded-[10px] bg-[#15244d] border border-[#22305a] text-white text-left cursor-pointer [transition:background_.15s]",
+          "hover:bg-[#1a2b5c] hover:border-[#2c3c70]", FOCUS_SB,
+          "[[data-sidebar=light]_&]:bg-bg-muted [[data-sidebar=light]_&]:border-line [[data-sidebar=light]_&]:text-fg [[data-sidebar=light]_&:hover]:bg-bg-hover [[data-sidebar=light]_&:hover]:border-line",
+          "group-data-[nav=collapsed]/app:justify-center group-data-[nav=collapsed]/app:p-[6px] max-[900px]:group-data-[nav=auto]/app:justify-center max-[900px]:group-data-[nav=auto]/app:p-[6px]",
+        )} onClick={() => setSwitcher(true)} title={`${ORG.name} · switch client`}>
+          <span className="w-[26px] h-[26px] rounded-[6px] grid place-items-center text-white text-2xs font-bold shrink-0" style={{ background: colorFor(tenant.color) }} aria-hidden="true">{tenant.code}</span>
+          <span className={cx("flex flex-col flex-1 min-w-0 overflow-hidden", RAIL_HIDE)}>
+            <span className="text-2xs text-[#aab4d0] [[data-sidebar=light]_&]:text-fg-subtle">Client</span>
+            <span className="text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis [[data-sidebar=light]_&]:text-fg">{tenant.name}</span>
           </span>
-          <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+          <Icon icon={ChevronDownIcon} className={cx("text-[10px] text-white/50", RAIL_HIDE)} />
         </button>
-        <div className="sb-version">
-          <b>LinkedEye v9.0</b>
+        <div className={cx("flex flex-col gap-0.5 mt-2 py-2.5 px-3 border border-white/[.12] rounded-[8px] text-[11.5px] text-white/70 [[data-sidebar=light]_&]:border-line [[data-sidebar=light]_&]:text-fg-muted", RAIL_HIDE)}>
+          <b className="text-white text-[12.5px] [[data-sidebar=light]_&]:text-fg">LinkedEye v9.0</b>
           <span>Full-Stack Observability</span>
-          <span className={`sb-api ${apiUp ? "up" : "down"}`}>
-            <i className={`fa-solid ${apiUp ? "fa-circle-check" : "fa-circle-exclamation"}`} aria-hidden="true" /> {apiUp ? "API connected" : "API not reachable"}
+          <span className={cx("inline-flex items-center gap-1.5 mt-1 py-1 px-2 rounded-[6px] font-semibold", apiUp ? "text-[#6ee7b7] bg-[rgba(16,185,129,0.12)]" : "text-[#fca5a5] bg-[rgba(239,68,68,0.12)]")}>
+            <Icon className={`fa-solid ${apiUp ? "fa-circle-check" : "fa-circle-exclamation"}`} /> {apiUp ? "API connected" : "API not reachable"}
           </span>
         </div>
       </div>
     </aside>
   );
 }
+
+const ICON_BTN = "w-8 h-8 grid place-items-center rounded-[7px] [border:none] bg-transparent relative shrink-0 [transition:all_.12s] hover:bg-bg-hover hover:text-fg";
+const ICON_BTN_PLAIN = cx(ICON_BTN, "text-fg-subtle text-sm");
+
+const MENU_ITEM = "flex items-center gap-2.5 py-2 px-2.5 [border:0] rounded-[6px] bg-transparent text-sm text-left hover:bg-bg-hover";
 
 export function Header() {
   const { route, setRoute } = useNav();
@@ -240,15 +295,15 @@ export function Header() {
     setNav(narrow ? (nav === "expanded" ? "auto" : "expanded") : (nav === "collapsed" ? "auto" : "collapsed"));
   };
   return (
-    <header className="header">
-      <button type="button" className="icon-btn hdr-burger" aria-label="Toggle navigation" onClick={toggleNav}>
-        <i className="fa-solid fa-bars" aria-hidden="true" />
+    <header className="[grid-area:header] relative z-20 flex flex-nowrap items-center gap-4 px-4 h-[52px] bg-bg-raised border-b border-line">
+      <button type="button" className={cx(ICON_BTN, "flex-none text-lg text-fg")} aria-label="Toggle navigation" onClick={toggleNav}>
+        <Icon icon={MenuIcon} />
       </button>
 
-      <div className="hdr-command">
-        <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+      <div className="relative flex-[1_1_160px] min-w-[120px] max-w-[520px] mx-auto h-8 bg-bg-muted border border-line rounded-[6px] hover:border-line-strong">
+        <Icon icon={SearchIcon} className="absolute left-[11px] top-1/2 -translate-y-1/2 text-fg-faint text-2xs" />
         <input
-          className="hdr-command-input"
+          className="w-full h-8 bg-bg-muted border border-transparent rounded-[7px] pr-3 pl-8 text-[12.5px] text-fg [transition:all_.15s] placeholder:text-fg-subtle focus:[outline:none] focus:border-accent focus:bg-bg-raised focus:[box-shadow:0_0_0_3px_rgba(37,99,235,0.1)]"
           aria-label="Search"
           placeholder="Search incidents, devices, VMs, services or runbooks…"
           value={q}
@@ -265,46 +320,46 @@ export function Header() {
           }}
         />
         {q ? (
-          <button type="button" className="hdr-clear" aria-label="Clear search" onClick={() => { setQ(""); setSearch(""); }}>
-            <i className="fa-solid fa-xmark" aria-hidden="true" />
+          <button type="button" className="[border:0] bg-transparent text-fg-subtle py-0 px-0.5" aria-label="Clear search" onClick={() => { setQ(""); setSearch(""); }}>
+            <Icon icon={XIcon} />
           </button>
         ) : (
-          <kbd>↵</kbd>
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-fg-subtle bg-bg-raised py-0.5 px-[5px] rounded-[4px] border border-line max-[900px]:hidden">↵</kbd>
         )}
       </div>
 
-      <div className="hdr-right">
+      <div className="flex items-center gap-1 ml-auto shrink-0">
         {activeSev1 > 0 && (
-          <button type="button" className="hdr-incident-pill" onClick={() => setRoute("incidents")}>
-            <span className="pulse-dot" />
-            <span>{activeSev1} active Sev 1</span>
+          <button type="button" className="flex items-center gap-1.5 py-1 px-2.5 bg-[#fef3f2] text-[#b42318] [border:0] rounded-[5px] cursor-pointer whitespace-nowrap shrink-0 [transition:transform_.15s] hover:-translate-y-px" onClick={() => setRoute("incidents")}>
+            <span className="w-2 h-2 rounded-[50%] bg-[#b42318] ml-1 animate-[pulse-red_1.2s_ease-in-out_infinite]" />
+            <span className="max-[900px]:hidden">{activeSev1} active Sev 1</span>
           </button>
         )}
-        <button type="button" className="hdr-new" onClick={() => setRoute("incident-new")}>
-          <i className="fa-solid fa-plus" aria-hidden="true" /> New
+        <button type="button" className="inline-flex items-center gap-1.5 min-h-[34px] px-3.5 [border:0] rounded bg-accent text-white text-sm font-semibold cursor-pointer hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 max-[900px]:hidden" onClick={() => setRoute("incident-new")}>
+          <Icon icon={PlusIcon} /> New
         </button>
-        <button type="button" className="icon-btn" title="Alerts" aria-label={`Alerts (${alertCount})`} onClick={() => setRoute("alerts")}>
-          <i className="fa-solid fa-bell" aria-hidden="true" />
-          {alertCount > 0 && <span className="hdr-count">{alertCount > 99 ? "99+" : alertCount}</span>}
+        <button type="button" className={ICON_BTN_PLAIN} title="Alerts" aria-label={`Alerts (${alertCount})`} onClick={() => setRoute("alerts")}>
+          <Icon icon={BellIcon} />
+          {alertCount > 0 && <span className="absolute -top-[3px] -right-1 min-w-[17px] h-[17px] px-1 rounded-[9px] bg-critical text-white text-[10px] font-bold grid place-items-center border-2 border-bg-raised">{alertCount > 99 ? "99+" : alertCount}</span>}
         </button>
-        <button type="button" className="icon-btn" title="Help" aria-label="Help" onClick={() => setRoute("knowledge")}><i className="fa-solid fa-circle-question" aria-hidden="true" /></button>
-        <button type="button" className="icon-btn" title="Settings" aria-label="Settings" onClick={() => setRoute("settings")}><i className="fa-solid fa-gear" aria-hidden="true" /></button>
-        <div className="hdr-user-wrap">
-          <button type="button" className="hdr-user" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}
+        <button type="button" className={ICON_BTN_PLAIN} title="Help" aria-label="Help" onClick={() => setRoute("knowledge")}><Icon icon={CircleHelpIcon} /></button>
+        <button type="button" className={ICON_BTN_PLAIN} title="Settings" aria-label="Settings" onClick={() => setRoute("settings")}><Icon icon={SettingsIcon} /></button>
+        <div className="relative">
+          <button type="button" className="flex items-center gap-2 py-1 pr-2 pl-1 rounded-[7px] cursor-pointer [border:0] bg-transparent text-left shrink-0 hover:bg-bg-hover [&>div]:min-w-0" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}
             title={`${identity.name} · ${identity.email}\nroles: ${identity.roles.join(", ") || "none"}`}>
             <Avatar name={identity.name} color="amber" />
-            <span className="hdr-user-text">
-              <b>{identity.name.split(" ")[0]}</b>
-              <span>{identity.roles[0] ? roleLabel(identity.roles[0]) : "no role"}</span>
+            <span className="block flex-col leading-[1.2] text-2xs text-fg-subtle whitespace-nowrap">
+              <b className="text-sm font-[550] whitespace-nowrap">{identity.name.split(" ")[0]}</b>
+              <span className="block text-2xs text-fg-subtle whitespace-nowrap">{identity.roles[0] ? roleLabel(identity.roles[0]) : "no role"}</span>
             </span>
-            <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+            <Icon icon={ChevronDownIcon} className="text-[9px] text-fg-faint" />
           </button>
           {menu && (
-            <div className="hdr-menu" role="menu">
-              <div className="hdr-menu-id"><b>{identity.name}</b><span>{identity.email}</span></div>
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("users"); }}><i className="fa-solid fa-user" aria-hidden="true" /> Profile &amp; roles</button>
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); setRoute("settings"); }}><i className="fa-solid fa-sliders" aria-hidden="true" /> Settings</button>
-              <button type="button" role="menuitem" onClick={() => { setMenu(false); logout(); setRoute("sign-in"); }}><i className="fa-solid fa-right-from-bracket" aria-hidden="true" /> Sign out</button>
+            <div className="absolute right-0 top-[calc(100%+6px)] z-[80] min-w-[220px] p-1.5 bg-bg-raised border border-line rounded-[10px] [box-shadow:var(--shadow-lg,0_12px_28px_rgba(0,0,0,.18))] flex flex-col" role="menu">
+              <div className="flex flex-col py-2 px-2.5 border-b border-line mb-1 text-xs text-fg-muted"><b className="text-fg text-sm">{identity.name}</b><span>{identity.email}</span></div>
+              <button type="button" role="menuitem" className={MENU_ITEM} onClick={() => { setMenu(false); setRoute("users"); }}><Icon icon={UserIcon} /> Profile &amp; roles</button>
+              <button type="button" role="menuitem" className={MENU_ITEM} onClick={() => { setMenu(false); setRoute("settings"); }}><Icon icon={SlidersHorizontalIcon} /> Settings</button>
+              <button type="button" role="menuitem" className={MENU_ITEM} onClick={() => { setMenu(false); logout(); setRoute("sign-in"); }}><Icon icon={LogOutIcon} /> Sign out</button>
             </div>
           )}
         </div>
@@ -312,6 +367,12 @@ export function Header() {
     </header>
   );
 }
+
+const TSW_SECTION = "text-[10.5px] font-semibold text-fg-subtle uppercase tracking-[0.06em] pt-2 px-3 pb-1";
+const tswRow = (focus = false) => cx("flex items-center gap-3 py-2 px-3 rounded-[8px] cursor-pointer hover:bg-bg-muted", focus && "bg-bg-muted");
+const TSW_ICON = "w-8 h-8 rounded-[7px] grid place-items-center text-white font-bold text-xs shrink-0";
+const TSW_INFO = "flex-1 min-w-0 [&_b]:block [&_b]:text-sm [&_b]:font-[550] [&_span]:block [&_span]:text-[11.5px] [&_span]:text-fg-subtle";
+const TSW_META = "flex gap-2.5 items-center text-2xs text-fg-subtle";
 
 export function TenantSwitcher() {
   const open = useUiStore((s) => s.switcherOpen);
@@ -339,55 +400,55 @@ export function TenantSwitcher() {
   const source = liveTenants && liveTenants.length ? liveTenants : (liveTenants ? [] : TENANTS);
   const filtered = source.filter((t) => t.name.toLowerCase().includes(q.toLowerCase()));
   return (
-    <div className="tsw-backdrop" onClick={onClose}>
-      <div className="tsw" onClick={(e) => e.stopPropagation()}>
-        <div className="tsw-head">
-          <i className="fa-solid fa-magnifying-glass" />
-          <input autoFocus placeholder="Jump to tenant, workspace, or view…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <kbd>esc</kbd>
+    <div className="fixed inset-0 bg-[rgba(10,20,51,0.55)] [backdrop-filter:blur(4px)] z-[1000] grid place-items-center py-[60px] px-5 animate-[fadein_0.15s_ease]" onClick={onClose}>
+      <div className="bg-bg-raised rounded-[14px] w-[640px] max-w-full [box-shadow:var(--shadow-pop)] overflow-hidden border border-line" onClick={(e) => e.stopPropagation()}>
+        <div className="py-3.5 px-4.5 border-b border-line flex items-center gap-3">
+          <Icon icon={SearchIcon} className="text-fg-faint" />
+          <input className="flex-1 [border:none] bg-transparent [outline:none] text-base" autoFocus placeholder="Jump to tenant, workspace, or view…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <kbd className="text-[10.5px] text-fg-subtle bg-bg-muted py-0.5 px-1.5 rounded-[4px]">esc</kbd>
         </div>
-        <div className="tsw-body">
-          <div className="tsw-section-title">Parent organization</div>
-          <div className="tsw-row" onClick={() => { onClose(); setRoute("cross-tenant"); }}>
-            <div className="tsw-icon" style={{ background: "linear-gradient(135deg,#0f1c3f,#2563eb)" }}>FS</div>
-            <div className="tsw-info">
+        <div className="max-h-[480px] overflow-y-auto p-1.5">
+          <div className={TSW_SECTION}>Parent organization</div>
+          <div className={tswRow()} onClick={() => { onClose(); setRoute("cross-tenant"); }}>
+            <div className={TSW_ICON} style={{ background: "linear-gradient(135deg,#0f1c3f,#2563eb)" }}>FS</div>
+            <div className={TSW_INFO}>
               <b>{ORG.name}</b>
               <span>All business units · cross-tenant view</span>
             </div>
-            <div className="tsw-meta"><Pill kind="purple" noDot>Super-admin</Pill></div>
+            <div className={TSW_META}><Pill kind="purple" noDot>Super-admin</Pill></div>
           </div>
 
-          <div className="tsw-section-title">Business units ({filtered.length})</div>
+          <div className={TSW_SECTION}>Business units ({filtered.length})</div>
           {source.length === 0 && (
-            <div className="tsw-row" style={{ cursor: "default", opacity: 0.75 }}>
-              <div className="tsw-icon" style={{ background: "var(--bg-muted)", color: "var(--fg-muted)" }}><i className="fa-solid fa-inbox" /></div>
-              <div className="tsw-info">
+            <div className={tswRow()} style={{ cursor: "default", opacity: 0.75 }}>
+              <div className={TSW_ICON} style={{ background: "var(--bg-muted)", color: "var(--fg-muted)" }}><Icon icon={InboxIcon} /></div>
+              <div className={TSW_INFO}>
                 <b>No business units provisioned</b>
                 <span>Clean deployment · create one to get started</span>
               </div>
             </div>
           )}
           {filtered.map((t, i) => (
-            <div key={t.id} className={`tsw-row${i + 1 === focus ? " focus" : ""}`} onClick={() => { setTenant(t); onClose(); }}>
-              <div className="tsw-icon" style={{ background: colorFor(t.color) }}>{t.code}</div>
-              <div className="tsw-info">
+            <div key={t.id} className={tswRow(i + 1 === focus)} onClick={() => { setTenant(t); onClose(); }}>
+              <div className={TSW_ICON} style={{ background: colorFor(t.color) }}>{t.code}</div>
+              <div className={TSW_INFO}>
                 <b>
                   {t.name}{" "}
                   {tenant.id === t.id && <span style={{ color: "var(--fg-subtle)", fontWeight: 400, fontSize: 11 }}>· current</span>}
                 </b>
                 <span>{t.users} users · {t.incidents} open incidents · {t.plan}</span>
               </div>
-              <div className="tsw-meta">
+              <div className={TSW_META}>
                 {t.sev1 > 0 && <Pill kind="critical">{t.sev1} Sev 1</Pill>}
-                <span className="mono" style={{ fontSize: 11 }}>{t.health}%</span>
+                <span className="font-mono tabular-nums" style={{ fontSize: 11 }}>{t.health}%</span>
               </div>
             </div>
           ))}
 
-          <div className="tsw-section-title">Quick actions</div>
-          <div className="tsw-row" onClick={() => { onClose(); setRoute("onboarding"); }}>
-            <div className="tsw-icon" style={{ background: "var(--bg-muted)", color: "var(--fg)" }}><i className="fa-solid fa-plus" /></div>
-            <div className="tsw-info">
+          <div className={TSW_SECTION}>Quick actions</div>
+          <div className={tswRow()} onClick={() => { onClose(); setRoute("onboarding"); }}>
+            <div className={TSW_ICON} style={{ background: "var(--bg-muted)", color: "var(--fg)" }}><Icon icon={PlusIcon} /></div>
+            <div className={TSW_INFO}>
               <b>Create a new business unit</b>
               <span>Provision a new sub-tenant under {ORG.name}</span>
             </div>

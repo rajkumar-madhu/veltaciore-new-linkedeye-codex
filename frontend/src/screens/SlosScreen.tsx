@@ -1,10 +1,18 @@
 // Service Level Objectives — error-budget tracking (the Datadog / SRE SLO view).
 // Distinct from the ITSM "SLA definitions" screen: this is observability-driven,
 // with burn-down, remaining budget and burn-rate alerting per objective.
+// No SLO backend is connected yet, so the objectives are a labelled sample and
+// every figure (budget, burn-down, exhaustion estimate) is computed from them.
 import React from "react";
-import { Kpi, FormSection } from "@/components/primitives";
-import { LineChart } from "@/components/deviceDetail";
+import { useNav } from "@/hooks/useNav";
+import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, Table, TextButton, cx, toneBg, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
+import { TimeChart } from "@/components/MetricCharts";
+import type { MetricSeries } from "@/api/hooks";
 
+import { Icon } from "@/components/Icon";
+import { DownloadIcon, FlaskConicalIcon, PlusIcon, TrendingUpIcon } from "lucide-react";
 interface Slo {
   id: string;
   name: string;
@@ -32,152 +40,152 @@ function budget(s: Slo) {
   return { allowed, remainingPct: Math.round(remaining * 100) };
 }
 
-const healthColor = (s: Slo) => (s.actual >= s.target ? "#059669" : s.burnRate >= 4 ? "#dc2626" : "#b45309");
+const healthTone = (s: Slo): Tone => (s.actual >= s.target ? "ok" : s.burnRate >= 4 ? "crit" : "warn");
+const burnTone = (r: number): Tone => (r >= 4 ? "crit" : r >= 2 ? "warn" : "ok");
+const budgetColor = (s: Slo, pct: number) => (s.actual >= s.target ? "#16a34a" : pct > 0 ? "#f5a524" : "#e5383b");
 
+const POLICY: [string, string, Tone][] = [
+  ["Fast burn", "> 14.4× over 1h → page", "crit"],
+  ["Slow burn", "> 3× over 6h → ticket", "warn"],
+  ["Budget < 10%", "notify service owner", "info"],
+];
+
+const meter = "inline-flex items-center gap-2";
+const meterTrack = "w-20 h-2 rounded-[5px] bg-bg-muted overflow-hidden";
+const meterFill = "block h-2 rounded-[5px]";
+// Two side-by-side figure boxes.
+const pair = "grid grid-cols-2 gap-2.5 [&>div]:px-2 [&>div]:py-2.5 [&>div]:rounded [&>div]:bg-bg-muted [&>div]:text-center [&>div]:text-xs [&>div]:text-fg-muted [&_b]:block [&_b]:text-[20px] [&_b]:font-extrabold [&_b]:text-fg";
+const tileLabel = "text-2xs font-bold tracking-[0.05em] uppercase text-fg-muted";
+const callout = "flex flex-col gap-1 p-3 rounded text-sm [&_b]:inline-flex [&_b]:items-center [&_b]:gap-2 [&_p]:text-fg-muted";
+const iconList = "list-none flex flex-col gap-2 m-0 p-0 text-sm text-fg [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:min-w-0";
+
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
 export default function SlosScreen() {
+  const { setRoute } = useNav();
   const [sel, setSel] = React.useState(SLOS[3]);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   const healthy = SLOS.filter((s) => s.actual >= s.target).length;
   const atRisk = SLOS.filter((s) => s.actual < s.target).length;
   const b = budget(sel);
-  // Burn-down series: budget remaining over the window (falling when burning).
-  const burndown = Array.from({ length: 6 }, (_, i) => Math.round((100 - i * (sel.burnRate * 3)) * 10) / 10).map((v) => Math.max(0, v));
+
+  // Burn-down series: budget remaining over the window (falling when burning),
+  // six samples spread across the 30 days ending now.
+  const burndown = React.useMemo<MetricSeries[]>(() => {
+    const end = Math.floor(Date.now() / 1000);
+    const step = 6 * 86400;
+    return [{
+      key: "budget", label: "Budget remaining", unit: "%", group: "slo",
+      points: Array.from({ length: 6 }, (_, i) => [end - (5 - i) * step, Math.max(0, Math.round((100 - i * (sel.burnRate * 3)) * 10) / 10)] as [number, number]),
+    }];
+  }, [sel]);
+  const chartStart = burndown[0].points[0][0];
+  const chartEnd = burndown[0].points[burndown[0].points.length - 1][0];
+  const fast = sel.burnRate >= 2;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Observe</a><span className="sn-bc-sep">›</span>
-        <span>Service Level Objectives</span>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Service Level Objectives" }]} />
+
+      <PageHead
+        title="Service Level Objectives"
+        subtitle="Error-budget tracking across trading & platform services · 30-day window · burn-rate alerting"
+        actions={<>
+          <Button><Icon icon={DownloadIcon} /> Export</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> New SLO</Button>
+        </>}
+      />
+
+      <Card className={ui.notice} role="note">
+        <Icon icon={FlaskConicalIcon} />
+        <div>
+          <b>Sample data</b>
+          <p className="text-fg-muted text-xs">SLO tracking is not connected to a metrics source yet. The objectives below are illustrative; budgets and burn-down are computed from them.</p>
+        </div>
+      </Card>
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-bullseye" tone="info" label="Objectives" value={fmt(SLOS.length)} note="tracked" />
+        <StatCard icon="fa-circle-check" tone="ok" label="On track" value={fmt(healthy)} note="within budget" />
+        <StatCard icon="fa-fire" tone="crit" label="Breaching" value={fmt(atRisk)} note="below target" />
+        <StatCard icon="fa-gauge-high" tone="warn" label="Fast burn" value={fmt(SLOS.filter((s) => s.burnRate >= 2).length)} note="≥ 2× burn rate" />
       </div>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">SLOs</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle-check" /> {healthy} on track</span>
-          {atRisk > 0 && <span className="sn-pill prio-1"><i className="fa-solid fa-fire" /> {atRisk} breaching budget</span>}
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-calendar" /> 30-day window</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Service Level Objectives</h1>
-            <div className="sn-form-sub">Error-budget tracking across trading & platform services · burn-rate alerting enabled</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-download" /> Export</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New SLO</button>
-          </div>
-        </div>
-      </div>
+      <div className={ui.splitWide}>
+        <Panel title="Objectives">
+          <Table>
+              <thead>
+                <tr>
+                  <th scope="col">Objective</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Target</th>
+                  <th scope="col">Actual</th>
+                  <th scope="col">Error budget</th>
+                  <th scope="col">Burn rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SLOS.map((s) => {
+                  const bb = budget(s);
+                  return (
+                    <tr key={s.id} className={sel.id === s.id ? ui.rowSelected : undefined}>
+                      <td>
+                        <TextButton aria-pressed={sel.id === s.id} onClick={() => setSel(s)}>{s.name}</TextButton>
+                        <span className={cx(ui.sub, "font-mono font-semibold")}>{s.service}</span>
+                      </td>
+                      <td><Pill tone="muted">{s.type}</Pill></td>
+                      <td>{s.target}%</td>
+                      <td className={cellTone[healthTone(s) as keyof typeof cellTone]}>{s.actual}%</td>
+                      <td>
+                        <span className={meter}>
+                          <span className={meterTrack} aria-hidden="true"><span className={meterFill} style={{ width: `${bb.remainingPct}%`, background: budgetColor(s, bb.remainingPct) }} /></span>
+                          <span className="text-xs">{bb.remainingPct}%</span>
+                        </span>
+                      </td>
+                      <td>
+                        <Pill tone={burnTone(s.burnRate)}>
+                          {s.burnRate.toFixed(1)}× {s.burnRate >= 2 && <Icon icon={TrendingUpIcon} />}
+                        </Pill>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+          </Table>
+        </Panel>
 
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Objectives" v={SLOS.length} s="tracked" tone="neutral" />
-          <Kpi l="On track" v={healthy} s="within budget" tone="ok" />
-          <Kpi l="Breaching" v={atRisk} s="budget exhausted" tone="crit" />
-          <Kpi l="Fast burn alerts" v={SLOS.filter((s) => s.burnRate >= 2).length} s="≥2× burn rate" tone="warn" />
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, padding: "16px 24px 24px" }}>
-        {/* SLO list */}
-        <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, overflow: "hidden", alignSelf: "start" }}>
-          <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-            <thead>
-              <tr>
-                <th>OBJECTIVE</th>
-                <th style={{ width: 96 }}>TYPE</th>
-                <th style={{ width: 74 }}>TARGET</th>
-                <th style={{ width: 74 }}>ACTUAL</th>
-                <th style={{ width: 150 }}>ERROR BUDGET</th>
-                <th style={{ width: 90 }}>BURN RATE</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SLOS.map((s) => {
-                const bb = budget(s);
-                const ok = s.actual >= s.target;
-                return (
-                  <tr key={s.id} onClick={() => setSel(s)} style={{ cursor: "pointer", background: sel.id === s.id ? "#eff6ff" : !ok ? "#fef2f2" : undefined }}>
-                    <td>
-                      <div style={{ fontWeight: 600, color: "#0f1c3f" }}>{s.name}</div>
-                      <div className="mono" style={{ fontSize: 11, color: "#8a94a3" }}>{s.service}</div>
-                    </td>
-                    <td><span style={{ fontSize: 11, fontWeight: 600, color: "#475467", background: "#f3f4f6", padding: "2px 7px", borderRadius: 4 }}>{s.type}</span></td>
-                    <td className="mono" style={{ color: "#475467" }}>{s.target}%</td>
-                    <td className="mono" style={{ fontWeight: 700, color: healthColor(s) }}>{s.actual}%</td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-                          <div style={{ width: `${bb.remainingPct}%`, height: "100%", background: ok ? "#10b981" : bb.remainingPct > 0 ? "#f59e0b" : "#dc2626", borderRadius: 4 }} />
-                        </div>
-                        <span className="mono" style={{ fontSize: 11, color: "#475467", minWidth: 30 }}>{bb.remainingPct}%</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: s.burnRate >= 4 ? "#dc2626" : s.burnRate >= 2 ? "#b45309" : "#059669" }}>
-                        {s.burnRate.toFixed(1)}× {s.burnRate >= 2 && <i className="fa-solid fa-arrow-trend-up" style={{ fontSize: 10 }} />}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Detail rail — burn-down + budget for the selected SLO */}
-        <aside style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#0f1c3f" }}>{sel.name}</div>
-            <div className="mono" style={{ fontSize: 11, color: "#8a94a3", marginBottom: 14 }}>{sel.service} · {sel.window} window</div>
-
-            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-              <div style={{ flex: 1, textAlign: "center", padding: "10px 6px", background: "#f8fafc", borderRadius: 6 }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: healthColor(sel) }}>{sel.actual}%</div>
-                <div style={{ fontSize: 10.5, color: "#8a94a3" }}>SLI vs {sel.target}% target</div>
-              </div>
-              <div style={{ flex: 1, textAlign: "center", padding: "10px 6px", background: "#f8fafc", borderRadius: 6 }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: b.remainingPct > 0 ? "#059669" : "#dc2626" }}>{b.remainingPct}%</div>
-                <div style={{ fontSize: 10.5, color: "#8a94a3" }}>budget remaining</div>
-              </div>
+        <div className={ui.rail}>
+          <Panel title={sel.name}>
+            <span className="text-fg-muted text-xs font-mono font-semibold">{sel.service} · {sel.window} window</span>
+            <div className={pair}>
+              <div><b className={cellTone[healthTone(sel) as keyof typeof cellTone]}>{sel.actual}%</b>SLI vs {sel.target}% target</div>
+              <div><b className={b.remainingPct > 0 ? cellTone.ok : cellTone.crit}>{b.remainingPct}%</b>budget remaining</div>
             </div>
-
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#475467", marginBottom: 8 }}>Error budget burn-down</div>
-            <LineChart series={[burndown]} colors={[b.remainingPct > 0 ? "#2563eb" : "#dc2626"]} h={110} yTicks={["100%", "50%", "0"]} />
-
-            <div style={{ marginTop: 14, padding: 12, borderRadius: 6, background: sel.burnRate >= 2 ? "#fef2f2" : "#ecfdf5", border: `1px solid ${sel.burnRate >= 2 ? "#fecaca" : "#a7f3d0"}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 700, color: sel.burnRate >= 2 ? "#b91c1c" : "#047857" }}>
-                <i className={`fa-solid ${sel.burnRate >= 2 ? "fa-fire" : "fa-check"}`} />
-                {sel.burnRate >= 2 ? `Fast burn — ${sel.burnRate}× budget` : "Healthy burn rate"}
-              </div>
-              <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 4 }}>
-                {sel.burnRate >= 2
+            <span className={tileLabel}>Error budget burn-down</span>
+            <TimeChart series={burndown} startSec={chartStart} endSec={chartEnd} compact />
+            <div className={cx(callout, toneBg[fast ? "crit" : "ok"])}>
+              <b><Icon className={`fa-solid ${fast ? "fa-fire" : "fa-check"}`} /> {fast ? `Fast burn — ${sel.burnRate}× budget` : "Healthy burn rate"}</b>
+              <span>
+                {fast
                   ? `At this rate the 30-day budget exhausts in ~${Math.max(1, Math.round(30 / sel.burnRate))} days. Page the on-call service owner.`
                   : "Budget consumption is sustainable for the full window."}
-              </div>
+              </span>
             </div>
-          </div>
+          </Panel>
 
-          <FormSection id="policy" title="Alerting policy" collapsed={collapsed.policy} onToggle={toggle}>
-            <div style={{ padding: 14, fontSize: 12 }}>
-              {[
-                ["Fast burn", "> 14.4× over 1h → page", "#dc2626"],
-                ["Slow burn", "> 3× over 6h → ticket", "#b45309"],
-                ["Budget < 10%", "notify service owner", "#2563eb"],
-              ].map(([k, v, c]) => (
-                <div key={k as string} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: c as string }} />
-                  <b style={{ color: "#0f1c3f", minWidth: 92 }}>{k}</b>
-                  <span style={{ color: "#64748b" }}>{v}</span>
-                </div>
+          <Panel title="Alerting policy">
+            <ul className={iconList}>
+              {POLICY.map(([k, v, tone]) => (
+                <li key={k}>
+                  <Pill tone={tone}>{k}</Pill>
+                  <span className="text-fg-muted">{v}</span>
+                </li>
               ))}
-            </div>
-          </FormSection>
-        </aside>
+            </ul>
+          </Panel>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

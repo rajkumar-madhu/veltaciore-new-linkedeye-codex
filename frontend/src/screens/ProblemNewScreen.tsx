@@ -1,15 +1,32 @@
-// New Problem form (ServiceNow style).
-// Ported from screens/problem-new.jsx.
+// New Problem form.
+// Ported from screens/problem-new.jsx; LinkedEye form layout.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { INCIDENTS, SERVICES, USERS } from "@/data/core";
-import { FormSection, FormRow, Field, Sev } from "@/components/primitives";
+import { Panel, Pill, PillDot } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import { useCreateProblem } from "@/api/hooks";
+
+import { buttonClass, cx, ui } from "@/components/ui";
+import { sd } from "@/components/RecordList";
+import { Icon } from "@/components/Icon";
+import { BotIcon, ChevronRightIcon, PaperclipIcon, PencilIcon, SaveIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "ok" };
+
+function FormField({ id, label, required, wide, children }: { id?: string; label: string; required?: boolean; wide?: boolean; children: React.ReactNode }) {
+  const text = <>{label}{required && <span className={sd.req} aria-hidden="true"> *</span>}</>;
+  return (
+    <div className={cx(ui.field, wide && sd.wide)}>
+      {id ? <label htmlFor={id}>{text}</label> : <span>{text}</span>}
+      {children}
+    </div>
+  );
+}
 
 export default function ProblemNewScreen() {
   const { setRoute } = useNav();
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+  const idp = React.useId();
+  const formId = `${idp}-form`;
   const [priority, setPriority] = React.useState("2");
   const [title, setTitle] = React.useState("");
   const [service, setService] = React.useState("payments-primary");
@@ -46,151 +63,166 @@ export default function ProblemNewScreen() {
     }
   };
 
+  const f = (name: string) => `${idp}-${name}`;
+  const priN = parseInt(priority, 10);
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("problems")}>Problem Management</a><span className="sn-bc-sep">›</span>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
+        <Icon icon={ChevronRightIcon} />
+        <button type="button" className={ui.link} onClick={() => setRoute("problems")}>Problem Management</button>
+        <Icon icon={ChevronRightIcon} />
         <span>New Problem</span>
-      </div>
+      </nav>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">PRB-NEW</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> Draft</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-pen" /> not yet saved</span>
+      <div className={ui.head}>
+        <div>
+          <h1 className={ui.h1}>Create New Problem</h1>
+          <p className={ui.headSub}>Fields marked <span className={sd.req}>*</span> are required · link recurring incidents to track root cause</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Create New Problem</h1>
-            <div className="sn-form-sub">Required fields marked with *  ·  Link recurring incidents to track root cause</div>
-            {error && (
-              <div className="sn-form-sub" style={{ color: "var(--critical)", marginTop: 4 }}>
-                <i className="fa-solid fa-triangle-exclamation" /> {error}
-              </div>
-            )}
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn" onClick={() => setRoute("problems")}><i className="fa-solid fa-xmark" /> Cancel</button>
-            <button className="sn-btn"><i className="fa-solid fa-floppy-disk" /> Save Draft</button>
-            <button className="sn-btn primary" onClick={submit} disabled={create.isPending}>
-              <i className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Saving…" : "Submit"}
-            </button>
-          </div>
+        <div className={ui.headActions}>
+          <Pill tone="muted"><Icon icon={PencilIcon} /> Draft · not yet saved</Pill>
+          <button type="button" className={buttonClass()} onClick={() => setRoute("problems")}><Icon icon={XIcon} /> Cancel</button>
+          <button type="button" className={buttonClass()}><Icon icon={SaveIcon} /> Save Draft</button>
+          <button type="submit" form={formId} className={buttonClass("primary")} disabled={create.isPending}>
+            <Icon className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Saving…" : "Submit problem"}
+          </button>
         </div>
       </div>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="basic" title="Problem Identification" collapsed={collapsed.basic} onToggle={toggle}>
-            <FormRow>
-              <Field label="Number" value={<span className="mono text-mute">auto-generated on save</span>} />
-              <Field label="Opened" value={<span className="mono">just now</span>} />
-            </FormRow>
-            <FormRow>
-              <Field label="Short description" value={<input className="select" placeholder="e.g. Connection pool sizing regression" value={title} onChange={e => setTitle(e.target.value)} style={{ width: "100%" }} />} required />
-              <Field label="Category" value={
-                <select className="select" value={category} onChange={e => setCategory(e.target.value)}>
+      {error && (
+        <div className={sd.alertCrit} role="alert">
+          <Icon icon={TriangleAlertIcon} /> <span>{error}</span>
+        </div>
+      )}
+
+      <div className={ui.split}>
+        <form id={formId} className={sd.formRail} noValidate onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+          <Panel title="Problem Identification">
+            <div className={sd.fields}>
+              <FormField label="Number"><span className={sd.staticMono}>auto-generated on save</span></FormField>
+              <FormField label="Opened"><span className={sd.staticMono}>just now</span></FormField>
+              <FormField id={f("title")} label="Short description" required>
+                <input id={f("title")} className={sd.input} aria-required="true" aria-invalid={!!error && !title.trim()} placeholder="e.g. Connection pool sizing regression" value={title} onChange={e => setTitle(e.target.value)} />
+              </FormField>
+              <FormField id={f("category")} label="Category" required>
+                <select id={f("category")} className={sd.select} value={category} onChange={e => setCategory(e.target.value)}>
                   <option>Database · Capacity</option>
                   <option>Network · Routing</option>
                   <option>Application · Deploy</option>
                   <option>Hardware · Storage</option>
                   <option>External · Vendor</option>
                 </select>
-              } required />
-            </FormRow>
-            <FormRow>
-              <Field label="Priority" value={
-                <select className="select" value={priority} onChange={e => setPriority(e.target.value)}>
+              </FormField>
+              <FormField id={f("priority")} label="Priority" required>
+                <select id={f("priority")} className={sd.select} value={priority} onChange={e => setPriority(e.target.value)}>
                   <option value="1">1 — Critical · org-wide impact</option>
                   <option value="2">2 — High · major service</option>
                   <option value="3">3 — Moderate · limited</option>
                   <option value="4">4 — Low · backlog</option>
                 </select>
-              } required />
-              <Field label="Severity badge" value={<Sev n={parseInt(priority)} />} />
-            </FormRow>
-            <FormRow>
-              <Field label="Service / CI" value={
-                <select className="select" value={service} onChange={e => setService(e.target.value)}>
+              </FormField>
+              <FormField label="Severity badge"><span className={sd.static}><Pill tone={SEV_TONE[priN] ?? "muted"}>Sev {priN}</Pill></span></FormField>
+              <FormField id={f("service")} label="Service / CI" required>
+                <select id={f("service")} className={sd.select} value={service} onChange={e => setService(e.target.value)}>
                   {SERVICES.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                 </select>
-              } required />
-              <Field label="Configuration item" value={<a className="sn-link mono">CI-02 (auto-linked)</a>} />
-            </FormRow>
-          </FormSection>
+              </FormField>
+              <FormField label="Configuration item"><span className={sd.staticMono}>CI-02 (auto-linked)</span></FormField>
+            </div>
+          </Panel>
 
-          <FormSection id="assign" title="Assignment" collapsed={collapsed.assign} onToggle={toggle}>
-            <FormRow>
-              <Field label="Owner" value={
-                <select className="select" value={owner} onChange={e => setOwner(e.target.value)}>
+          <Panel title="Assignment">
+            <div className={sd.fields}>
+              <FormField id={f("owner")} label="Owner" required>
+                <select id={f("owner")} className={sd.select} value={owner} onChange={e => setOwner(e.target.value)}>
                   {USERS.map(u => <option key={u.id} value={u.id}>{u.name} · {u.team}</option>)}
                 </select>
-              } required />
-              <Field label="Assignment group" value={<select className="select"><option>SRE Platform</option><option>Database</option><option>Networking</option><option>Architecture</option></select>} required />
-            </FormRow>
-            <FormRow>
-              <Field label="Target RCA date" value={<input className="select" type="date" defaultValue="2026-06-15" style={{ width: "100%" }} />} />
-              <Field label="Impact" value={<select className="select"><option>High · multi-tenant</option><option>Medium · single BU</option><option>Low · internal</option></select>} />
-            </FormRow>
-          </FormSection>
+              </FormField>
+              <FormField id={f("group")} label="Assignment group" required>
+                <select id={f("group")} className={sd.select}><option>SRE Platform</option><option>Database</option><option>Networking</option><option>Architecture</option></select>
+              </FormField>
+              <FormField id={f("rca")} label="Target RCA date">
+                <input id={f("rca")} className={sd.input} type="date" defaultValue="2026-06-15" />
+              </FormField>
+              <FormField id={f("impact")} label="Impact">
+                <select id={f("impact")} className={sd.select}><option>High · multi-tenant</option><option>Medium · single BU</option><option>Low · internal</option></select>
+              </FormField>
+            </div>
+          </Panel>
 
-          <FormSection id="linked" title="Linked Incidents" badge={`${linkedInc.length} selected`} collapsed={collapsed.linked} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:30}}></th><th style={{width:110}}>Number</th><th>Short description</th><th style={{width:80}}>Sev</th><th style={{width:100}}>Age</th></tr></thead>
-              <tbody>
-                {INCIDENTS.slice(0, 6).map(inc => {
-                  const checked = linkedInc.includes(inc.id);
-                  return (
-                    <tr key={inc.id} onClick={() => setLinkedInc(checked ? linkedInc.filter(x => x !== inc.id) : [...linkedInc, inc.id])} style={{ cursor: "pointer", background: checked ? "#eaf0f7" : undefined }}>
-                      <td><input type="checkbox" checked={checked} onChange={() => {}} /></td>
-                      <td><a className="sn-link mono">{inc.id}</a></td>
-                      <td>{inc.title}</td>
-                      <td><Sev n={inc.sev} /></td>
-                      <td className="mono text-mute">{inc.age}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </FormSection>
+          <Panel title={`Linked Incidents (${linkedInc.length} selected)`}>
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
+                <thead>
+                  <tr><th scope="col"><span className="sr-only">Link</span></th><th scope="col">Number</th><th scope="col">Short description</th><th scope="col">Sev</th><th scope="col">Age</th></tr>
+                </thead>
+                <tbody>
+                  {INCIDENTS.slice(0, 6).map(inc => {
+                    const checked = linkedInc.includes(inc.id);
+                    return (
+                      <tr key={inc.id} className={checked ? ui.rowSelected : undefined}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={`Link ${inc.id}`}
+                            checked={checked}
+                            onChange={() => setLinkedInc(checked ? linkedInc.filter(x => x !== inc.id) : [...linkedInc, inc.id])}
+                          />
+                        </td>
+                        <td className={sd.cellMono}>{inc.id}</td>
+                        <td className={ui.cellWrap}>{inc.title}</td>
+                        <td><Pill tone={SEV_TONE[inc.sev] ?? "muted"}>Sev {inc.sev}</Pill></td>
+                        <td className={sd.cellMono}>{inc.age}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
 
-          <FormSection id="hypothesis" title="Initial Hypothesis" collapsed={collapsed.hypothesis} onToggle={toggle}>
-            <div style={{ padding: 14 }}>
+          <Panel title="Initial Hypothesis">
+            <FormField id={f("hypothesis")} label="Hypothesis">
               <textarea
+                id={f("hypothesis")}
+                className={sd.textarea}
                 value={hypothesis}
                 onChange={e => setHypothesis(e.target.value)}
                 placeholder="What pattern do you observe across linked incidents? Common timing, deploys, traffic conditions…"
-                style={{ width: "100%", minHeight: 100, padding: 10, fontSize: 12.5, fontFamily: "var(--font-sans)", border: "1px solid #d2d6dc", borderRadius: 3 }}
               />
-              <div className="row row-8" style={{ marginTop: 8 }}>
-                <button className="sn-btn"><i className="fa-solid fa-robot" /> AI: Suggest Hypothesis</button>
-                <button className="sn-btn"><i className="fa-solid fa-paperclip" /> Attach Evidence</button>
-              </div>
+            </FormField>
+            <div className={sd.actions}>
+              <button type="button" className={buttonClass("default", "sm")}><Icon icon={BotIcon} /> AI: Suggest Hypothesis</button>
+              <button type="button" className={buttonClass("default", "sm")}><Icon icon={PaperclipIcon} /> Attach Evidence</button>
             </div>
-          </FormSection>
-        </div>
+          </Panel>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">AI Pattern Match</div>
-            <div className="sn-side-body" style={{ padding: 14, fontSize: 12.5, lineHeight: 1.6, color: "#000" }}>
-              {linkedInc.length > 1 ? (
-                <>The {linkedInc.length} linked incidents share <b>{service}</b> and occur post-deploy. Likely <b>config regression</b>. <a className="sn-link">View timeline →</a></>
-              ) : (
-                <span className="text-mute">Link 2+ incidents to detect patterns.</span>
-              )}
-            </div>
+          <div className={sd.actionsEnd}>
+            <button type="button" className={buttonClass()} onClick={() => setRoute("problems")}>Cancel</button>
+            <button type="submit" className={buttonClass("primary")} disabled={create.isPending}>
+              <Icon className={`fa-solid ${create.isPending ? "fa-spinner fa-spin" : "fa-paper-plane"}`} /> {create.isPending ? "Saving…" : "Submit problem"}
+            </button>
           </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">Workflow</div>
-            <div className="sn-side-body">
-              <Field label="Stage" value={<span className="sn-state-pill state-mitigating"><i className="fa-solid fa-circle" /> Assessment</span>} />
-              <Field label="Next" value="Root Cause Analysis" />
-              <Field label="SLA" value="5 business days" />
-              <Field label="Auto-promote" value={<label style={{ fontSize: 12 }}><input type="checkbox" defaultChecked /> If 3+ incidents</label>} />
-            </div>
-          </div>
+        </form>
+
+        <aside className={ui.rail} aria-label="Guidance">
+          <Panel title="AI Pattern Match">
+            {linkedInc.length > 1 ? (
+              <p className={sd.entryText}>The {linkedInc.length} linked incidents share <b>{service}</b> and occur post-deploy. Likely <b>config regression</b>.</p>
+            ) : (
+              <p className="text-fg-muted text-xs">Link 2+ incidents to detect patterns.</p>
+            )}
+          </Panel>
+          <Panel title="Workflow">
+            <dl className={ui.dl}>
+              <dt>Stage</dt><dd><Pill tone="warn"><PillDot />Assessment</Pill></dd>
+              <dt>Next</dt><dd>Root Cause Analysis</dd>
+              <dt>SLA</dt><dd>5 business days</dd>
+              <dt>Auto-promote</dt><dd><label className={sd.check}><input type="checkbox" defaultChecked /> If 3+ incidents</label></dd>
+            </dl>
+          </Panel>
         </aside>
       </div>
     </div>

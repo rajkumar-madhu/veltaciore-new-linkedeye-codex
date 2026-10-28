@@ -1,13 +1,46 @@
 // Application Detail: Overview, K8s workloads, Dependencies/network path, Deployments/CI-CD, Alerts & Incidents, Runbook & Ownership
-// Ported from screens/app-detail.jsx.
 // Maps to: /api/catalog/applications/{id}/ · /metrics/ · /alerts/ · /dependencies/
+// Those APIs are not connected yet: the entity comes from the sample catalog
+// and the detail below is derived from it, so the page is labelled sample data.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
-import { INFRA_ALERTS } from "@/data/infra";
-import { Kpi, FormSection, FormRow, Field, UserById } from "@/components/primitives";
-import { STATUS_COLORS, statusBadgeStyle, getStatusLabel, getMetricColor, getCpuColor, getMemColor, getErrorRateColor } from "@/lib/statusColors";
-import { CATALOG_ENTITIES } from "@/screens/APMCatalogScreen";
+import { USERS } from "@/data/core";
+import { Empty, Panel, Pill, PillDot, StatCard } from "@/components/ld";
+import { Button, Card, Crumbs, Page, Tab, Table, Tabs, TextButton, cx, toneBg, toneText, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
+import { Sparkline } from "@/components/MetricCharts";
+import { getStatusLabel } from "@/lib/statusColors";
+import { CATALOG_ENTITIES, errTone, fmtRt, healthTone, loadTone, outcomeTone } from "@/screens/APMCatalogScreen";
+
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, BellIcon, BoxIcon, Building2Icon, CircleCheckIcon, CodeIcon, FlaskConicalIcon, GanttChartIcon, GaugeIcon, GitBranchIcon, LineChartIcon, ListIcon, LockIcon } from "lucide-react";
+const SLA_TARGET = 99.9;
+
+// Status text in a table cell / figure box: in light mode the cell's own colour
+// won (only the weight showed); in dark mode the status colour won.
+const cellTone = { crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok" } as const;
+// Entity page head (tile, title with pills, "|"-separated meta line).
+const entityHead = "flex flex-wrap items-start justify-between gap-3";
+const entity = "flex items-center gap-3.5 min-w-0";
+const entityTile = "flex-none grid place-items-center w-14 h-14 rounded-[12px] text-5xl";
+const entityTitle = cx(ui.h1, "flex items-center gap-2.5 flex-wrap");
+const entityMeta = cx(ui.headSub, "flex flex-wrap gap-x-3.5 gap-y-1 [&>span+span]:before:content-['|'] [&>span+span]:before:mr-3.5 [&>span+span]:before:text-line-strong");
+/** Six-up stat row: 180px columns (the old dense-card overrides never reached StatCard). */
+const sixUp = ui.cols[6];
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+/** Row highlight for a failing pod. */
+const rowCrit = "[&>td]:bg-warning-bg";
+// Small labelled cards
+const tiles = "grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,1fr))]";
+const tile = "flex flex-col gap-1.5 min-w-0 px-3.5 py-3 border border-line-subtle rounded bg-bg-raised [&>.ld-icon]:text-lg [&>.ld-icon]:text-accent";
+const tileLabel = "text-2xs font-bold tracking-[0.05em] uppercase text-fg-muted";
+// Plain icon list; an icon without its own text colour is 16px wide and accent-coloured.
+const iconList = "list-none flex flex-col gap-2 m-0 p-0 text-sm text-fg [&>li]:flex [&>li]:items-center [&>li]:gap-2.5 [&>li]:min-w-0 [&>li>.ld-icon:not([class*='text-'])]:w-4 [&>li>.ld-icon:not([class*='text-'])]:text-center [&>li>.ld-icon:not([class*='text-'])]:text-accent";
+// Request path chain
+const flow = "list-none flex flex-wrap items-center gap-2 m-0 p-0 [&>li]:inline-flex [&>li]:items-center [&>li]:gap-2 [&>li>.ld-icon]:text-2xs [&>li>.ld-icon]:text-fg-faint";
+const stepBox = "px-3 py-2 border rounded bg-bg-raised text-sm font-semibold text-fg";
 
 export default function AppDetailScreen() {
   const { setRoute } = useNav();
@@ -15,26 +48,8 @@ export default function AppDetailScreen() {
   const e = CATALOG_ENTITIES.find(x => x.id === appName) || CATALOG_ENTITIES[0];
   const [tab, setTab] = React.useState("overview");
   const seed = e.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  const series = (base: number, spread: number, n = 32) => Array.from({ length: n }, (_, i) => Math.max(0, base + Math.sin((seed + i) * 1.6) * spread * 0.5 + Math.sin((seed * 2 + i) * 0.5) * spread * 0.5));
-
-  const Spark = ({ data, color = "var(--success)", h = 60 }: { data: number[]; color?: string; h?: number }) => {
-    const w = 100, max = Math.max(...data) * 1.15 || 1;
-    const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * (h - 6) - 3}`).join(" ");
-    return (
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: "100%", height: h, display: "block" }}>
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" />
-        <polygon points={`0,${h} ${pts} ${w},${h}`} fill={color} opacity="0.09" />
-      </svg>
-    );
-  };
-  const MetricCard = ({ label, value, sub, data, color }: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode; data?: number[]; color?: string }) => (
-    <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, padding: "10px 12px" }}>
-      <div style={{ fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--fg-muted)", fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{value}</div>
-      <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>{sub}</div>
-      {data && <Spark data={data} color={color} />}
-    </div>
-  );
+  const series = (base: number, spread: number, n = 32): [number, number][] =>
+    Array.from({ length: n }, (_, i) => [i, Math.max(0, base + Math.sin((seed + i) * 1.6) * spread * 0.5 + Math.sin((seed * 2 + i) * 0.5) * spread * 0.5)]);
 
   const TABS: [string, string, string][] = [
     ["overview", "Overview", "fa-circle-info"],
@@ -45,7 +60,7 @@ export default function AppDetailScreen() {
     ["runbook", "Runbook & Ownership", "fa-book"],
   ];
 
-  // ---- derived, deterministic mock detail (stands in for real API payloads) ----
+  // ---- derived, deterministic sample detail (stands in for real API payloads) ----
   const podCount = Math.max(2, Math.round(e.infra / 2)) || 0;
   const pods = Array.from({ length: podCount }, (_, i) => ({
     name: `${e.id}-${(seed + i * 7).toString(16).slice(0, 5)}`, node: `node-${e.cluster}-${(i % 4) + 1}`,
@@ -53,7 +68,7 @@ export default function AppDetailScreen() {
     restarts: e.health === "crit" ? (i === 0 ? 14 : 1) : 0, cpu: Math.round(e.cpu * (0.7 + (i % 3) * 0.15)), mem: Math.round(e.mem * (0.7 + (i % 3) * 0.12)), age: `${9 + i}d`,
   }));
   const services = [{ name: `${e.id}-svc`, type: "ClusterIP", clusterIP: `10.96.${seed % 200}.${(seed * 3) % 250}`, ports: "80/TCP → 8080" }];
-  const ingress = e.type.includes("APM") ? [{ name: `${e.id}-ingress`, host: `${e.id}.finspot.internal`, tls: "cert-manager · valid 84d", path: "/*" }] : [];
+  const ingress = e.type.includes("APM") ? [{ name: `${e.id}-ingress`, host: `${e.id}.finspot.internal`, tls: "cert-manager", path: "/*" }] : [];
   const pvcs = ["payments-svc", "inventory-svc"].includes(e.id) ? [{ name: `${e.id}-data`, size: "50Gi", status: "Bound", class: "gp3-encrypted" }] : [];
   const configMaps = [{ name: `${e.id}-config` }, { name: `${e.id}-feature-flags` }];
   const secrets = [{ name: `${e.id}-db-credentials`, keys: ["DB_USER", "DB_PASSWORD"] }, { name: `${e.id}-api-keys`, keys: ["STRIPE_KEY", "SENTRY_DSN"] }];
@@ -66,8 +81,8 @@ export default function AppDetailScreen() {
   ];
   const cicd = [
     { stage: "Git Repository", icon: "fa-code-branch", detail: `git.internal/finspot/${e.id}`, sub: "main · protected" },
-    { stage: "Jenkins Pipeline", icon: "fa-infinity", detail: `${e.id}-pipeline #482`, sub: "build → test → scan → package" },
-    { stage: "Harbor Image", icon: "fa-box", detail: `registry.internal/finspot/${e.id}:2.41`, sub: "scanned · 0 critical CVEs" },
+    { stage: "Jenkins Pipeline", icon: "fa-infinity", detail: `${e.id}-pipeline`, sub: "build → test → scan → package" },
+    { stage: "Harbor Image", icon: "fa-box", detail: `registry.internal/finspot/${e.id}:2.41`, sub: "scanned" },
     { stage: "ArgoCD Application", icon: "fa-arrows-rotate", detail: `${e.id}-${e.env}`, sub: "Synced · Healthy" },
   ];
 
@@ -78,7 +93,6 @@ export default function AppDetailScreen() {
     ...(e.id === "search-svc" ? [{ name: "Neo4j", kind: "graph", role: "recommendation graph", host: "neo4j.internal:7687" }] : []),
   ];
 
-  const alerts = INFRA_ALERTS && INFRA_ALERTS.length ? [] : [];
   const activeAlerts = Array.from({ length: e.alerts }, (_, i) => ({
     title: ["Error rate exceeds 1% threshold", "Apdex below 0.7", "Pod restart loop detected", "p95 latency > 500ms"][i % 4],
     sev: e.health === "crit" ? "critical" : "warning", since: `${12 + i * 6}m ago`, source: "NRQL alert condition",
@@ -88,281 +102,309 @@ export default function AppDetailScreen() {
     { id: "INC-47110", title: "Elevated 5xx after v2.38 deploy", when: "9d ago", status: "resolved" },
   ];
 
+  // Error budget left: share of the allowed (100 − target) downtime not yet used.
+  const budgetLeft = Math.max(0, Math.min(100, Math.round((1 - (100 - e.sla) / (100 - SLA_TARGET)) * 100)));
+  const owner = USERS.find((u) => u.id === "u1");
+  const slaTone: Tone = e.sla < 99.5 ? "crit" : e.sla < SLA_TARGET ? "warn" : "ok";
+  const path = ["User", "DNS", "Firewall", "Load Balancer / Ingress", "K8s Service", `${e.id} Pod`, "API Service", ...dependencies.map(d => d.name), "Storage / External"];
+
+  const golden: { label: string; value: string; sub: string; points: [number, number][]; color: string }[] = [
+    { label: "Response time", value: fmtRt(e.rt), sub: "p50", points: series(e.rt, e.rt * 0.3), color: e.rt > 500 ? "#f5a524" : "#16a34a" },
+    { label: "Throughput", value: `${(e.tput / 1000).toFixed(1)}k`, sub: "requests/min", points: series(e.tput / 100, e.tput / 400), color: "#0ea5e9" },
+    { label: "Error rate", value: `${e.err.toFixed(2)}%`, sub: "errors / requests", points: series(e.err * 10, e.err * 8 || 2), color: e.err > 2 ? "#e5383b" : e.err > 0.5 ? "#f5a524" : "#16a34a" },
+    { label: "Apdex", value: (1 - e.err / 100).toFixed(2), sub: "user satisfaction", points: series(80, 12), color: "#16a34a" },
+  ];
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Catalogs</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("apm-catalog")}>Application Catalog</a><span className="sn-bc-sep">›</span>
-        <span>{e.id}</span>
-      </div>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Application Catalog", onClick: () => setRoute("apm-catalog") }, { label: e.id }]} />
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">{e.id.toUpperCase()}</span>
-          <span style={statusBadgeStyle(e.health)}><i className="fa-solid fa-circle" style={{ fontSize: 6 }} /> {getStatusLabel(e.health)}</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-cube" /> {e.type}</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-building" /> {e.client}</span>
-        </div>
-        <div className="sn-form-title-meta">
+      <div className={entityHead}>
+        <div className={entity}>
+          <span className={cx(entityTile, toneBg[healthTone(e.health)])} aria-hidden="true"><Icon icon={BoxIcon} /></span>
           <div>
-            <h1>{e.id}</h1>
-            <div className="sn-form-sub">{e.bizSvc} · {e.team} team · {e.env} · {e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "no cluster"} · last reporting {e.lastReport}</div>
+            <h1 className={entityTitle}>
+              {e.id}
+              <Pill tone={healthTone(e.health)}><PillDot />{getStatusLabel(e.health)}</Pill>
+              <Pill tone="muted">Sample data</Pill>
+            </h1>
+            <p className={entityMeta}>
+              <span>{e.bizSvc}</span>
+              <span>{e.team} team</span>
+              <span>{e.env}</span>
+              <span className={ui.mono}>{e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "no cluster"}</span>
+              <span>Last reporting: {e.lastReport}</span>
+            </p>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-chart-line" /> View traces</button>
-            <button className="sn-btn"><i className="fa-solid fa-list-ul" /> View logs</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-bell" /> Add alert</button>
+        </div>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button onClick={() => setRoute("apm")}><Icon icon={LineChartIcon} /> View traces</Button>
+            <Button onClick={() => setRoute("logs")}><Icon icon={ListIcon} /> View logs</Button>
+            <Button variant="primary" onClick={() => setRoute("monitors")}><Icon icon={BellIcon} /> Add alert</Button>
           </div>
+          <ul className={ui.tags} aria-label="Tags">
+            <li className={ui.tag}><Icon icon={BoxIcon} /> {e.type}</li>
+            <li className={ui.tag}><Icon icon={Building2Icon} /> {e.client}</li>
+            <li className={ui.tag}><Icon icon={CodeIcon} /> {e.lang}</li>
+          </ul>
         </div>
       </div>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="Score" v={e.score + "%"} s="scorecard rules" tone={e.score >= 90 ? "ok" : e.score >= 75 ? "warn" : "crit"} />
-        <Kpi l="Response time" v={e.rt >= 1000 ? (e.rt/1000).toFixed(1)+"s" : e.rt+"ms"} s="p50" tone={e.rt > 500 ? "warn" : "ok"} />
-        <Kpi l="Throughput" v={(e.tput/1000).toFixed(1)+"k rpm"} s="requests/min" tone="ok" />
-        <Kpi l="Error rate" v={e.err.toFixed(2) + "%"} s="last 15m" tone={e.err > 2 ? "crit" : e.err > 0.5 ? "warn" : "ok"} />
-        <Kpi l="SLA (30d)" v={e.sla + "%"} s="target 99.9%" tone={e.sla < 99.5 ? "crit" : e.sla < 99.9 ? "warn" : "ok"} />
-        <Kpi l="Active alerts" v={e.alerts} s={e.alerts > 0 ? "needs attention" : "all clear"} tone={e.alerts > 2 ? "crit" : e.alerts > 0 ? "warn" : "ok"} />
+      <Card className={ui.notice} role="note">
+        <Icon icon={FlaskConicalIcon} />
+        <div>
+          <b>Sample data</b>
+          <p className="text-fg-muted text-xs">The application catalog, metrics and Kubernetes APIs are not connected yet. This page is generated from the sample catalog entry for {e.id}.</p>
+        </div>
+      </Card>
+
+      <div className={cx(ui.grid, sixUp)}>
+        <StatCard icon="fa-list-check" tone={e.score >= 90 ? "ok" : e.score >= 75 ? "warn" : "crit"} label="Score" value={`${e.score}%`} note="scorecard rules" />
+        <StatCard icon="fa-stopwatch" tone={e.rt > 500 ? "warn" : "ok"} label="Response time" value={fmtRt(e.rt)} note="p50" />
+        <StatCard icon="fa-arrow-right-arrow-left" tone="info" label="Throughput" value={`${(e.tput / 1000).toFixed(1)}k rpm`} note="requests/min" />
+        <StatCard icon="fa-bug" tone={errTone(e.err)} label="Error rate" value={`${e.err.toFixed(2)}%`} note="errors / requests" />
+        <StatCard icon="fa-shield-halved" tone={slaTone} label="SLA (30d)" value={`${e.sla}%`} note={`target ${SLA_TARGET}%`} />
+        <StatCard icon="fa-bell" tone={e.alerts > 2 ? "crit" : e.alerts > 0 ? "warn" : "ok"} label="Active alerts" value={String(e.alerts)} note={e.alerts > 0 ? "needs attention" : "all clear"} onClick={() => setTab("alerts")} />
       </div>
 
-      <div style={{ display: "flex", gap: 2, borderBottom: "2px solid var(--border, #e5e8eb)", marginBottom: 14, overflowX: "auto" }}>
+      <Tabs aria-label={`${e.id} sections`}>
         {TABS.map(([id, label, icon]) => (
-          <button key={id} onClick={() => setTab(id)}
-            style={{ border: "none", background: "transparent", padding: "9px 14px", fontSize: 12.5, fontWeight: tab === id ? 700 : 500, cursor: "pointer", color: tab === id ? "var(--fg, #16212e)" : "var(--fg-muted)", borderBottom: tab === id ? "2px solid var(--accent, #24ebaf)" : "2px solid transparent", marginBottom: -2, whiteSpace: "nowrap", fontFamily: "inherit" }}>
-            <i className={`fa-solid ${icon}`} style={{ marginRight: 6, fontSize: 11 }} />{label}
-            {id === "alerts" && e.alerts > 0 && <span style={{ marginLeft: 6, background: STATUS_COLORS.crit.line, color: "white", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{e.alerts}</span>}
-          </button>
+          <Tab key={id} active={tab === id} onClick={() => setTab(id)}>
+            <Icon className={`fa-solid ${icon}`} /> {label}
+            {id === "alerts" && e.alerts > 0 && <> <Pill tone="crit">{e.alerts}</Pill></>}
+          </Tab>
         ))}
-      </div>
+      </Tabs>
 
       {/* ---------------- OVERVIEW ---------------- */}
       {tab === "overview" && (
-        <div className="sn-form-layout">
-          <div className="sn-form-main">
-            <FormSection id="golden" title="Golden Metrics">
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, padding: 12, background: "#fafbfc" }}>
-                <MetricCard label="Response time" value={e.rt >= 1000 ? (e.rt/1000).toFixed(1)+"s" : e.rt+"ms"} sub="p50 · last 4h" data={series(e.rt, e.rt * 0.3)} color={e.rt > 500 ? STATUS_COLORS.warn.line : STATUS_COLORS.ok.line} />
-                <MetricCard label="Throughput" value={(e.tput/1000).toFixed(1)+"k"} sub="requests/min" data={series(e.tput/100, e.tput/400)} color="#0ea5e9" />
-                <MetricCard label="Error rate" value={e.err.toFixed(2)+"%"} sub="last 4h" data={series(e.err * 10, e.err * 8 || 2)} color={getErrorRateColor(e.err).line} />
-                <MetricCard label="Apdex" value={(1 - e.err/100).toFixed(2)} sub="user satisfaction" data={series(80, 12)} color={STATUS_COLORS.ok.line} />
-              </div>
-            </FormSection>
-            <FormSection id="ov-summary" title="Application Summary">
-              <FormRow><Field label="Application name" value={<span className="mono"><b>{e.id}</b></span>} required /><Field label="Client / tenant" value={e.client} /></FormRow>
-              <FormRow><Field label="Business service" value={e.bizSvc} /><Field label="Team owner" value={e.team} /></FormRow>
-              <FormRow><Field label="Entity type" value={e.type} /><Field label="Language" value={e.lang} /></FormRow>
-              <FormRow><Field label="Environment" value={e.env} /><Field label="Cluster / namespace" value={e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "not containerized"} /></FormRow>
-              <FormRow><Field label="Health status" value={<span style={statusBadgeStyle(e.health)}><i className="fa-solid fa-circle" style={{ fontSize: 6 }} /> {getStatusLabel(e.health)}</span>} /><Field label="Last reporting" value={e.lastReport} /></FormRow>
-            </FormSection>
-          </div>
-          <aside className="sn-form-side">
-            <div className="sn-side-card">
-              <div className="sn-side-head">Quick Links</div>
-              <div className="sn-side-body">
-                {[["Logs", "fa-list-ul"], ["Traces", "fa-timeline"], ["Dashboards", "fa-gauge-high"], ["Git repository", "fa-code-branch"]].map(([l, ic]) => (
-                  <div key={l} className="sn-related-row"><div className="sn-related-title"><i className={`fa-solid ${ic}`} style={{ width: 16, color: "var(--fg-muted)" }} /> {l}</div><i className="fa-solid fa-chevron-right text-mute" style={{ fontSize: 11 }} /></div>
+        <div className={ui.split}>
+          <div className={ui.rail}>
+            <Panel title="Golden metrics · last 4h">
+              <div className={tiles}>
+                {golden.map((g) => (
+                  <div key={g.label} className={tile}>
+                    <span className={tileLabel}>{g.label}</span>
+                    <span className="flex justify-between items-baseline gap-2"><b className="text-5xl font-bold tracking-[-0.02em] text-fg leading-[1.2]">{g.value}</b><span className="text-fg-muted text-xs">{g.sub}</span></span>
+                    <Sparkline points={g.points} color={g.color} label={`${g.label} (sample)`} />
+                  </div>
                 ))}
               </div>
-            </div>
-            <div className="sn-side-card">
-              <div className="sn-side-head">SLA / SLO</div>
-              <div className="sn-side-body">
-                <Field label="30-day SLA" value={<span style={{ color: getMetricColor(100 - e.sla, 0.5, 1.5).fg, fontWeight: 700 }}>{e.sla}%</span>} />
-                <Field label="Target" value="99.9%" />
-                <Field label="Error budget left" value={e.sla >= 99.9 ? "full" : e.sla >= 99.5 ? "62%" : "exhausted"} />
-              </div>
-            </div>
-          </aside>
+            </Panel>
+            <Panel title="Application summary">
+              <dl className={ui.dl}>
+                <dt>Application name</dt><dd className={ui.mono}>{e.id}</dd>
+                <dt>Client / tenant</dt><dd>{e.client}</dd>
+                <dt>Business service</dt><dd>{e.bizSvc}</dd>
+                <dt>Team owner</dt><dd>{e.team}</dd>
+                <dt>Entity type</dt><dd>{e.type}</dd>
+                <dt>Language</dt><dd>{e.lang}</dd>
+                <dt>Environment</dt><dd>{e.env}</dd>
+                <dt>Cluster / namespace</dt><dd className={ui.mono}>{e.cluster !== "—" ? `${e.cluster} / ${e.ns}` : "not containerized"}</dd>
+                <dt>Health status</dt><dd><Pill tone={healthTone(e.health)}><PillDot />{getStatusLabel(e.health)}</Pill></dd>
+                <dt>Last reporting</dt><dd>{e.lastReport}</dd>
+              </dl>
+            </Panel>
+          </div>
+          <div className={ui.rail}>
+            <Panel title="Quick links">
+              <ul className={iconList}>
+                <li><Icon icon={ListIcon} /><TextButton onClick={() => setRoute("logs")}>Logs</TextButton></li>
+                <li><Icon icon={GanttChartIcon} /><TextButton onClick={() => setRoute("apm")}>Traces</TextButton></li>
+                <li><Icon icon={GaugeIcon} /><TextButton onClick={() => setRoute("metrics")}>Metrics</TextButton></li>
+                <li><Icon icon={GitBranchIcon} /><span className={ui.mono}>git.internal/finspot/{e.id}</span></li>
+              </ul>
+            </Panel>
+            <Panel title="SLA / SLO">
+              <dl className={ui.dl}>
+                <dt>30-day SLA</dt><dd><span className={toneText[slaTone]}>{e.sla}%</span></dd>
+                <dt>Target</dt><dd>{SLA_TARGET}%</dd>
+                <dt>Error budget left</dt><dd>{budgetLeft ? `${budgetLeft}%` : "exhausted"}</dd>
+              </dl>
+            </Panel>
+          </div>
         </div>
       )}
 
       {/* ---------------- KUBERNETES ---------------- */}
       {tab === "kubernetes" && (
-        <div>
-          {e.cluster === "—" ? (
-            <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, padding: 32, textAlign: "center", color: "var(--fg-muted)", fontSize: 12.5 }}>
-              <i className="fa-solid fa-dharmachakra" style={{ fontSize: 24, color: "var(--fg-faint)" }} />
-              <div style={{ marginTop: 8 }}>This entity is not deployed on Kubernetes ({e.type})</div>
+        e.cluster === "—" ? (
+          <Card><Empty>This entity is not deployed on Kubernetes ({e.type}).</Empty></Card>
+        ) : (
+          <>
+            <Panel title={`Pods · ${pods.length} in ns/${e.ns}`}>
+              <Table>
+                  <thead><tr><th scope="col">Pod</th><th scope="col">Node</th><th scope="col">Status</th><th scope="col">Restarts</th><th scope="col">CPU</th><th scope="col">Memory</th><th scope="col">Age</th></tr></thead>
+                  <tbody>
+                    {pods.map((p) => (
+                      <tr key={p.name} className={p.status !== "Running" ? rowCrit : undefined}>
+                        <td className={cellMono}>{p.name}</td>
+                        <td className={cellMono}>{p.node}</td>
+                        <td><Pill tone={p.status === "Running" ? "ok" : p.status === "Pending" ? "warn" : "crit"}><PillDot />{p.status}</Pill></td>
+                        <td className={p.restarts > 0 ? cellTone.crit : undefined}>{p.restarts}</td>
+                        <td><Pill tone={loadTone(p.cpu)}>{p.cpu}%</Pill></td>
+                        <td><Pill tone={loadTone(p.mem)}>{p.mem}%</Pill></td>
+                        <td>{p.age}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+            </Panel>
+            <div className={cx(ui.grid, ui.cols[2])}>
+              <Panel title="Services & ingress">
+                <Table>
+                    <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Detail</th></tr></thead>
+                    <tbody>
+                      {services.map((s) => <tr key={s.name}><td className={cellMono}>{s.name}</td><td><Pill tone="muted">{s.type}</Pill></td><td className={cellMono}>{s.clusterIP} · {s.ports}</td></tr>)}
+                      {ingress.map((g) => <tr key={g.name}><td className={cellMono}>{g.name}</td><td><Pill tone="muted">Ingress</Pill></td><td className={cellMono}>{g.host} · {g.path} · {g.tls}</td></tr>)}
+                    </tbody>
+                  </Table>
+              </Panel>
+              <Panel title="PVC & config">
+                <dl className={ui.dl}>
+                  <dt>Volume claims</dt>
+                  <dd>{pvcs.length ? pvcs.map((p) => <span key={p.name} className={ui.sub}><span className={ui.mono}>{p.name}</span> · {p.size} · {p.class} · <Pill tone="ok">{p.status}</Pill></span>) : "No PVCs — stateless workload"}</dd>
+                  <dt>ConfigMaps</dt>
+                  <dd>{configMaps.map((c) => <span key={c.name} className={cx(ui.sub, "font-mono font-semibold")}>{c.name}</span>)}</dd>
+                </dl>
+              </Panel>
             </div>
-          ) : (
-            <>
-              <FormSection id="pods" title="Pods" badge={`${pods.length} pods · ns/${e.ns}`}>
-                <table className="sn-list-table">
-                  <thead><tr><th>Pod</th><th style={{width:150}}>Node</th><th style={{width:130}}>Status</th><th style={{width:80}}>Restarts</th><th style={{width:90}}>CPU</th><th style={{width:90}}>Memory</th><th style={{width:70}}>Age</th></tr></thead>
+            <Panel title="Secrets · reference only, values never displayed">
+              <Table>
+                  <thead><tr><th scope="col">Secret</th><th scope="col">Keys</th><th scope="col">Value</th></tr></thead>
                   <tbody>
-                    {pods.map((p, i) => (
-                      <tr key={i} style={p.status !== "Running" ? { background: "rgba(239,68,68,.05)" } : undefined}>
-                        <td className="mono">{p.name}</td><td className="mono" style={{ fontSize: 11 }}>{p.node}</td>
-                        <td><span style={statusBadgeStyle(p.status === "Running" ? "ok" : p.status === "Pending" ? "warn" : "crit")}><i className="fa-solid fa-circle" style={{ fontSize: 6 }} /> {p.status}</span></td>
-                        <td className="mono" style={{ color: p.restarts > 0 ? STATUS_COLORS.crit.fg : undefined, fontWeight: p.restarts > 0 ? 700 : 400 }}>{p.restarts}</td>
-                        <td style={{ color: getCpuColor(p.cpu).fg, fontWeight: 600 }} className="mono">{p.cpu}%</td>
-                        <td style={{ color: getMemColor(p.mem).fg, fontWeight: 600 }} className="mono">{p.mem}%</td>
-                        <td className="mono">{p.age}</td>
+                    {secrets.map((s) => (
+                      <tr key={s.name}>
+                        <td className={cellMono}>{s.name}</td>
+                        <td><ul className="list-none flex flex-wrap justify-start gap-1.5 m-0 p-0">{s.keys.map(k => <li key={k} className={cx(ui.tag, "font-mono")}>{k}</li>)}</ul></td>
+                        <td><span className="sr-only">Hidden</span><span aria-hidden="true">••••••••</span> <Icon icon={LockIcon} /></td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </FormSection>
-              <FormSection id="svc" title="Services & Ingress">
-                <table className="sn-list-table">
-                  <thead><tr><th>Name</th><th style={{width:110}}>Type</th><th>Detail</th></tr></thead>
-                  <tbody>
-                    {services.map((s, i) => <tr key={i}><td className="mono">{s.name}</td><td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {s.type}</span></td><td className="mono" style={{ fontSize: 11.5 }}>{s.clusterIP} · {s.ports}</td></tr>)}
-                    {ingress.map((g, i) => <tr key={"i"+i}><td className="mono">{g.name}</td><td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> Ingress</span></td><td className="mono" style={{ fontSize: 11.5 }}>{g.host} · {g.path} · {g.tls}</td></tr>)}
-                    {services.length === 0 && ingress.length === 0 && <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--fg-muted)", padding: 18 }}>None</td></tr>}
-                  </tbody>
-                </table>
-              </FormSection>
-              <FormSection id="storage" title="PVC & Config">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-                  <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".05em" }}>Persistent Volume Claims</div>
-                    {pvcs.length === 0 && <div style={{ fontSize: 12, color: "var(--fg-muted)" }}>No PVCs — stateless workload</div>}
-                    {pvcs.map((p, i) => <div key={i} style={{ fontSize: 12, marginBottom: 6 }}><span className="mono"><b>{p.name}</b></span> · {p.size} · {p.class} · <span style={statusBadgeStyle("ok")}>{p.status}</span></div>)}
-                  </div>
-                  <div style={{ padding: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".05em" }}>ConfigMaps</div>
-                    {configMaps.map((c, i) => <div key={i} className="mono" style={{ fontSize: 12, marginBottom: 4 }}>{c.name}</div>)}
-                  </div>
-                </div>
-              </FormSection>
-              <FormSection id="secrets" title="Secrets" badge="reference only — values never displayed">
-                <table className="sn-list-table">
-                  <thead><tr><th>Secret</th><th>Keys</th><th style={{width:110}}>Value</th></tr></thead>
-                  <tbody>
-                    {secrets.map((s, i) => (
-                      <tr key={i}>
-                        <td className="mono">{s.name}</td>
-                        <td>{s.keys.map(k => <span key={k} className="logmx-tag" style={{ marginRight: 6 }}>{k}</span>)}</td>
-                        <td className="mono text-mute">•••••••• <i className="fa-solid fa-lock" style={{ marginLeft: 4, fontSize: 10 }} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </FormSection>
-            </>
-          )}
-        </div>
+                </Table>
+            </Panel>
+          </>
+        )
       )}
 
       {/* ---------------- DEPENDENCIES / NETWORK PATH ---------------- */}
       {tab === "dependencies" && (
-        <div>
-          <FormSection id="path" title="Infrastructure Relationship Flow">
-            <div style={{ padding: 20, background: "#fafbfc", overflowX: "auto" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 920 }}>
-                {["User", "DNS", "Firewall", "Load Balancer / Ingress", "K8s Service", `${e.id} Pod`, "API Service", ...dependencies.map(d => d.name), "Storage / External"].map((step, i, arr) => (
-                  <React.Fragment key={step + i}>
-                    <div style={{ flex: "0 0 auto", background: "white", border: `1.5px solid ${i === 5 ? "#0ea5e9" : "var(--border, #d5dbe1)"}`, borderRadius: 6, padding: "10px 12px", minWidth: 120, textAlign: "center", boxShadow: i === 5 ? "0 0 0 3px rgba(14,165,233,.15)" : "none" }}>
-                      <div style={{ fontSize: 11, fontWeight: 700 }}>{step}</div>
-                    </div>
-                    {i < arr.length - 1 && <i className="fa-solid fa-arrow-right" style={{ color: "var(--fg-faint)", flexShrink: 0 }} />}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
-          </FormSection>
-          <FormSection id="deps" title="Dependencies" badge={`${dependencies.length} downstream`}>
-            <table className="sn-list-table">
-              <thead><tr><th>Name</th><th style={{width:110}}>Kind</th><th>Role</th><th style={{width:220}}>Host</th></tr></thead>
-              <tbody>
-                {dependencies.map((d, i) => (
-                  <tr key={i}><td><b>{d.name}</b></td><td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {d.kind}</span></td><td>{d.role}</td><td className="mono" style={{ fontSize: 11.5 }}>{d.host}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
+        <>
+          <Panel title="Infrastructure relationship flow">
+            <ol className={flow} aria-label="Request path">
+              {path.map((step, i) => (
+                <li key={step + i}>
+                  <span className={cx(stepBox, i === 5 ? "border-accent shadow-[0_0_0_3px_var(--info-bg)]" : "border-line-strong")}>{step}</span>
+                  {i < path.length - 1 && <Icon icon={ArrowRightIcon} />}
+                </li>
+              ))}
+            </ol>
+          </Panel>
+          <Panel title={`Dependencies · ${dependencies.length} downstream`}>
+            <Table>
+                <thead><tr><th scope="col">Name</th><th scope="col">Kind</th><th scope="col">Role</th><th scope="col">Host</th></tr></thead>
+                <tbody>
+                  {dependencies.map((d) => (
+                    <tr key={d.name}><td className="font-medium">{d.name}</td><td><Pill tone="muted">{d.kind}</Pill></td><td>{d.role}</td><td className={cellMono}>{d.host}</td></tr>
+                  ))}
+                </tbody>
+              </Table>
+          </Panel>
+        </>
       )}
 
       {/* ---------------- DEPLOYMENTS / CI-CD ---------------- */}
       {tab === "deployments" && (
-        <div>
-          <FormSection id="cicd" title="CI/CD Pipeline">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, padding: 12, background: "#fafbfc" }}>
-              {cicd.map((c, i) => (
-                <div key={i} style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 5, padding: "12px 14px" }}>
-                  <i className={`fa-solid ${c.icon}`} style={{ color: "#0ea5e9", fontSize: 16 }} />
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--fg-muted)", marginTop: 8, textTransform: "uppercase", letterSpacing: ".05em" }}>{c.stage}</div>
-                  <div className="mono" style={{ fontSize: 12, marginTop: 4, fontWeight: 600 }}>{c.detail}</div>
-                  <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>{c.sub}</div>
+        <>
+          <Panel title="CI/CD pipeline">
+            <div className={tiles}>
+              {cicd.map((c) => (
+                <div key={c.stage} className={tile}>
+                  <Icon className={`fa-solid ${c.icon}`} />
+                  <span className={tileLabel}>{c.stage}</span>
+                  <span className={ui.mono}>{c.detail}</span>
+                  <span className="text-fg-muted text-xs">{c.sub}</span>
                 </div>
               ))}
             </div>
-          </FormSection>
-          <FormSection id="deploy-hist" title="Deployment History" badge={`${deployHistory.length} in last 7d`}>
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:80}}>Version</th><th>Author</th><th style={{width:110}}>When</th><th style={{width:90}}>Commits</th><th style={{width:130}}>Outcome</th></tr></thead>
-              <tbody>
-                {deployHistory.map((d, i) => (
-                  <tr key={i}>
-                    <td><a className="sn-link mono"><b>{d.v}</b></a></td><td className="mono">{d.who}</td><td className="text-mute">{d.when}</td><td className="mono">{d.commits}</td>
-                    <td><span className={`sn-state-pill ${d.outcome === "regression" ? "state-active" : d.outcome === "improved" ? "svc-healthy" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {d.outcome}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
+          </Panel>
+          <Panel title={`Deployment history · ${deployHistory.length} in last 7d`}>
+            <Table>
+                <thead><tr><th scope="col">Version</th><th scope="col">Author</th><th scope="col">When</th><th scope="col">Commits</th><th scope="col">Outcome</th></tr></thead>
+                <tbody>
+                  {deployHistory.map((d) => (
+                    <tr key={d.v}>
+                      <td className={cellMono}>{d.v}</td><td className={cellMono}>{d.who}</td><td>{d.when}</td><td>{d.commits}</td>
+                      <td><Pill tone={outcomeTone(d.outcome)}>{d.outcome}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+          </Panel>
+        </>
       )}
 
       {/* ---------------- ALERTS & INCIDENTS ---------------- */}
       {tab === "alerts" && (
-        <div>
-          <FormSection id="active-alerts" title="Active Alerts" badge={`${activeAlerts.length} active`}>
-            {activeAlerts.length === 0 && <div style={{ padding: 28, textAlign: "center", color: "var(--fg-muted)", fontSize: 12.5 }}><i className="fa-solid fa-circle-check" style={{ fontSize: 24, color: STATUS_COLORS.ok.line }} /><div style={{ marginTop: 8 }}>No active alerts</div></div>}
-            {activeAlerts.length > 0 && (
-              <table className="sn-list-table">
-                <thead><tr><th style={{width:90}}>Severity</th><th>Alert</th><th style={{width:200}}>Source</th><th style={{width:90}}>Since</th><th style={{width:110}}>Ack</th></tr></thead>
+        <>
+          <Panel title={`Active alerts (${activeAlerts.length})`} action={{ label: "Alert console", onClick: () => setRoute("alerts") }}>
+            {activeAlerts.length ? (
+              <Table>
+                  <thead><tr><th scope="col">Severity</th><th scope="col">Alert</th><th scope="col">Source</th><th scope="col">Since</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+                  <tbody>
+                    {activeAlerts.map((a, i) => (
+                      <tr key={i}>
+                        <td><Pill tone={a.sev === "critical" ? "crit" : "warn"}><PillDot />{a.sev}</Pill></td>
+                        <td className={cx("font-medium", ui.cellWrap)}>{a.title}</td>
+                        <td className={cellMono}>{a.source}</td>
+                        <td>{a.since}</td>
+                        <td><Button size="sm">Acknowledge</Button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+            ) : (
+              <Empty><Icon icon={CircleCheckIcon} className={toneText.ok} /> No active alerts</Empty>
+            )}
+          </Panel>
+          <Panel title={`Incident history · ${incidentHistory.length} records`}>
+            <Table>
+                <thead><tr><th scope="col">Incident</th><th scope="col">Title</th><th scope="col">When</th><th scope="col">Status</th></tr></thead>
                 <tbody>
-                  {activeAlerts.map((a, i) => (
-                    <tr key={i}>
-                      <td><span style={statusBadgeStyle(a.sev === "critical" ? "crit" : "warn")}><i className="fa-solid fa-circle" style={{ fontSize: 6 }} /> {a.sev}</span></td>
-                      <td><b>{a.title}</b></td><td className="mono" style={{ fontSize: 11.5 }}>{a.source}</td><td>{a.since}</td>
-                      <td><button className="sn-btn" style={{ padding: "2px 10px", fontSize: 11 }}>Acknowledge</button></td>
+                  {incidentHistory.map((n) => (
+                    <tr key={n.id}>
+                      <td className={cellMono}>{n.id}</td><td className={ui.cellWrap}>{n.title}</td><td>{n.when}</td>
+                      <td><Pill tone={n.status === "active" ? "crit" : "ok"}>{n.status}</Pill></td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            )}
-          </FormSection>
-          <FormSection id="incidents" title="Incident History" badge={`${incidentHistory.length} records`}>
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:110}}>Incident</th><th>Title</th><th style={{width:100}}>When</th><th style={{width:110}}>Status</th></tr></thead>
-              <tbody>
-                {incidentHistory.map((n, i) => (
-                  <tr key={i}><td><a className="sn-link mono">{n.id}</a></td><td>{n.title}</td><td className="text-mute">{n.when}</td>
-                    <td><span className={`sn-state-pill ${n.status === "active" ? "state-active" : "svc-healthy"}`}><i className="fa-solid fa-circle" /> {n.status}</span></td></tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
+              </Table>
+          </Panel>
+        </>
       )}
 
       {/* ---------------- RUNBOOK & OWNERSHIP ---------------- */}
       {tab === "runbook" && (
-        <div className="sn-form-layout">
-          <div className="sn-form-main">
-            <FormSection id="runbook-doc" title="Runbook & Documentation">
-              <FormRow><Field label="Runbook" value={<a className="sn-link mono">{e.runbook}</a>} /><Field label="Architecture doc" value={<a className="sn-link">Confluence · {e.id} design doc</a>} /></FormRow>
-              <FormRow><Field label="On-call rotation" value={`${e.team} · PagerDuty schedule`} /><Field label="Escalation policy" value="P1 → team lead → SRE Platform" /></FormRow>
-            </FormSection>
-          </div>
-          <aside className="sn-form-side">
-            <div className="sn-side-card">
-              <div className="sn-side-head">Owner Contacts</div>
-              <div className="sn-side-body">
-                <Field label="Team" value={e.team} />
-                <Field label="On-call" value={<UserById id="u1" />} />
-                <Field label="Slack" value={`#${e.team.toLowerCase()}`} />
-                <Field label="Business owner" value={e.client + " · Platform"} />
-              </div>
-            </div>
-          </aside>
+        <div className={cx(ui.grid, ui.cols[2])}>
+          <Panel title="Runbook & documentation">
+            <dl className={ui.dl}>
+              <dt>Runbook</dt><dd className={ui.mono}>{e.runbook}</dd>
+              <dt>Architecture doc</dt><dd>Confluence · {e.id} design doc</dd>
+              <dt>On-call rotation</dt><dd>{e.team} · PagerDuty schedule</dd>
+              <dt>Escalation policy</dt><dd>P1 → team lead → SRE Platform</dd>
+            </dl>
+          </Panel>
+          <Panel title="Owner contacts">
+            <dl className={ui.dl}>
+              <dt>Team</dt><dd>{e.team}</dd>
+              <dt>On-call</dt><dd>{owner ? <>{owner.name}<span className={ui.sub}>{owner.team}</span></> : "Unassigned"}</dd>
+              <dt>Slack</dt><dd className={ui.mono}>#{e.team.toLowerCase()}</dd>
+              <dt>Business owner</dt><dd>{e.client} · Platform</dd>
+            </dl>
+          </Panel>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

@@ -1,84 +1,136 @@
-// People & Roles in ServiceNow form-style
-// Ported from screens/users.jsx.
-import React from "react";
+// People & Roles — LinkedEye layout: people summary cards, the user inventory
+// table and a role-distribution rail. Users come from the local seed
+// (data/core); there is no directory endpoint yet.
+import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { USERS } from "@/data/core";
-import { Kpi, FormSection, Field, Avatar } from "@/components/primitives";
+import { colorFor } from "@/components/Shell";
+import { Empty, Panel, Pill, PillDot, StatCard, countBy, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, cx, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
+
+import { Icon } from "@/components/Icon";
+import { KeyRoundIcon, UserCogIcon, UserPlusIcon } from "lucide-react";
+// identity cell (avatar + name / email) — were ld-admin-* classes
+const who = "flex items-center gap-2.5 min-w-0";
+const whoBody = "flex flex-col items-start gap-px min-w-0";
+const avatar = "flex-none w-7 h-7 rounded-full grid place-items-center text-2xs font-bold text-white bg-fg-subtle";
+
+const ROLE_TONE: Record<string, Tone> = {
+  Admin: "crit",
+  "Incident Commander": "purple",
+  Manager: "warn",
+  Responder: "info",
+  Viewer: "muted",
+};
+const STATUS_TONE: Record<string, Tone> = { online: "ok", away: "warn" };
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join("");
+
+const onCall = (role: string) => role === "Incident Commander" || role === "Responder";
 
 export default function UsersScreen() {
+  const { setRoute } = useNav();
   const tenant = useUiStore((s) => s.tenant);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+
+  const roles = countBy(USERS, (u) => u.role);
+  const teams = new Set(USERS.map((u) => u.team)).size;
+  const online = USERS.filter((u) => u.status === "online").length;
+  const admins = USERS.filter((u) => u.role === "Admin").length;
+  const rotating = USERS.filter((u) => onCall(u.role)).length;
+  const roleMax = roles[0]?.[1] || 1;
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">{tenant.name}</a><span className="sn-bc-sep">›</span>
-        <span>People &amp; Roles</span>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: tenant.name }, { label: "People & Roles" }]} />
+
+      <PageHead
+        title="People & Roles"
+        subtitle={<>Who can sign in to {tenant.name}, what role they hold and whether they are in an on-call rotation</>}
+        actions={
+          <>
+            <Button><Icon icon={UserCogIcon} /> Role Matrix</Button>
+            <Button variant="primary"><Icon icon={UserPlusIcon} /> Invite People</Button>
+          </>
+        }
+      />
+
+      <div className={cx(ui.grid, ui.cols[5])}>
+        <StatCard icon="fa-users" tone="info" label="Total users" value={fmt(USERS.length)} note={`${teams} teams`} />
+        <StatCard icon="fa-circle-check" tone="ok" label="Online" value={fmt(online)} note={`${USERS.length - online} away or offline`} />
+        <StatCard icon="fa-user-shield" tone="crit" label="Admins" value={fmt(admins)} note="full workspace access" />
+        <StatCard icon="fa-bell" tone="purple" label="On-call" value={fmt(rotating)} note="commanders and responders" />
+        <StatCard icon="fa-user-gear" tone="muted" label="Roles" value={fmt(roles.length)} note="in use" />
       </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">USERS</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {USERS.length * 52} users</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-user-gear" /> 8 roles</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>People &amp; Roles</h1>
-            <div className="sn-form-sub">{tenant.name} · {USERS.length * 52} users · 8 roles · provisioned via SCIM</div>
+
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby="users-h">
+          <div className={ui.panelHead}>
+            <h2 className={ui.panelTitle} id="users-h">User Inventory</h2>
+            <span className="text-fg-muted text-xs">{fmt(USERS.length)} users</span>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-user-gear" /> Role Matrix</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-user-plus" /> Invite People</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Total users" v={USERS.length * 52} s="+12 this month" tone="ok" />
-        <Kpi l="On-call" v="14" s="3 teams rotating" tone="neutral" />
-        <Kpi l="Admins" v="8" s="audit via SSO" tone="neutral" />
-        <Kpi l="Pending invites" v="3" s="expires in 7d" tone="warn" />
-        <Kpi l="Roles" v="8" s="defined" tone="neutral" />
-        <Kpi l="Last sync" v="2m" s="SCIM ago" tone="ok" />
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="users" title="User Inventory" badge={`${USERS.length} shown`} collapsed={collapsed.users} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>User</th><th style={{width:160}}>Role</th><th style={{width:140}}>Team</th><th style={{width:110}}>On-call</th><th style={{width:90}}>Auth</th><th style={{width:110}}>Last active</th><th style={{width:100}}>State</th></tr></thead>
-              <tbody>
-                {USERS.map(u => (
-                  <tr key={u.id}>
-                    <td>
-                      <div className="row row-8">
-                        <Avatar name={u.name} color={u.color} />
-                        <div><a className="sn-link"><b>{u.name}</b></a><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>{u.email}</div></div>
-                      </div>
-                    </td>
-                    <td><span className={`sn-state-pill ${u.role === "Admin" ? "state-investigating" : u.role === "Incident Commander" ? "state-active" : u.role === "Manager" ? "state-mitigating" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {u.role}</span></td>
-                    <td>{u.team}</td>
-                    <td>{(u.role === "Incident Commander" || u.role === "Responder") ? <span className="sn-state-pill state-investigating"><i className="fa-solid fa-circle" /> Rotating</span> : <span className="text-mute mono">—</span>}</td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-key" /> SSO</span></td>
-                    <td className="text-mute mono" style={{ fontSize: 11 }}>{u.last}</td>
-                    <td><span className={`sn-state-pill ${u.status === "online" ? "svc-healthy" : u.status === "away" ? "state-mitigating" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {u.status}</span></td>
+          {USERS.length ? (
+            <Table>
+                <thead>
+                  <tr>
+                    <th scope="col">User</th>
+                    <th scope="col">Role</th>
+                    <th scope="col">Team</th>
+                    <th scope="col">On-call</th>
+                    <th scope="col">Auth</th>
+                    <th scope="col">Last active</th>
+                    <th scope="col">State</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+                </thead>
+                <tbody>
+                  {USERS.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div className={who}>
+                          <span className={avatar} style={{ background: colorFor(u.color) }} aria-hidden="true">{initials(u.name)}</span>
+                          <span className={whoBody}>
+                            <span className="font-medium">{u.name}</span>
+                            <span className={cx(ui.sub, ui.mono)}>{u.email}</span>
+                          </span>
+                        </div>
+                      </td>
+                      <td><Pill tone={ROLE_TONE[u.role] ?? "muted"}>{u.role}</Pill></td>
+                      <td>{u.team}</td>
+                      <td>{onCall(u.role) ? <Pill tone="info"><PillDot />Rotating</Pill> : <span className="text-fg-muted">—</span>}</td>
+                      <td><Pill tone="muted"><Icon icon={KeyRoundIcon} /> SSO</Pill></td>
+                      <td>{u.last}</td>
+                      <td><Pill tone={STATUS_TONE[u.status] ?? "muted"}><PillDot />{u.status}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+          ) : (
+            <Empty>No users in this workspace yet.</Empty>
+          )}
+        </section>
+
+        <div className={ui.rail}>
+          <Panel title="Role Distribution">
+            <ul className={ui.bars}>
+              {roles.map(([role, n]) => (
+                <li key={role} className={ui.barItem}>
+                  <span className={ui.barLabel}>{role}</span>
+                  <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${(n / roleMax) * 100}%`, background: "var(--accent)" }} /></span>
+                  <span className={ui.barValue}>{n}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
         </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Role Distribution</div>
-            <div className="sn-side-body">
-              {["Admin","Incident Commander","Manager","Responder","Viewer"].map(r => {
-                const count = USERS.filter(u => u.role === r).length;
-                return <Field key={r} label={r} value={<span className="mono"><b>{count * 8}</b> users</span>} />;
-              })}
-            </div>
-          </div>
-        </aside>
       </div>
-    </div>
+
+      <p className="text-fg-muted text-xs">Sample user directory — identity provisioning is not connected to the backend yet.</p>
+    </Page>
   );
 }

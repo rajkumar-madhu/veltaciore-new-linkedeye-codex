@@ -8,9 +8,14 @@ import React from "react";
 import { useUiStore } from "@/store/ui";
 import { useTenants } from "@/api/hooks";
 import { TENANTS } from "@/data/core";
-import { Donut, Empty, Legend, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Donut, Empty, Legend, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Input, Page, PageHead, SearchBox, Select, Table, Textarea, Tile, buttonClass, cx, ui } from "@/components/ui";
 import type { Slice, Tone } from "@/components/ld";
 
+import { Icon } from "@/components/Icon";
+import { PlusIcon, SearchIcon } from "lucide-react";
+/** The global input:focus outline colour beats SearchBox's outline-none; keep the inner input unringed (the box shows the ring). */
+const searchInputFix = "focus:outline-none";
 export type CheckStatus = "up" | "down" | "warn" | "pending";
 
 export interface CheckRow {
@@ -59,11 +64,15 @@ export interface CheckMonitorConfig {
 const STATUS_TONE: Record<CheckStatus, Tone> = { up: "ok", down: "crit", warn: "warn", pending: "muted" };
 const STATUS_COLOR: Record<CheckStatus, string> = { up: "#16a34a", down: "#e5383b", warn: "#f5a524", pending: "#98a2b3" };
 const PAGE_SIZE = 10;
+/** Monospace table cell: keeps the cell's 13px size (the old mono class lost to the table cell rule). */
+const tdMono = "font-mono font-semibold";
 
 /** Lower-case a noun unless it is an acronym ("URL", "URLs"). */
 const lc = (s: string) => (/^[A-Z]{2}/.test(s) ? s : s.toLowerCase());
 
-const uptimeTone = (u: number | null): string => (u == null ? "" : u >= 99.5 ? "ld-text-ok" : u >= 95 ? "ld-text-warn" : "ld-text-crit");
+// Uptime cells were meant to be tinted, but the table cell colour always won;
+// only the bold weight showed, so that is what is kept.
+const uptimeTone = (u: number | null): string | undefined => (u == null ? undefined : "font-semibold");
 
 export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
   const tenant = useUiStore((s) => s.tenant);
@@ -130,25 +139,23 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
   };
 
   return (
-    <div className="ld-dash">
-      <div className="ld-head">
-        <div>
-          <h1>{cfg.title}</h1>
-          <p>{cfg.subtitle} · {client ? clientName(client) : "all clients"}</p>
-        </div>
-        <div className="ld-head-actions">
-          <label htmlFor={`${idp}-client`} className="ld-inline-label">Client</label>
-          <select id={`${idp}-client`} className="ld-select" value={client} onChange={(e) => setClient(e.target.value)}>
+    <Page>
+      <PageHead
+        title={cfg.title}
+        subtitle={<>{cfg.subtitle} · {client ? clientName(client) : "all clients"}</>}
+        actions={<>
+          <label htmlFor={`${idp}-client`} className="text-sm text-fg-muted">Client</label>
+          <Select id={`${idp}-client`} value={client} onChange={(e) => setClient(e.target.value)}>
             <option value="">All clients</option>
             {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <a className="ld-btn ld-btn-primary" href={`#${idp}-form`}>
-            <i className="fa-solid fa-plus" aria-hidden="true" /> Add {lc(cfg.noun.one)}
+          </Select>
+          <a className={buttonClass("primary")} href={`#${idp}-form`}>
+            <Icon icon={PlusIcon} /> Add {lc(cfg.noun.one)}
           </a>
-        </div>
-      </div>
+        </>}
+      />
 
-      <div className="ld-grid ld-grid-5">
+      <div className={cx(ui.grid, ui.cols[5])}>
         <StatCard icon={cfg.icon} tone="info" label={`Total ${cfg.noun.many}`} value={fmt(scoped.length)} note={`configured ${lc(cfg.noun.many)}`} onClick={() => setStatus("")} />
         <StatCard icon="fa-circle-check" tone="ok" label={cfg.statusLabel.up} value={fmt(count("up"))} note={pct(count("up"))} onClick={() => setStatus("up")} />
         <StatCard icon="fa-circle-xmark" tone="crit" label={cfg.statusLabel.down} value={fmt(count("down"))} note={pct(count("down"))} onClick={() => setStatus("down")} />
@@ -156,10 +163,10 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
         <StatCard icon="fa-gauge-high" tone="purple" label="Avg Response Time" value={timed.length ? `${Math.round(avgMs)} ms` : "—"} note={`across ${timed.length} responding`} />
       </div>
 
-      <div className="ld-grid ld-grid-2">
+      <div className={cx(ui.grid, ui.cols[2])}>
         <Panel title={`${cfg.noun.one} Status Overview`}>
           {statusSlices.length ? (
-            <div className="ld-donut-row">
+            <div className="flex flex-wrap items-center gap-4.5">
               <Donut slices={statusSlices} center={fmt(scoped.length)} sub={`Total ${cfg.noun.many}`} label={`${scoped.length} ${lc(cfg.noun.many)} by status`} />
               <Legend slices={statusSlices} />
             </div>
@@ -169,14 +176,14 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
         </Panel>
         <Panel title="Slowest Responses">
           {slowest.length ? (
-            <ul className="ld-bars">
+            <ul className={ui.bars}>
               {slowest.map((r) => (
-                <li key={r.id}>
-                  <span className="ld-bar-label">{r.name}</span>
-                  <span className="ld-bar-track">
-                    <span className="ld-bar-fill" style={{ width: `${(r.responseMs / slowMax) * 100}%`, background: r.status === "warn" ? "#f5a524" : "#2f6bff" }} />
+                <li key={r.id} className={ui.barItemWide}>
+                  <span className={ui.barLabel}>{r.name}</span>
+                  <span className={ui.barTrack}>
+                    <span className={ui.barFill} style={{ width: `${(r.responseMs / slowMax) * 100}%`, background: r.status === "warn" ? "#f5a524" : "#2f6bff" }} />
                   </span>
-                  <span className="ld-bar-value ld-bar-value-wide">{fmt(r.responseMs)} ms</span>
+                  <span className={cx(ui.barValue, "min-w-[64px]")}>{fmt(r.responseMs)} ms</span>
                 </li>
               ))}
             </ul>
@@ -186,37 +193,33 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
         </Panel>
       </div>
 
-      <div className="ld-split">
-        <section className="ld-card ld-panel" aria-labelledby={`${idp}-list`}>
-          <div className="ld-panel-head">
-            <h2 id={`${idp}-list`}>Monitored {cfg.noun.many}</h2>
-            <span className="ld-muted ld-small">{fmt(visible.length)} shown</span>
+      <div className={ui.split}>
+        <Card as="section" className={ui.panel} aria-labelledby={`${idp}-list`}>
+          <div className={ui.panelHead}>
+            <h2 id={`${idp}-list`} className={ui.panelTitle}>Monitored {cfg.noun.many}</h2>
+            <span className="text-fg-muted text-xs">{fmt(visible.length)} shown</span>
           </div>
-          <div className="ld-toolbar">
+          <div className={ui.toolbar}>
             <label htmlFor={`${idp}-q`} className="sr-only">Search</label>
-            <span className="ld-search">
-              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
-              <input id={`${idp}-q`} type="search" placeholder={`Search ${lc(cfg.noun.many)}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
-            </span>
+            <SearchBox inputClassName={searchInputFix} className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id={`${idp}-q`} type="search" placeholder={`Search ${lc(cfg.noun.many)}…`} value={query} onChange={(e) => setQuery(e.target.value)} />
             <label htmlFor={`${idp}-site`} className="sr-only">Site</label>
-            <select id={`${idp}-site`} className="ld-select" value={site} onChange={(e) => setSite(e.target.value)}>
+            <Select id={`${idp}-site`} value={site} onChange={(e) => setSite(e.target.value)}>
               <option value="">All sites</option>
               {sites.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            </Select>
             <label htmlFor={`${idp}-status`} className="sr-only">Status</label>
-            <select id={`${idp}-status`} className="ld-select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <Select id={`${idp}-status`} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All statuses</option>
               {(["up", "down", "warn", "pending"] as CheckStatus[]).map((s) => <option key={s} value={s}>{cfg.statusLabel[s]}</option>)}
-            </select>
+            </Select>
             <label htmlFor={`${idp}-kind`} className="sr-only">{cfg.columns.kind}</label>
-            <select id={`${idp}-kind`} className="ld-select" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <Select id={`${idp}-kind`} value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="">All {cfg.columns.kind.toLowerCase()}s</option>
               {kinds.map((k) => <option key={k} value={k}>{k}</option>)}
-            </select>
+            </Select>
           </div>
           {pageRows.length ? (
-            <div className="ld-table-wrap">
-              <table className="ld-table">
+            <Table>
                 <thead>
                   <tr>
                     <th scope="col">Name</th>
@@ -232,69 +235,67 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
                   {pageRows.map((r) => (
                     <tr key={r.id}>
                       <td>
-                        <span className="ld-strong">{r.name}</span>
-                        {r.description && <span className="ld-sub ld-desc" title={r.description}>{r.description}</span>}
+                        <span className="font-medium">{r.name}</span>
+                        {r.description && <span className={cx(ui.sub, "max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap")} title={r.description}>{r.description}</span>}
                       </td>
-                      <td className="ld-mono ld-ellipsis ld-ellipsis-sm" title={r.target}>{r.target}</td>
-                      <td className="ld-muted">{r.kind}</td>
+                      <td className={cx(tdMono, "max-w-[180px] overflow-hidden text-ellipsis")} title={r.target}>{r.target}</td>
+                      <td>{r.kind}</td>
                       <td>
                         {clientName(r.client)}
-                        <span className="ld-sub">{r.site}</span>
+                        <span className={ui.sub}>{r.site}</span>
                       </td>
-                      <td><Pill tone={STATUS_TONE[r.status]}><span className="ld-pill-dot" />{cfg.statusLabel[r.status]}</Pill></td>
+                      <td><Pill tone={STATUS_TONE[r.status]}><PillDot />{cfg.statusLabel[r.status]}</Pill></td>
                       <td>
-                        {r.responseMs != null ? `${fmt(r.responseMs)} ms` : <span className="ld-muted">—</span>}
-                        <span className="ld-sub">{r.lastCheck}</span>
+                        {r.responseMs != null ? `${fmt(r.responseMs)} ms` : <span className="text-fg-muted">—</span>}
+                        <span className={ui.sub}>{r.lastCheck}</span>
                       </td>
                       <td className={uptimeTone(r.uptime)}>{r.uptime != null ? `${r.uptime.toFixed(2)}%` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </Table>
           ) : (
             <Empty>No {lc(cfg.noun.many)} match these filters.</Empty>
           )}
           {visible.length > PAGE_SIZE && (
-            <nav className="ld-pager" aria-label="Pagination">
-              <span className="ld-muted ld-small">Showing {page * PAGE_SIZE + 1}–{Math.min(visible.length, (page + 1) * PAGE_SIZE)} of {visible.length}</span>
-              <div className="ld-pager-btns">
+            <nav className={ui.pager} aria-label="Pagination">
+              <span className="text-fg-muted text-xs">Showing {page * PAGE_SIZE + 1}–{Math.min(visible.length, (page + 1) * PAGE_SIZE)} of {visible.length}</span>
+              <div className={ui.pagerBtns}>
                 {Array.from({ length: pages }, (_, i) => (
-                  <button key={i} type="button" className={`ld-btn ld-btn-sm${i === page ? " ld-btn-primary" : ""}`} aria-current={i === page ? "page" : undefined} onClick={() => setPage(i)}>
+                  <Button key={i} size="sm" variant={i === page ? "primary" : "default"} aria-current={i === page ? "page" : undefined} onClick={() => setPage(i)}>
                     {i + 1}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </nav>
           )}
-        </section>
+        </Card>
 
-        <div className="ld-rail">
-          <section id={`${idp}-form`} className="ld-card ld-panel" aria-labelledby={`${idp}-form-h`}>
-            <div className="ld-panel-head">
-              <h2 id={`${idp}-form-h`}>Add {cfg.noun.one}</h2>
+        <div className={ui.rail}>
+          <Card as="section" id={`${idp}-form`} className={ui.panel} aria-labelledby={`${idp}-form-h`}>
+            <div className={ui.panelHead}>
+              <h2 id={`${idp}-form-h`} className={ui.panelTitle}>Add {cfg.noun.one}</h2>
             </div>
-            <form className="ld-form" onSubmit={submit}>
-              <div className="ld-form-field">
-                <label htmlFor={`${idp}-f-client`}>Client<span className="ld-req" aria-hidden="true"> *</span></label>
-                <select id={`${idp}-f-client`} className="ld-select" required value={values.client} onChange={(e) => setValues({ ...values, client: e.target.value })}>
+            <form className={ui.form} onSubmit={submit}>
+              <div className={ui.field}>
+                <label htmlFor={`${idp}-f-client`}>Client<span className={ui.req} aria-hidden="true"> *</span></label>
+                <Select id={`${idp}-f-client`} required value={values.client} onChange={(e) => setValues({ ...values, client: e.target.value })}>
                   {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                </Select>
               </div>
               {cfg.formFields.map((f) => (
-                <div key={f.id} className="ld-form-field">
+                <div key={f.id} className={ui.field}>
                   <label htmlFor={`${idp}-f-${f.id}`}>
                     {f.label}
-                    {f.required && <span className="ld-req" aria-hidden="true"> *</span>}
+                    {f.required && <span className={ui.req} aria-hidden="true"> *</span>}
                   </label>
                   {f.type === "select" ? (
-                    <select id={`${idp}-f-${f.id}`} className="ld-select" required={f.required} value={values[f.id]} onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}>
+                    <Select id={`${idp}-f-${f.id}`} required={f.required} value={values[f.id]} onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}>
                       {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                    </select>
+                    </Select>
                   ) : f.type === "textarea" ? (
-                    <textarea
+                    <Textarea
                       id={`${idp}-f-${f.id}`}
-                      className="ld-input ld-textarea"
                       rows={3}
                       placeholder={f.placeholder}
                       required={f.required}
@@ -302,9 +303,8 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
                       onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}
                     />
                   ) : (
-                    <input
+                    <Input
                       id={`${idp}-f-${f.id}`}
-                      className="ld-input"
                       type={f.type}
                       pattern={f.pattern}
                       title={f.patternHint}
@@ -317,26 +317,26 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
                   )}
                 </div>
               ))}
-              <button type="submit" className="ld-btn ld-btn-primary">Save {lc(cfg.noun.one)}</button>
-              <p className="ld-muted ld-small" role="status">
+              <Button type="submit" variant="primary">Save {lc(cfg.noun.one)}</Button>
+              <p className="text-fg-muted text-xs" role="status">
                 {saved ? `Added “${saved}” — it shows as Pending in the list. ` : ""}
                 New {lc(cfg.noun.many)} are kept for this session only until the backend is connected.
               </p>
             </form>
-          </section>
+          </Card>
 
           <Panel title={`Recent ${cfg.noun.one} Events`}>
             {events.length ? (
-              <ul className="ld-activity">
+              <ul className={ui.activity}>
                 {events.map((r) => (
-                  <li key={r.id}>
-                    <span className={`ld-tile ld-tile-sm ld-${STATUS_TONE[r.status]}`} aria-hidden="true">
-                      <i className={`fa-solid ${r.status === "up" ? "fa-check" : r.status === "down" ? "fa-xmark" : "fa-clock"}`} />
+                  <li key={r.id} className={ui.activityItem}>
+                    <Tile tone={STATUS_TONE[r.status]} size="sm">
+                      <Icon className={`fa-solid ${r.status === "up" ? "fa-check" : r.status === "down" ? "fa-xmark" : "fa-clock"}`} />
+                    </Tile>
+                    <span className={ui.activityText}>
+                      {r.name} · <span className="text-fg-muted">{cfg.eventMessage[r.status]}</span>
                     </span>
-                    <span className="ld-activity-text">
-                      {r.name} · <span className="ld-muted">{cfg.eventMessage[r.status]}</span>
-                    </span>
-                    <span className="ld-muted ld-nowrap">{r.lastCheck.split(" ").pop()}</span>
+                    <span className="text-fg-muted whitespace-nowrap">{r.lastCheck.split(" ").pop()}</span>
                   </li>
                 ))}
               </ul>
@@ -347,7 +347,7 @@ export function CheckMonitorScreen(cfg: CheckMonitorConfig) {
         </div>
       </div>
 
-      <p className="ld-muted ld-small">Sample check data — {lc(cfg.noun.many)} are not connected to the backend yet.</p>
-    </div>
+      <p className="text-fg-muted text-xs">Sample check data — {lc(cfg.noun.many)} are not connected to the backend yet.</p>
+    </Page>
   );
 }

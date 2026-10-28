@@ -1,15 +1,32 @@
 // Incident detail — war room
-// Ported from screens/incident-detail.jsx.
+// Ported from screens/incident-detail.jsx; LinkedEye entity-detail layout.
 import React from "react";
 import { useUiStore } from "@/store/ui";
-import { INCIDENTS, USERS, spark } from "@/data/core";
+import { useNav } from "@/hooks/useNav";
+import { INCIDENTS, TENANTS, USERS } from "@/data/core";
 import { TIMELINE_EVENTS, CHAT, type ChatMessage } from "@/data/incidentContent";
-import { Avatar, UserById, Sparkline, Pill, Sev } from "@/components/primitives";
+import { Panel, Pill, PillDot } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import { useIncidents, useUpdateCoreIncident } from "@/api/hooks";
 import { useCanWrite } from "@/auth/auth";
 import ReadOnlyBadge from "@/components/ReadOnlyBadge";
+import { entityTile, sd } from "@/components/RecordList";
+import { Button, Card, Crumbs, Page, Tab, Table, Tabs, Tile, ui } from "@/components/ui";
+
+import { Icon } from "@/components/Icon";
+import { AtSignIcon, BookIcon, EyeIcon, FlameIcon, FlaskConicalIcon, GlobeIcon, HandIcon, LockIcon, PaperclipIcon, PlayIcon, SendIcon, SignalIcon, SlackIcon, ThumbsDownIcon, ThumbsUpIcon, UserIcon, VideoIcon } from "lucide-react";
+const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "ok" };
+const EVENT_TONE: Record<string, { tone: Tone; icon: string }> = {
+  critical: { tone: "crit", icon: "fa-bell" },
+  ai: { tone: "purple", icon: "fa-wand-magic-sparkles" },
+  info: { tone: "info", icon: "fa-circle-info" },
+  warn: { tone: "warn", icon: "fa-gears" },
+  success: { tone: "ok", icon: "fa-circle-check" },
+};
+const userName = (id: string | null | undefined) => USERS.find((u) => u.id === id)?.name ?? "Unassigned";
 
 export default function IncidentDetailScreen() {
+  const { setRoute } = useNav();
   const layout = useUiStore((s) => s.tweaks.incidentLayout);
   void layout;
   const inc = INCIDENTS[0]; // INC-48291
@@ -28,183 +45,169 @@ export default function IncidentDetailScreen() {
     update.mutate({ id: inc.id, patch: { status: next } });
   };
   const resolved = status === "resolved";
+  const statusPill = resolved ? (
+    <Pill tone="ok"><PillDot />Resolved</Pill>
+  ) : status === "mitigating" ? (
+    <Pill tone="warn"><PillDot />Acknowledged · Mitigating</Pill>
+  ) : (
+    <Pill tone="crit"><PillDot />Active</Pill>
+  );
+  const sevPill = <Pill tone={SEV_TONE[inc.sev] ?? "muted"}>Sev {inc.sev}</Pill>;
+  const tenantName = TENANTS.find((t) => t.id === inc.tenant)?.name ?? inc.tenant ?? "—";
+  const responders = USERS.slice(0, 5);
 
   return (
-    <div className="page page-fade wide">
-      <div className="inc-hero">
-        <div className="sev-block"><div><b>1</b><div style={{ textAlign: "center" }}><span>SEV</span></div></div></div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="row row-8" style={{ marginBottom: 4 }}>
-            <span className="c-id" style={{ fontSize: 13 }}>{inc.id}</span>
-            {resolved ? (
-              <Pill kind="success">Resolved</Pill>
-            ) : status === "mitigating" ? (
-              <Pill kind="warning">Acknowledged · Mitigating</Pill>
-            ) : (
-              <Pill kind="critical">Active</Pill>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Incidents", onClick: () => setRoute("incidents") }, { label: inc.id }]} />
+
+      <div className={sd.entityHead}>
+        <div className={sd.entity}>
+          <span className={entityTile(SEV_TONE[inc.sev] ?? "muted")} aria-hidden="true"><Icon icon={FlameIcon} /></span>
+          <div>
+            <span className={sd.number}>{inc.id}</span>
+            <h1 className={sd.entityTitle}>{inc.title} {sevPill} {statusPill}</h1>
+            <p className={sd.entityMeta}>
+              <span>Declared {inc.age} ago</span>
+              <span>{tenantName}</span>
+              <span className={ui.mono}>{inc.service}</span>
+            </p>
+            <p className={sd.entityMeta}>
+              <span>IC: <b>{userName(inc.assignee)}</b></span>
+              <span>{responders.length} responders</span>
+              <span>SLO burn <b>{inc.sloBurn}x</b></span>
+              <span>Impact: {inc.impacted}</span>
+            </p>
+          </div>
+        </div>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button><Icon icon={SlackIcon} /> #{inc.id.toLowerCase()}</Button>
+            <Button><Icon icon={VideoIcon} /> Join bridge</Button>
+            {!canWrite && <ReadOnlyBadge />}
+            {canWrite && !resolved && status !== "mitigating" && (
+              <Button onClick={() => setStatus("mitigating")} disabled={update.isPending}>
+                <Icon icon={HandIcon} /> Acknowledge
+              </Button>
             )}
-            <span className="text-mute" style={{ fontSize: 12 }}>Declared 14m ago · Fyers · checkout-api · checkout-api-7f9c2</span>
+            {canWrite && (
+              <Button variant="primary" onClick={() => !resolved && setStatus("resolved")} disabled={resolved || update.isPending}>
+                <Icon name={resolved ? "fa-circle-check" : "fa-check"} /> {resolved ? "Resolved" : "Mark resolved"}
+              </Button>
+            )}
           </div>
-          <h1>{inc.title}</h1>
-          <div className="inc-crumbs">
-            <span><i className="fa-solid fa-user-shield" /> IC: <b>Priya Raghunathan</b></span>
-            <span className="sep">·</span>
-            <span><i className="fa-solid fa-users" /> 6 responders</span>
-            <span className="sep">·</span>
-            <span><i className="fa-solid fa-fire" /> SLO burn <b style={{ color: "var(--critical)" }}>8.4x</b></span>
-            <span className="sep">·</span>
-            <span><i className="fa-solid fa-user-group" /> 12,400 users impacted</span>
-          </div>
-        </div>
-        <div className="row row-8">
-          <button className="btn"><i className="fa-solid fa-slack fa-brands" /> #inc-48291</button>
-          <button className="btn"><i className="fa-solid fa-video" /> Join bridge</button>
-          {!canWrite && <ReadOnlyBadge />}
-          {canWrite && !resolved && status !== "mitigating" && (
-            <button className="btn" onClick={() => setStatus("mitigating")} disabled={update.isPending}>
-              <i className="fa-solid fa-hand" /> Acknowledge
-            </button>
-          )}
-          {canWrite && (
-            <button className="btn danger" onClick={() => !resolved && setStatus("resolved")} disabled={resolved || update.isPending}>
-              <i className={`fa-solid ${resolved ? "fa-circle-check" : "fa-check"}`} /> {resolved ? "Resolved" : "Mark resolved"}
-            </button>
-          )}
         </div>
       </div>
 
-      <div className="inc-grid">
-        <div className="stack stack-16" style={{ minWidth: 0 }}>
-          {/* AI summary */}
-          <div className="ai-card">
-            <h4><span className="ai-glyph">✦</span> Argus AI — Root cause analysis <Pill kind="purple" noDot>87% confidence</Pill></h4>
-            <p><b>Likely cause:</b> Connection pool on <code style={{ background: "var(--bg-raised)", padding: "1px 4px", borderRadius: 3 }}>payments-primary</code> was reduced from 200 → 120 in deploy <code style={{ background: "var(--bg-raised)", padding: "1px 4px", borderRadius: 3 }}>2f8a1c</code> at 12:47 UTC. Peak traffic load at 14:30 exhausted the pool, causing cascading Stripe timeouts on <code style={{ background: "var(--bg-raised)", padding: "1px 4px", borderRadius: 3 }}>checkout-api</code>.</p>
-            <ul className="ai-bullets">
-              <li><b>Blast radius:</b> 12,400 users · $8.2k / min revenue impact · Fyers only</li>
-              <li><b>Correlation:</b> 3 signals · deploy event · memory pressure on DB · Stripe 429 rate</li>
-              <li><b>Remediation:</b> Rollback deploy 2f8a1c (safe · no schema change) — <span className="link">run playbook →</span></li>
-              <li><b>Similar past incident:</b> INC-47120 · resolved in 22 min via rollback</li>
+      <Card className={ui.notice} role="status">
+        <Icon icon={FlaskConicalIcon} />
+        <div>
+          <b>Sample war-room content</b>
+          <p className="text-fg-muted text-xs">Only the incident status is read from the incident API. The AI analysis, timeline and activity below are example content.</p>
+        </div>
+      </Card>
+
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <Panel title="Argus AI — Root cause analysis (sample)">
+            <p className={sd.entryText}>
+              <b>Likely cause:</b> Connection pool on <code>payments-primary</code> was reduced from 200 → 120 in deploy <code>2f8a1c</code> at 12:47 UTC. Peak traffic load at 14:30 exhausted the pool, causing cascading Stripe timeouts on <code>checkout-api</code>.
+            </p>
+            <ul className={sd.list}>
+              <li><b>Blast radius:</b> {inc.impacted} · {tenantName} only</li>
+              <li><b>Correlation:</b> deploy event · memory pressure on DB · Stripe 429 rate</li>
+              <li><b>Remediation:</b> Roll back deploy 2f8a1c (safe · no schema change)</li>
+              <li><b>Similar past incident:</b> INC-47120 · resolved via rollback</li>
             </ul>
-            <div className="row row-8" style={{ marginTop: 14 }}>
-              <button className="btn primary sm"><i className="fa-solid fa-play" /> Run suggested playbook</button>
-              <button className="btn sm"><i className="fa-solid fa-thumbs-up" /> Helpful</button>
-              <button className="btn sm ghost"><i className="fa-solid fa-thumbs-down" /> Off-base</button>
+            <div className={sd.actions}>
+              <Button variant="primary" size="sm"><Icon icon={PlayIcon} /> Run suggested playbook</Button>
+              <Button size="sm"><Icon icon={ThumbsUpIcon} /> Helpful</Button>
+              <Button size="sm"><Icon icon={ThumbsDownIcon} /> Off-base</Button>
             </div>
-          </div>
+          </Panel>
 
-          {/* Signals grid */}
-          <div className="grid-3">
-            <div className="card"><div className="card-body"><div className="kpi-label"><i className="fa-solid fa-chart-line" /> Error rate</div><div className="kpi-value" style={{ color: "var(--critical)" }}>24.3<span className="unit">%</span></div><div className="kpi-delta down"><i className="fa-solid fa-arrow-trend-up" />+23.1% in 14m</div><div style={{ marginTop: 8 }}><Sparkline data={spark(7, 0.9)} color="var(--critical)" w={200} h={40} /></div></div></div>
-            <div className="card"><div className="card-body"><div className="kpi-label"><i className="fa-solid fa-clock" /> p95 latency</div><div className="kpi-value" style={{ color: "var(--warning)" }}>8.4<span className="unit">s</span></div><div className="kpi-delta down"><i className="fa-solid fa-arrow-trend-up" />+7.9s</div><div style={{ marginTop: 8 }}><Sparkline data={spark(11, 0.7)} color="var(--warning)" w={200} h={40} /></div></div></div>
-            <div className="card"><div className="card-body"><div className="kpi-label"><i className="fa-solid fa-coins" /> Revenue impact</div><div className="kpi-value">$114k</div><div className="kpi-delta down"><i className="fa-solid fa-arrow-trend-up" />$8.2k/min</div><div style={{ marginTop: 8 }}><Sparkline data={spark(13, 0.9)} color="var(--critical)" w={200} h={40} /></div></div></div>
-          </div>
+          <Panel title="Timeline">
+            <ul className={ui.activity}>
+              {TIMELINE_EVENTS.map((ev, i) => {
+                const t = EVENT_TONE[ev.type] ?? EVENT_TONE.info;
+                return (
+                  <li key={i} className={sd.feedItem}>
+                    <span className={sd.time}>{ev.t}</span>
+                    <Tile tone={t.tone} size="sm"><Icon name={t.icon} /></Tile>
+                    <div className={sd.entry}>
+                      <div className={sd.entryText}>{ev.body}</div>
+                      {ev.meta && <div className={sd.entryMeta}>{ev.meta.map((m, j) => <span key={j}>{m}</span>)}</div>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
 
-          {/* Timeline + war-room */}
-          <div className="card">
-            <div className="card-head">
-              <div className="row row-8">
-                <h3><i className="fa-solid fa-list-timeline" /> Timeline & war-room</h3>
-                <div className="seg"><button className="active">All</button><button>AI</button><button>Chat</button><button>System</button></div>
-              </div>
-              <span className="meta">Auto-scroll <input type="checkbox" defaultChecked className="checkbox" /></span>
-            </div>
-            <div className="card-body" style={{ padding: "16px 20px" }}>
-              <div className="timeline">
-                {TIMELINE_EVENTS.map((ev, i) => (
-                  <div key={i} className={`tl-item ${ev.type}`}>
-                    <div className="tl-time">{ev.t}</div>
-                    <div className="tl-body">{ev.body}</div>
-                    {ev.meta && <div className="tl-meta">{ev.meta.map((m, j) => <span key={j}>{m}</span>)}</div>}
-                  </div>
-                ))}
-              </div>
-
-              <WarRoomActivity />
-            </div>
-          </div>
+          <WarRoomActivity />
         </div>
 
-        {/* Sidebar panel */}
-        <div className="stack stack-12">
-          <div className="card">
-            <div className="card-head"><h3>Properties</h3></div>
-            <div className="card-body stack stack-12">
-              <div className="inc-scope">
-                <div className="inc-scope-row">
-                  <span className="inc-scope-key"><i className="fa-solid fa-building" /> Client</span>
-                  <span className="inc-scope-val"><b>Fyers</b> <span className="inc-scope-tag">MF · Enterprise</span></span>
-                </div>
-                <div className="inc-scope-row">
-                  <span className="inc-scope-key"><i className="fa-solid fa-cube" /> Application</span>
-                  <span className="inc-scope-val"><span className="mono"><b>checkout-api</b></span> <span className="inc-scope-tag">v2.41 · prod</span></span>
-                </div>
-                <div className="inc-scope-row">
-                  <span className="inc-scope-key"><i className="fa-solid fa-server" /> Hostname</span>
-                  <span className="inc-scope-val"><span className="mono">checkout-api-7f9c2</span> <span className="inc-scope-tag">us-east-1b · 10.4.22.18</span></span>
-                </div>
-              </div>
-              <Prop label="Severity"><Sev n={1} /> <span className="link" style={{ marginLeft: 8, fontSize: 11 }}>change</span></Prop>
-              <Prop label="Status"><Pill kind="critical">Active</Pill></Prop>
-              <Prop label="Commander"><UserById id="u1" /></Prop>
-              <Prop label="Environment"><Pill kind="warning" noDot>production</Pill></Prop>
-              <Prop label="Detected">14:32:08 UTC · auto</Prop>
-              <Prop label="Duration"><b className="mono" style={{ color: "var(--critical)" }}>14m 22s</b></Prop>
-              <Prop label="SLO burn"><b className="mono" style={{ color: "var(--critical)" }}>8.4x</b> (28-day budget)</Prop>
-              <Prop label="Linked PR"><span className="link">#8241 · pool-size-tune</span></Prop>
-              <Prop label="Status page"><Pill kind="info" noDot>investigating</Pill></Prop>
-            </div>
-          </div>
+        <div className={ui.rail}>
+          <Panel title="Details">
+            <dl className={ui.dl}>
+              <dt>Number</dt><dd className={ui.mono}>{inc.id}</dd>
+              <dt>Client</dt><dd>{tenantName}</dd>
+              <dt>Application</dt><dd className={ui.mono}>{inc.service}</dd>
+              <dt>Hostname</dt><dd className={ui.mono}>checkout-api-7f9c2</dd>
+              <dt>Severity</dt><dd>{sevPill}</dd>
+              <dt>Status</dt><dd>{statusPill}</dd>
+              <dt>Commander</dt><dd>{userName(inc.assignee)}</dd>
+              <dt>Environment</dt><dd><Pill tone="warn">production</Pill></dd>
+              <dt>Detected</dt><dd>14:32:08 UTC · auto</dd>
+              <dt>Open for</dt><dd>{inc.age}</dd>
+              <dt>SLO burn</dt><dd><b>{inc.sloBurn}x</b> (28-day budget)</dd>
+              <dt>Linked PR</dt><dd>#8241 · pool-size-tune</dd>
+              <dt>Status page</dt><dd><Pill tone="info">investigating</Pill></dd>
+            </dl>
+          </Panel>
 
-          <div className="card">
-            <div className="card-head"><h3>Responders · 6</h3><button className="btn sm ghost"><i className="fa-solid fa-plus" /></button></div>
-            <div className="card-body stack stack-8" style={{ padding: 10 }}>
-              {USERS.slice(0, 5).map(u => (
-                <div key={u.id} className="row row-8" style={{ padding: "4px 6px" }}>
-                  <Avatar name={u.name} color={u.color} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 550 }}>{u.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--fg-subtle)" }}>{u.role === "Incident Commander" ? <b style={{ color: "var(--critical)" }}>IC</b> : u.role} · {u.team}</div>
-                  </div>
-                  <span className={`dot ${u.status === "online" ? "green" : u.status === "away" ? "amber" : "gray"}`} />
-                </div>
+          <Panel title={`Responders · ${responders.length}`}>
+            <ul className={ui.activity}>
+              {responders.map((u) => (
+                <li key={u.id} className={ui.activityItem}>
+                  <Tile tone={u.role === "Incident Commander" ? "crit" : "info"} size="sm"><Icon icon={UserIcon} /></Tile>
+                  <span className={ui.activityText}>
+                    {u.name} · <span className="text-fg-muted">{u.role === "Incident Commander" ? "IC" : u.role} · {u.team}</span>
+                  </span>
+                  <Pill tone={u.status === "online" ? "ok" : u.status === "away" ? "warn" : "muted"}><PillDot />{u.status}</Pill>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </Panel>
 
-          <div className="card">
-            <div className="card-head"><h3>Related</h3></div>
-            <div className="card-body stack stack-8" style={{ fontSize: 12 }}>
-              <div>🔗 <span className="link">INC-47120</span> Connection pool — 3w ago</div>
-              <div>🔗 <span className="link">INC-46088</span> Stripe timeouts — 2mo ago</div>
-              <div>📋 Problem <span className="link">PRB-3912</span> (unresolved)</div>
-              <div>📦 Change <span className="link">CHG-2219</span> · deploy 2f8a1c</div>
-            </div>
-          </div>
+          <Panel title="Related records">
+            <Table>
+              <thead><tr><th scope="col">Record</th><th scope="col">Summary</th></tr></thead>
+              <tbody>
+                <tr><td className={sd.cellMono}>INC-47120</td><td className={ui.cellWrap}>Connection pool — 3w ago</td></tr>
+                <tr><td className={sd.cellMono}>INC-46088</td><td className={ui.cellWrap}>Stripe timeouts — 2mo ago</td></tr>
+                <tr><td className={sd.cellMono}>PRB-3912</td><td className={ui.cellWrap}>Problem (unresolved)</td></tr>
+                <tr><td className={sd.cellMono}>CHG-2219</td><td className={ui.cellWrap}>Change · deploy 2f8a1c</td></tr>
+              </tbody>
+            </Table>
+          </Panel>
         </div>
       </div>
-    </div>
+    </Page>
   );
 }
 
-const Prop = ({ label, children }: { label: React.ReactNode; children?: React.ReactNode }) => (
-  <div style={{ fontSize: 12 }}>
-    <div className="text-mute" style={{ fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{label}</div>
-    <div>{children}</div>
-  </div>
-);
-
-// ─── ServiceNow ITSM-style war-room activity stream ───
-// Journal entries classified by channel: Work notes (internal, amber),
-// Additional comments (customer-visible, blue), Argus AI (purple).
+// ─── War-room activity stream ───
+// Journal entries classified by channel: Work notes (internal),
+// Additional comments (customer-visible), Argus AI.
 function warRoomKind(c: ChatMessage): "ai" | "comment" | "worknote" {
   if (c.ai) return "ai";
   if (c.role === "Manager") return "comment"; // stakeholder / customer-visible
   return "worknote";                          // IC + responder operational notes
 }
-const WARROOM_TYPES: Record<"worknote" | "comment" | "ai", { label: string; color: string; tint: string }> = {
-  worknote: { label: "Work notes", color: "var(--warning)", tint: "var(--warning-bg)" },
-  comment:  { label: "Additional comments", color: "var(--blue-600)", tint: "var(--blue-50)" },
-  ai:       { label: "Argus AI", color: "var(--purple-500)", tint: "#f6f2fe" },
+const WARROOM_TYPES: Record<"worknote" | "comment" | "ai", { label: string; tone: Tone; icon: string }> = {
+  worknote: { label: "Work notes", tone: "warn", icon: "fa-lock" },
+  comment: { label: "Additional comments", tone: "info", icon: "fa-globe" },
+  ai: { label: "Argus AI", tone: "purple", icon: "fa-wand-magic-sparkles" },
 };
 
 export function WarRoomActivity() {
@@ -212,15 +215,16 @@ export function WarRoomActivity() {
   const [channel, setChannel] = React.useState("worknote"); // composer channel
   const [draft, setDraft] = React.useState("");
   const canWrite = useCanWrite();
+  const idp = React.useId();
 
   const items = CHAT.map((c, i) => ({ ...c, _i: i, kind: warRoomKind(c) }));
   const counts = {
     all: items.length,
-    worknote: items.filter(x => x.kind === "worknote").length,
-    comment: items.filter(x => x.kind === "comment").length,
-    ai: items.filter(x => x.kind === "ai").length,
+    worknote: items.filter((x) => x.kind === "worknote").length,
+    comment: items.filter((x) => x.kind === "comment").length,
+    ai: items.filter((x) => x.kind === "ai").length,
   };
-  const shown = filter === "all" ? items : items.filter(x => x.kind === filter);
+  const shown = filter === "all" ? items : items.filter((x) => x.kind === filter);
 
   const filters = [
     ["all", `All · ${counts.all}`],
@@ -230,84 +234,77 @@ export function WarRoomActivity() {
   ];
 
   return (
-    <div className="sn-act">
-      <div className="sn-act-bar">
-        <div className="sn-act-title">
-          <i className="fa-solid fa-comments" /> Activity
-          <span className="sn-act-sub">#inc-48291-war-room · 6 responders</span>
-        </div>
-        <div className="sn-act-filters">
-          {filters.map(([k, lbl]) => (
-            <button key={k} type="button" className={`sn-act-filter ${filter === k ? "on" : ""} ${k}`} onClick={() => setFilter(k)}>{lbl}</button>
-          ))}
-        </div>
-      </div>
+    <Panel title="Activity">
+      <Tabs aria-label="Filter activity">
+        {filters.map(([k, lbl]) => (
+          <Tab key={k} active={filter === k} onClick={() => setFilter(k)}>{lbl}</Tab>
+        ))}
+      </Tabs>
 
-      <div className="sn-act-stream">
-        {shown.map(c => {
+      <ul className={ui.activity}>
+        {shown.map((c) => {
           const t = WARROOM_TYPES[c.kind];
-          const u = c.ai ? null : USERS.find(x => x.id === c.u);
+          const u = c.ai ? null : USERS.find((x) => x.id === c.u);
           const name = c.ai ? "Argus AI" : (u ? u.name : "Unknown");
           const role = c.ai ? "copilot" : c.role;
           return (
-            <div key={c._i} className={`sn-act-item kind-${c.kind}`}>
-              <div className="sn-act-rail">
-                {c.ai
-                  ? <span className="sn-act-ai-av">✦</span>
-                  : <Avatar name={name} color={(u && u.color) as string | undefined} />}
-              </div>
-              <div className="sn-act-main">
-                <div className="sn-act-meta">
+            <li key={c._i} className={sd.feedItem}>
+              <Tile tone={t.tone} size="sm">
+                <Icon name={c.ai ? "fa-wand-magic-sparkles" : "fa-user"} />
+              </Tile>
+              <div className={sd.entry}>
+                <div className={sd.entryMeta}>
                   <b>{name}</b>
-                  <span className="sn-act-role">{role}</span>
-                  <span className="sn-act-type" style={{ color: t.color, background: t.tint, borderColor: t.color }}>
-                    <i className={`fa-solid ${c.kind === "comment" ? "fa-globe" : c.kind === "ai" ? "fa-wand-magic-sparkles" : "fa-lock"}`} /> {t.label}
-                  </span>
+                  <span>{role}</span>
+                  <Pill tone={t.tone}><Icon name={t.icon} /> {t.label}</Pill>
                   <time>{c.time} · Today</time>
                 </div>
-                <div className="sn-act-bubble" style={{ borderLeftColor: t.color, background: t.tint }}>{c.text}</div>
+                <div className={sd.entryText}>{c.text}</div>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {!canWrite ? (
-        <div className="sn-journal" style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--fg-muted)", fontSize: 12.5 }}>
-          <i className="fa-solid fa-eye" /> Read-only — you can follow the war room but not post work notes or comments.
-        </div>
+        <p className="text-fg-muted text-xs">
+          <Icon icon={EyeIcon} /> Read-only — you can follow the war room but not post work notes or comments.
+        </p>
       ) : (
-      <div className="sn-journal">
-        <div className="sn-journal-tabs">
-          <button type="button" className={`sn-journal-tab worknote ${channel === "worknote" ? "on" : ""}`} onClick={() => setChannel("worknote")}>
-            <i className="fa-solid fa-lock" /> Work notes
-          </button>
-          <button type="button" className={`sn-journal-tab comment ${channel === "comment" ? "on" : ""}`} onClick={() => setChannel("comment")}>
-            <i className="fa-solid fa-globe" /> Additional comments <span className="sn-journal-vis">customer-visible</span>
-          </button>
-        </div>
-        <textarea
-          className={`sn-journal-input ch-${channel}`}
-          rows={3}
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          placeholder={channel === "worknote"
-            ? "Add an internal work note — @mention a responder, /runbook, /status…"
-            : "Write a customer-visible update for Fyers stakeholders…"}
-        />
-        <div className="sn-journal-foot">
-          <div className="sn-journal-tools">
-            <button type="button" className="sn-journal-tool" title="Mention"><i className="fa-solid fa-at" /></button>
-            <button type="button" className="sn-journal-tool" title="Attach"><i className="fa-solid fa-paperclip" /></button>
-            <button type="button" className="sn-journal-tool" title="Runbook"><i className="fa-solid fa-book" /></button>
-            <button type="button" className="sn-journal-tool" title="Status page"><i className="fa-solid fa-signal" /></button>
+        <div className={ui.form}>
+          <Tabs aria-label="Journal channel">
+            <Tab active={channel === "worknote"} onClick={() => setChannel("worknote")}>
+              <Icon icon={LockIcon} /> Work notes
+            </Tab>
+            <Tab active={channel === "comment"} onClick={() => setChannel("comment")}>
+              <Icon icon={GlobeIcon} /> Additional comments <span className="text-fg-muted text-xs">customer-visible</span>
+            </Tab>
+          </Tabs>
+          <div className={ui.field}>
+            <label htmlFor={`${idp}-draft`} className="sr-only">{channel === "worknote" ? "Work note" : "Additional comment"}</label>
+            <textarea
+              id={`${idp}-draft`}
+              className={sd.textarea}
+              rows={3}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={channel === "worknote"
+                ? "Add an internal work note — @mention a responder, /runbook, /status…"
+                : "Write a customer-visible update for stakeholders…"}
+            />
           </div>
-          <button type="button" className={`sn-btn primary ch-${channel}`} disabled={!draft.trim()}>
-            <i className="fa-solid fa-paper-plane" /> Post {channel === "worknote" ? "work note" : "comment"}
-          </button>
+          <div className={sd.actions}>
+            <Button size="sm" aria-label="Mention" title="Mention"><Icon icon={AtSignIcon} /></Button>
+            <Button size="sm" aria-label="Attach" title="Attach"><Icon icon={PaperclipIcon} /></Button>
+            <Button size="sm" aria-label="Runbook" title="Runbook"><Icon icon={BookIcon} /></Button>
+            <Button size="sm" aria-label="Status page" title="Status page"><Icon icon={SignalIcon} /></Button>
+            <span className={ui.fieldGrow} />
+            <Button variant="primary" disabled={!draft.trim()}>
+              <Icon icon={SendIcon} /> Post {channel === "worknote" ? "work note" : "comment"}
+            </Button>
+          </div>
         </div>
-      </div>
       )}
-    </div>
+    </Panel>
   );
 }

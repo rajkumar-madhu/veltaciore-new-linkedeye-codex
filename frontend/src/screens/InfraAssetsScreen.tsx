@@ -1,16 +1,50 @@
-// Asset inventory in ServiceNow form-style.
-// Ported from screens/infra-assets.jsx.
+// Asset inventory — LinkedEye list layout: status summary cards, device-kind
+// chips, a searchable / filterable device table and a site summary rail.
+// Each device opens its detail page (server, switch, firewall, … or the
+// generic device monitoring page) with { deviceId }.
 import React from "react";
+import { deviceRoute } from "@/lib/deviceRoute";
 import { useNav } from "@/hooks/useNav";
 import { useDevices } from "@/api/hooks";
-import { SITES, DEVICE_KINDS, DEVICES } from "@/data/infra";
-import { Kpi, FormSection, Field } from "@/components/primitives";
+import { SITES, DEVICE_KINDS } from "@/data/infra";
+import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import type { DeviceKind } from "@/lib/types";
+import { Button, Card, Crumbs, Page, PageHead, SearchBox, Select, Table, TextButton, cx, ui } from "@/components/ui";
+import { Icon } from "@/components/Icon";
+import { FileSpreadsheetIcon, LayersIcon, PlusIcon, SearchCodeIcon, SearchIcon } from "lucide-react";
+// mono id link: the link's 13px must give way to mono 12px
+const monoLink = "font-mono !text-xs font-semibold";
+const statusTone = (s: string): Tone => (s === "ok" ? "ok" : s === "warn" ? "warn" : s === "critical" || s === "down" ? "crit" : "muted");
+const statusLabel = (s: string) => (s === "ok" ? "Healthy" : s === "warn" ? "Warning" : s === "down" ? "Down" : s === "critical" ? "Critical" : "Unknown");
+const usageTone = (v: number): Tone => (v > 80 ? "crit" : v > 65 ? "warn" : "ok");
+const barColor = (t: Tone) => (t === "crit" ? "#e5383b" : t === "warn" ? "#f5a524" : "#16a34a");
+const siteTone = (h: number): Tone => (h > 95 ? "ok" : h > 90 ? "warn" : "crit");
 
-// The seed data carries `iconBrand` for fa-brands icons (win/linux), but the
-// shared DeviceKind type does not declare it — extend locally (shared files
-// must not be edited).
-type KindMeta = DeviceKind & { iconBrand?: boolean };
+const chip = "inline-flex flex-col items-center justify-center gap-1 min-w-[104px] min-h-[76px] px-3 py-2.5 border rounded-lg cursor-pointer shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 [&_.ld-icon]:text-2xl";
+const chipClass = (active: boolean) => cx(chip, active ? "bg-accent border-accent text-white [&_.ld-icon]:text-white" : "bg-bg-raised border-line text-fg hover:border-line-strong [&_.ld-icon]:text-accent");
+const chipLabel = (active: boolean) => cx("text-sm", active ? "text-white" : "text-fg-muted");
+
+function Usage({ v, label }: { v: number; label: string }) {
+  if (!(v > 0)) return <span className="text-fg-muted">—</span>;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-block align-middle w-16 h-2 rounded-[5px] bg-bg-muted overflow-hidden" role="img" aria-label={`${label} ${v}%`}>
+        <span className={ui.barFill} style={{ width: `${Math.min(100, v)}%`, background: barColor(usageTone(v)) }} />
+      </span>
+      <b className="text-xs font-semibold min-w-[34px]">{v}%</b>
+    </span>
+  );
+}
+
+const QUICK_ACTIONS: [string, string, string | null][] = [
+  ["fa-magnifying-glass-arrow-right", "Run Discovery", null],
+  ["fa-file-import", "Import CSV", null],
+  ["fa-circle-nodes", "Topology", "infra-topology"],
+  ["fa-tower-broadcast", "Exporters", "infra-exporters"],
+  ["fa-plus", "Onboard", null],
+  ["fa-file-csv", "Export", null],
+];
 
 export default function InfraAssetsScreen() {
   const { setRoute } = useNav();
@@ -19,163 +53,152 @@ export default function InfraAssetsScreen() {
   const [kind, setKind] = React.useState("all");
   const [site, setSite] = React.useState("all");
   const [q, setQ] = React.useState("");
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
   const filtered = devices.filter(d =>
     (kind === "all" || d.kind === kind) &&
     (site === "all" || d.site === site) &&
     (q === "" || (d.id + d.model + d.role + d.ip).toLowerCase().includes(q.toLowerCase()))
   );
-  const kindMeta = (id: string) => (DEVICE_KINDS.find(k => k.id === id) || {}) as KindMeta;
+  const kindMeta = (id: string) => (DEVICE_KINDS.find(k => k.id === id) || {}) as Partial<DeviceKind>;
+  const iconOf = (k: Partial<DeviceKind>) => k.icon ?? "fa-cube";
+
+  const healthy = devices.filter(d => d.status === "ok").length;
+  const warning = devices.filter(d => d.status === "warn").length;
+  const critical = devices.filter(d => d.status === "critical" || d.status === "down").length;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra")}>Infrastructure</a><span className="sn-bc-sep">›</span>
-        <span>Asset Inventory</span>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Monitoring", onClick: () => setRoute("infra") }, { label: "Asset Inventory" }]} />
+
+      <PageHead
+        title="Asset Inventory"
+        subtitle="Every monitored device across sites and device classes"
+        actions={
+          <>
+            <Button><Icon icon={FileSpreadsheetIcon} /> Export</Button>
+            <Button><Icon icon={SearchCodeIcon} /> Discovery</Button>
+            <Button variant="primary"><Icon icon={PlusIcon} /> Onboard</Button>
+          </>
+        }
+      />
+
+      <div className={cx(ui.grid, ui.cols[6])}>
+        <StatCard icon="fa-boxes-stacked" tone="info" label="Total" value={fmt(devices.length)} note="all assets" onClick={() => setKind("all")} />
+        <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(healthy)} note="reporting OK" />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(warning)} note="thresholds breached" />
+        <StatCard icon="fa-circle-xmark" tone="crit" label="Critical" value={fmt(critical)} note="urgent" />
+        <StatCard icon="fa-layer-group" tone="purple" label="Device kinds" value={fmt(DEVICE_KINDS.length)} note="categories" />
+        <StatCard icon="fa-building" tone="muted" label="Sites" value={fmt(SITES.length)} note="datacenters" onClick={() => setSite("all")} />
       </div>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">CMDB-CI</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {devices.length} monitored</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-boxes-stacked" /> {filtered.length} matching</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Asset Inventory</h1>
-            <div className="sn-form-sub">Live polling · last sync 4s ago · all sites &amp; device classes</div>
+      <div className="flex flex-wrap gap-2.5" role="group" aria-label="Filter by device kind">
+        <button type="button" className={chipClass(kind === "all")} aria-pressed={kind === "all"} onClick={() => setKind("all")}>
+          <Icon icon={LayersIcon} />
+          <span className={chipLabel(kind === "all")}>All</span>
+          <span className="text-md font-bold">{devices.length}</span>
+        </button>
+        {DEVICE_KINDS.map(k => {
+          const n = devices.filter(d => d.kind === k.id).length;
+          if (n === 0) return null;
+          return (
+            <button key={k.id} type="button" className={chipClass(kind === k.id)} aria-pressed={kind === k.id} onClick={() => setKind(k.id)}>
+              <Icon name={iconOf(k)} />
+              <span className={chipLabel(kind === k.id)}>{k.label}</span>
+              <span className="text-md font-bold">{n}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={ui.split}>
+        <Card as="section" className={ui.panel} aria-labelledby="assets-h">
+          <div className={ui.panelHead}>
+            <h2 id="assets-h" className={ui.panelTitle}>Inventory ({fmt(filtered.length)})</h2>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-file-csv" /> Export</button>
-            <button className="sn-btn"><i className="fa-solid fa-magnifying-glass-arrow-right" /> Discovery</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> Onboard</button>
+          <div className={ui.toolbar}>
+            <label htmlFor="assets-search" className="sr-only">Search devices</label>
+            <SearchBox className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id="assets-search" type="search" placeholder="Search hostname, IP, model, role…" value={q} onChange={e => setQ(e.target.value)} />
+            <label htmlFor="assets-kind" className="sr-only">Device kind</label>
+            <Select id="assets-kind" value={kind} onChange={e => setKind(e.target.value)}>
+              <option value="all">All kinds</option>
+              {DEVICE_KINDS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
+            </Select>
+            <label htmlFor="assets-site" className="sr-only">Site</label>
+            <Select id="assets-site" value={site} onChange={e => setSite(e.target.value)}>
+              <option value="all">All sites</option>
+              {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
           </div>
-        </div>
-      </div>
-
-      <div className="sn-kpi-strip">
-        <Kpi l="Total" v={devices.length} s="all assets" tone="neutral" />
-        <Kpi l="Healthy" v={devices.filter(d => d.status === "ok").length} s="reporting OK" tone="ok" />
-        <Kpi l="Warning" v={devices.filter(d => d.status === "warn").length} s="thresholds breached" tone="warn" />
-        <Kpi l="Critical" v={devices.filter(d => d.status === "critical" || d.status === "down").length} s="urgent" tone="crit" />
-        <Kpi l="Device kinds" v={DEVICE_KINDS.length} s="categories" tone="neutral" />
-        <Kpi l="Sites" v={SITES.length} s="datacenters" tone="neutral" />
-      </div>
-
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="filters" title="Filters" collapsed={collapsed.filters} onToggle={toggle}>
-            <div style={{ padding: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <input className="select" placeholder="Search hostname, IP, model, role…" value={q} onChange={e => setQ(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
-              <select className="select" value={kind} onChange={e => setKind(e.target.value)}>
-                <option value="all">All kinds</option>
-                {DEVICE_KINDS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
-              </select>
-              <select className="select" value={site} onChange={e => setSite(e.target.value)}>
-                <option value="all">All sites</option>
-                {SITES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div style={{ padding: "0 14px 14px", display: "flex", gap: 4, flexWrap: "wrap" }}>
-              <button className={`sn-btn ${kind === "all" ? "primary" : ""}`} style={{ fontSize: 11, padding: "3px 10px" }} onClick={() => setKind("all")}>All <span className="sn-side-count" style={{ marginLeft: 4 }}>{devices.length}</span></button>
-              {(DEVICE_KINDS as KindMeta[]).map(k => {
-                const n = devices.filter(d => d.kind === k.id).length;
-                if (n === 0) return null;
-                return <button key={k.id} className={`sn-btn ${kind === k.id ? "primary" : ""}`} style={{ fontSize: 11, padding: "3px 10px" }} onClick={() => setKind(k.id)}><i className={`${k.iconBrand?"fa-brands":"fa-solid"} ${k.icon}`} style={{ color: kind === k.id ? "white" : k.color, marginRight: 4 }} />{k.label} <span style={{ marginLeft: 4, opacity: 0.7 }}>{n}</span></button>;
-              })}
-            </div>
-          </FormSection>
-
-          <div className="sn-activity-section">
-            <div className="sn-activity-tabs">
-              <button className="sn-act-tab active">Inventory ({filtered.length})</button>
-              <button className="sn-act-tab">Map View</button>
-              <button className="sn-act-tab">By Site</button>
-            </div>
-            <table className="sn-list-table">
-              <thead>
-                <tr>
-                  <th style={{width:30}}><input type="checkbox" /></th>
-                  <th style={{width:200}}>Device</th>
-                  <th style={{width:120}}>Kind</th>
-                  <th style={{width:90}}>Site</th>
-                  <th style={{width:110}}>IP</th>
-                  <th>OS / firmware</th>
-                  <th style={{width:100}}>CPU</th>
-                  <th style={{width:100}}>Memory</th>
-                  <th style={{width:100}}>Status</th>
-                  <th style={{width:100}}>Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(d => {
-                  const k = kindMeta(d.kind);
-                  return (
-                    <tr key={d.id} onClick={() => setRoute("infra-device")} style={{ cursor: "pointer" }}>
-                      <td onClick={e => e.stopPropagation()}><input type="checkbox" /></td>
-                      <td>
-                        <div className="row row-8">
-                          <span className="kind-mini" style={{ color: k.color, background: k.color + "18" }}><i className={`${k.iconBrand ? "fa-brands" : "fa-solid"} ${k.icon}`} /></span>
-                          <div>
-                            <a className="sn-link mono"><b>{d.id}</b></a>
-                            <div className="text-mute" style={{ fontSize: 11, marginTop: 2 }}>{d.role}</div>
+          {filtered.length ? (
+              <Table>
+                <thead>
+                  <tr>
+                    <th scope="col">Device</th>
+                    <th scope="col"><span className="sr-only">Select</span></th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">Site</th>
+                    <th scope="col">IP</th>
+                    <th scope="col">OS / firmware</th>
+                    <th scope="col">CPU</th>
+                    <th scope="col">Memory</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Last seen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(d => {
+                    const k = kindMeta(d.kind);
+                    return (
+                      <tr key={d.id}>
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex-none w-7 h-7 rounded grid place-items-center text-xs bg-bg-muted text-accent" aria-hidden="true"><Icon name={iconOf(k)} /></span>
+                            <div className="min-w-0">
+                              <TextButton className={monoLink} onClick={() => setRoute(deviceRoute(d.kind), { deviceId: d.id })}>{d.id}</TextButton>
+                              <span className={ui.sub}>{d.role}</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {k.label}</span></td>
-                      <td className="mono text-mute">{d.site}</td>
-                      <td className="mono">{d.ip}</td>
-                      <td><span style={{ fontSize: 11.5 }}>{d.os}</span><div className="text-mute mono" style={{ fontSize: 10.5, marginTop: 2 }}>up {d.uptime}</div></td>
-                      <td>{d.cpu > 0 ? (
-                        <div className="sn-sla">
-                          <div className="sn-sla-bar" style={{ width: 50 }}><div className="sn-sla-fill" style={{ width: d.cpu + "%", background: d.cpu > 80 ? "var(--critical)" : d.cpu > 65 ? "var(--warning)" : "var(--success)" }} /></div>
-                          <span className="mono" style={{ fontSize: 11 }}>{d.cpu}%</span>
-                        </div>
-                      ) : <span className="text-mute mono">—</span>}</td>
-                      <td>{d.mem > 0 ? (
-                        <div className="sn-sla">
-                          <div className="sn-sla-bar" style={{ width: 50 }}><div className="sn-sla-fill" style={{ width: d.mem + "%", background: d.mem > 80 ? "var(--critical)" : d.mem > 65 ? "var(--warning)" : "var(--success)" }} /></div>
-                          <span className="mono" style={{ fontSize: 11 }}>{d.mem}%</span>
-                        </div>
-                      ) : <span className="text-mute mono">—</span>}</td>
-                      <td><span className={`sn-state-pill ${d.status === "ok" ? "svc-healthy" : d.status === "warn" ? "state-mitigating" : "state-active"}`}><i className="fa-solid fa-circle" /> {d.status === "ok" ? "healthy" : d.status === "warn" ? "warning" : d.status === "down" ? "down" : "critical"}</span></td>
-                      <td className="text-mute mono" style={{ fontSize: 11 }}>{d.lastSeen}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                        </td>
+                        <td><input type="checkbox" aria-label={`Select ${d.id}`} /></td>
+                        <td><Pill tone="muted">{k.label ?? d.kind}</Pill></td>
+                        <td className="font-mono font-semibold">{d.site}</td>
+                        <td className="font-mono font-semibold">{d.ip}</td>
+                        <td>{d.os}<span className={ui.sub}>up {d.uptime}</span></td>
+                        <td><Usage v={d.cpu} label="CPU" /></td>
+                        <td><Usage v={d.mem} label="Memory" /></td>
+                        <td><Pill tone={statusTone(d.status)}><PillDot />{statusLabel(d.status)}</Pill></td>
+                        <td className="whitespace-nowrap">{d.lastSeen}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+          ) : (
+            <Empty>{devices.length ? "No devices match these filters." : "No devices reported yet."}</Empty>
+          )}
+        </Card>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Site Summary</div>
-            <div className="sn-side-body">
+        <div className={ui.rail}>
+          <Panel title="Site Summary">
+            <dl className={ui.dl}>
               {SITES.map(s => (
-                <Field key={s.id} label={s.name} value={
-                  <div className="row row-8">
-                    <span className="mono">{s.devices}</span>
-                    <span className={`sn-state-pill ${s.health > 95 ? "svc-healthy" : s.health > 90 ? "state-mitigating" : "state-active"}`}><i className="fa-solid fa-circle" /> {s.health}%</span>
-                  </div>
-                } />
+                <React.Fragment key={s.id}>
+                  <dt>{s.name}</dt>
+                  <dd>{fmt(s.devices)} devices · <Pill tone={siteTone(s.health)}>{s.health}%</Pill></dd>
+                </React.Fragment>
+              ))}
+            </dl>
+          </Panel>
+          <Panel title="Quick Actions">
+            <div className="grid grid-cols-2 gap-2">
+              {QUICK_ACTIONS.map(([ic, l, route]) => (
+                <Button key={l} size="sm" className="!justify-start" onClick={() => { if (route) setRoute(route); }}>
+                  <Icon name={ic} /> {l}
+                </Button>
               ))}
             </div>
-          </div>
-          <div className="sn-side-card">
-            <div className="sn-side-head">Quick Actions</div>
-            <div className="sn-side-body sn-actions-grid">
-              {[["fa-magnifying-glass-arrow-right","Run Discovery"],["fa-file-import","Import CSV"],["fa-circle-nodes","Topology"],["fa-tower-broadcast","Exporters"],["fa-plus","Onboard"],["fa-file-csv","Export"]].map(([ic, l]) => (
-                <button key={l} className="sn-action" onClick={() => { if (l === "Topology") setRoute("infra-topology"); if (l === "Exporters") setRoute("infra-exporters"); }}>
-                  <i className={`fa-solid ${ic}`} /><span>{l}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
+          </Panel>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

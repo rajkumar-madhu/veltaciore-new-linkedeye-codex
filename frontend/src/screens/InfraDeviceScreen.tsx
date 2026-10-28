@@ -1,19 +1,110 @@
 // Production device monitoring: Overview / Availability / Performance / Interfaces / Hardware / Alerts / Logs
-// Ported from screens/infra-device.jsx.
 // Maps to: GET /api/infra/devices/{id}/{overview|availability|cpu|memory|disk|interfaces|hardware|alerts|logs}/
+//
+// Only the device record (useDevice, seed fallback), its alerts, hosted VMs and
+// topology links are real. The per-tab metric history, interface, sensor and
+// log rows are generated placeholders until those endpoints are wired, so every
+// panel that shows them is labelled "Sample data".
 import React from "react";
+import { deviceRoute } from "@/lib/deviceRoute";
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { useDevice } from "@/api/hooks";
 import { DEVICES, DEVICE_KINDS, SITES, VMS, NET_LINKS, INFRA_ALERTS } from "@/data/infra";
-import { Kpi, FormSection, FormRow, Field } from "@/components/primitives";
-import { STATUS_COLORS, getMetricColor, getErrorRateColor, getInterfaceColor, getStatusBadgeClass } from "@/lib/statusColors";
+import { Empty, Panel, Pill, PillDot, StatCard } from "@/components/ld";
+import type { Tone } from "@/components/ld";
 import type { Device, DeviceKind, Site } from "@/lib/types";
 
+import { Button, Card, Crumbs, Page, SearchBox, Tab, Table, Tabs, TextButton, Tile, cx, toneText, ui } from "@/components/ui";
+import { Icon } from "@/components/Icon";
+import { Building2Icon, CircleCheckIcon, FlameIcon, FlaskConicalIcon, LinkIcon, PauseIcon, RadioTowerIcon, RefreshCwIcon, SearchIcon, SquareTerminalIcon } from "lucide-react";
 type SparkProps = { data: number[]; color?: string; h?: number; unit?: string };
 type BarProps = { pct: number; warn?: number; crit?: number; width?: number };
 
 type IfaceRow = [string, string, string, string, string, number, number, number, string, string, number, number, number, number, number, string, string];
+
+// Mono id link: mono's 12px has to beat the link's 13px.
+const monoLink = "font-mono !text-xs font-semibold";
+// Inside table cells and dl values the old cell colour/size won over muted /
+// small / mono size and (in light mode) over status text colour; these keep that.
+const cellMono = "font-mono font-semibold";
+const cellCrit = "font-semibold dark:text-tone-crit";
+const cellWarn = "font-semibold dark:text-tone-warn";
+const cellOk = "font-semibold dark:text-tone-ok";
+// Entity sub-line: items separated by a "|" (inherits the page-head paragraph style).
+const entityMeta = "text-base text-fg-muted mt-1 flex flex-wrap gap-x-3.5 gap-y-1 [&_span+span]:before:content-['|'] [&_span+span]:before:mr-3.5 [&_span+span]:before:text-line-strong";
+const panelBadge = "text-fg-muted text-xs";
+const chartLabel = "text-xs text-fg-muted mb-1.5";
+// Facts column + chart(s); side by side from 900px.
+const chartRow = (three = false) => cx(
+  "grid grid-cols-[minmax(0,1fr)] gap-4",
+  three ? "min-[900px]:grid-cols-[minmax(200px,260px)_minmax(0,1fr)_minmax(0,1fr)]" : "min-[900px]:grid-cols-[minmax(200px,260px)_minmax(0,1fr)]",
+);
+// Segmented toggle (aria-pressed buttons).
+const seg = "inline-flex border border-line-strong rounded overflow-hidden bg-bg-raised";
+const segBtn = "border-0 bg-transparent text-sm font-semibold text-fg-muted px-3 min-h-9 cursor-pointer [button+&]:border-l [button+&]:border-line aria-pressed:bg-accent aria-pressed:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2";
+
+const C = { ok: "#16a34a", warn: "#f5a524", crit: "#e5383b", info: "#2f6bff", purple: "#7c4dff", cyan: "#0ea5e9" };
+const toneOf = (pct: number, warn = 70, crit = 85): Tone => (pct >= crit ? "crit" : pct >= warn ? "warn" : "ok");
+const fillOf = (t: Tone) => (t === "crit" ? C.crit : t === "warn" ? C.warn : C.ok);
+const sevTone = (s: string): Tone => (s === "critical" || s === "crit" ? "crit" : s === "warn" || s === "warning" ? "warn" : "info");
+
+function Spark({ data, color = C.ok, h = 56 }: SparkProps) {
+  const w = 100, max = 100;
+  const pts = data.map((v, i) => `${(i / Math.max(1, data.length - 1)) * w},${h - (v / max) * (h - 6) - 3}`).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block w-full mt-1.5" style={{ height: h }} aria-hidden="true">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+      <polygon points={`0,${h} ${pts} ${w},${h}`} fill={color} opacity="0.1" />
+    </svg>
+  );
+}
+
+function Bar({ pct, warn = 70, crit = 85 }: BarProps) {
+  const t = toneOf(pct, warn, crit);
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-block align-middle w-16 h-2 rounded-[5px] bg-bg-muted overflow-hidden" role="img" aria-label={`${pct}%`}>
+        <span className={ui.barFill} style={{ width: `${Math.min(100, pct)}%`, background: fillOf(t) }} />
+      </span>
+      <b className={cx("text-xs font-semibold min-w-[34px]", t !== "ok" && toneText[t])}>{pct}%</b>
+    </span>
+  );
+}
+
+function Metric({ label, value, sub, data, color }: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode; data?: number[]; color?: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 px-3.5 py-3 border border-line rounded min-w-0">
+      <span className="text-xs text-fg-muted">{label}</span>
+      <span className="text-3xl font-bold text-fg leading-[1.25]">{value}</span>
+      {sub && <span className={ui.sub}>{sub}</span>}
+      {data && <Spark data={data} color={color} />}
+    </div>
+  );
+}
+
+/** Panel with a "Sample data" badge for generated content. */
+function SamplePanel({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) {
+  const id = React.useId();
+  return (
+    <Card as="section" className={ui.panel} aria-labelledby={id}>
+      <div className={ui.panelHead}>
+        <h2 id={id} className={ui.panelTitle}>{title}{badge && <span className={panelBadge}> · {badge}</span>}</h2>
+        <Pill tone="muted">Sample data</Pill>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function SampleNote({ children }: { children: React.ReactNode }) {
+  return (
+    <Card className="flex items-start gap-3 px-4 py-3 [&_.ld-icon]:text-2xl [&_.ld-icon]:text-fg-muted [&_.ld-icon]:mt-0.5 [&_b]:text-fg" role="note">
+      <Icon icon={FlaskConicalIcon} />
+      <div><b>Sample data</b><p className="text-fg-muted text-xs">{children}</p></div>
+    </Card>
+  );
+}
 
 export default function InfraDeviceScreen() {
   const { setRoute } = useNav();
@@ -23,7 +114,7 @@ export default function InfraDeviceScreen() {
   const k = DEVICE_KINDS.find(x => x.id === d.kind) || ({} as DeviceKind);
   const deviceAlerts = INFRA_ALERTS.filter(a => a.device === d.id);
   const [tab, setTab] = React.useState("overview");
-  const [tick, setTick] = React.useState(0);
+  const [, setTick] = React.useState(0);
 
   React.useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 30000); return () => clearInterval(t); }, []);
 
@@ -33,36 +124,16 @@ export default function InfraDeviceScreen() {
     const v = base + Math.sin((seed + i) * 1.7) * spread * 0.5 + Math.sin((seed * 3 + i) * 0.6) * spread * 0.5;
     return Math.max(0, Math.min(100, Math.round(v)));
   });
-  const vendor = (d.model || "").split(" ")[0];
-  const serial = "SN-" + seed.toString(16).toUpperCase().padStart(6, "0");
+  const vendor = d.vendor || (d.model || "").split(" ")[0];
   const isNet = ["firewall", "router", "switch", "loadbal"].includes(d.kind);
   const isDown = d.status === "down";
-  const statusPill = d.status === "ok" ? "svc-healthy" : d.status === "warn" ? "state-mitigating" : "state-active";
+  const statusTone: Tone = d.status === "ok" ? "ok" : d.status === "warn" ? "warn" : "crit";
   const statusLabel = d.status === "ok" ? "Up" : d.status === "warn" ? "Degraded" : d.status === "critical" ? "Critical" : "Down";
   const siteObj = SITES.find(s => s.id === d.site) || ({} as Site);
-
-  const Spark = ({ data, color = "var(--success)", h = 56, unit = "%" }: SparkProps) => {
-    const w = 100, max = 100;
-    const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * (h - 6) - 3}`).join(" ");
-    return (
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: "100%", height: h, display: "block" }}>
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" />
-        <polygon points={`0,${h} ${pts} ${w},${h}`} fill={color} opacity="0.09" />
-      </svg>
-    );
-  };
-  const MetricCard = ({ label, value, sub, data, color }: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode; data?: number[]; color?: string }) => (
-    <div style={{ background: "white", border: "1px solid var(--border, #e5e8eb)", borderRadius: 4, padding: "10px 12px" }}>
-      <div style={{ fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--fg-muted)", fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{value}</div>
-      <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>{sub}</div>
-      {data && <Spark data={data} color={color} />}
-    </div>
-  );
-  const Bar = ({ pct, warn = 70, crit = 85, width = 90 }: BarProps) => {
-    const c = getMetricColor(pct, warn, crit);
-    return <div className="sn-sla"><div className="sn-sla-bar" style={{ width }}><div className="sn-sla-fill" style={{ width: Math.min(100, pct) + "%", background: c.line }} /></div><span className="mono" style={{ fontSize: 11, color: c.fg, fontWeight: 600 }}>{pct}%</span></div>;
-  };
+  const kindIcon = k.icon ?? "fa-cube";
+  const neighbors = [...new Set(NET_LINKS.filter(([a, b]) => a === d.id || b === d.id).map(([a, b]) => (a === d.id ? b : a)))];
+  const hostedVms = VMS.filter(v => v.host === d.id);
+  const openDevice = (id: string) => setRoute(deviceRoute(DEVICES.find(x => x.id === id)?.kind), { deviceId: id });
 
   const isHost = ["hypervisor", "phys-srv"].includes(d.kind);
   const TABS: [string, string, string][] = [
@@ -77,7 +148,7 @@ export default function InfraDeviceScreen() {
     ["logs", "Logs", "fa-file-lines"],
   ] as [string, string, string][];
 
-  // ---- mock rows derived from device ----
+  // ---- placeholder rows (sample data) ----
   const ifaceRows: IfaceRow[] = [
     ["Et1/1", "Uplink to SW-BLR-DIST-04 (LAG-1)", "a4:88:73:2f:10:01", "100G", "full", 9214, 71, 64, "412M", "398M", 0, 0, 0, 0, 0, "up", "187d"],
     ["Et1/2", "Uplink to SW-BLR-DIST-04 (LAG-1)", "a4:88:73:2f:10:02", "100G", "full", 9214, 69, 62, "404M", "391M", 0, 0, 0, 0, 0, "up", "187d"],
@@ -102,6 +173,7 @@ export default function InfraDeviceScreen() {
     ["RAID-0", "RAID / disks", d.kind.includes("srv") || d.kind === "storage" ? "OK" : "N/A", d.kind.includes("srv") || d.kind === "storage" ? "RAID-10 optimal · 0 rebuilds" : "—"],
     ["CHASSIS", "Chassis", "OK", "Intrusion clear"],
   ];
+  const sensorTone = (s: string): Tone => (s === "OK" ? "ok" : s === "WARN" ? "warn" : s === "FAIL" ? "crit" : "muted");
 
   const logs: [string, string, string, string][] = [
     ["14:32:08", "syslog", "warn", `%LINEPROTO-5-UPDOWN: Line protocol on Interface Et1/30, changed state to down`],
@@ -113,221 +185,258 @@ export default function InfraDeviceScreen() {
     ["13:44:12", "exporter", "info", `snmp-exporter scrape OK · 2,148 series · 610ms`],
     ["12:02:55", "auth", "warn", `Failed password for invalid user admin from 172.16.4.9 — blocked by ACL`],
   ];
-  const sevTone = (s: string) => s === "crit" ? "var(--danger, #d32f2f)" : s === "warn" ? "var(--warning)" : "var(--fg-muted)";
+
+  const disks = (isNet
+    ? [["/flash", "8 GB", "3.1 GB", "4.9 GB", 39, "2 / 1 MB/s", "OK"], ["/logs", "4 GB", "2.8 GB", "1.2 GB", 70, "4 / 6 MB/s", "OK"]]
+    : [["/", "120 GB", "74 GB", "46 GB", 62, "88 / 41 MB/s", "OK"], ["/data", "560 GB", "515 GB", "45 GB", 92, "122 / 62 MB/s", "WARN"], ["/backup", "1 TB", "412 GB", "612 GB", 41, "12 / 44 MB/s", "OK"]]
+  ) as [string, string, string, string, number, string, string][];
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra")}>Infrastructure</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("infra-topology")}>Site Topology</a><span className="sn-bc-sep">›</span>
-        <span>{d.id}</span>
-      </div>
+    <Page>
+      <Crumbs items={[
+        { label: "Home", onClick: () => setRoute("dashboard") },
+        { label: "Monitoring", onClick: () => setRoute("infra") },
+        { label: "Site Topology", onClick: () => setRoute("infra-topology") },
+        { label: d.id },
+      ]} />
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">{d.id}</span>
-          <span className={`sn-pill ${statusPill}`}><i className="fa-solid fa-circle" /> {statusLabel}</span>
-          <span className="sn-pill state-neutral"><i className={`${k.iconBrand ? "fa-brands" : "fa-solid"} ${k.icon}`} /> {k.label}</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-building" /> {siteObj.name}</span>
-        </div>
-        <div className="sn-form-title-meta">
+      <div className={cx(ui.head, "!items-start")}>
+        <div className="flex items-center gap-3.5 min-w-0">
+          <Tile tone="info" className="!text-5xl"><Icon name={kindIcon} /></Tile>
           <div>
-            <h1>{d.model}</h1>
-            <div className="sn-form-sub">{d.role} · <span className="mono">{d.ip}</span> · last polled {d.lastSeen} · auto-refresh 30s</div>
+            <h1 className={cx(ui.h1, "flex items-center gap-2.5 flex-wrap")}>
+              {d.hostname || d.id}
+              <Pill tone={statusTone}><PillDot />{statusLabel}</Pill>
+            </h1>
+            <p className={entityMeta}>
+              <span>{d.model}</span>
+              <span>{d.role}</span>
+              <span className={ui.mono}>{d.ip}</span>
+            </p>
+            <p className={entityMeta}>
+              <span>Last polled {d.lastSeen}</span>
+              <span>Auto-refresh 30s</span>
+            </p>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-terminal" /> SSH</button>
-            <button className="sn-btn"><i className="fa-solid fa-rotate" /> Re-poll</button>
-            <button className="sn-btn"><i className="fa-solid fa-pause" /> Mute Alerts</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-fire" /> Open Incident</button>
+        </div>
+        <div className={ui.headSide}>
+          <div className={ui.headActions}>
+            <Button><Icon icon={SquareTerminalIcon} /> SSH</Button>
+            <Button><Icon icon={RefreshCwIcon} /> Re-poll</Button>
+            <Button><Icon icon={PauseIcon} /> Mute Alerts</Button>
+            <Button variant="primary"><Icon icon={FlameIcon} /> Open Incident</Button>
           </div>
+          <ul className={ui.tags} aria-label="Tags">
+            {k.label && <li className={ui.tag}><Icon name={kindIcon} /> {k.label}</li>}
+            {siteObj.name && <li className={ui.tag}><Icon icon={Building2Icon} /> {siteObj.name}</li>}
+            {d.agent && <li className={ui.tag}><Icon icon={RadioTowerIcon} /> {d.agent}</li>}
+          </ul>
         </div>
       </div>
 
-      <div className="sn-kpi-strip">
-        <Kpi l="Availability" v={isDown ? "Down" : "Up"} s={isDown ? `unreachable ${d.lastSeen}` : `uptime ${d.uptime}`} tone={isDown ? "crit" : "ok"} />
-        <Kpi l="CPU" v={d.cpu + "%"} s="15m avg" tone={d.cpu > 80 ? "crit" : d.cpu > 65 ? "warn" : "ok"} />
-        <Kpi l="Memory" v={d.mem + "%"} s="of installed" tone={d.mem > 80 ? "crit" : d.mem > 65 ? "warn" : "ok"} />
-        <Kpi l="Ping" v={isDown ? "—" : "0.8 ms"} s={isDown ? "100% loss" : "0% loss"} tone={isDown ? "crit" : "ok"} />
-        <Kpi l="Interfaces" v={d.iface} s={ifaceRows.filter(r => r[15] === "down").length + " down"} tone={ifaceRows.some(r => r[15] === "down") ? "crit" : "ok"} />
-        <Kpi l="Active alerts" v={deviceAlerts.length} s={deviceAlerts.filter(a => a.sev === "critical").length + " critical"} tone={deviceAlerts.length ? "crit" : "ok"} />
+      <div className={cx(ui.grid, ui.cols[5])}>
+        <StatCard icon="fa-heart-pulse" tone={isDown ? "crit" : "ok"} label="Availability" value={isDown ? "Down" : "Up"} note={isDown ? `unreachable ${d.lastSeen}` : `uptime ${d.uptime}`} onClick={() => setTab("availability")} />
+        <StatCard icon="fa-microchip" tone={toneOf(d.cpu, 65, 80)} label="CPU" value={`${d.cpu}%`} note="last poll" onClick={() => setTab("performance")} />
+        <StatCard icon="fa-memory" tone={toneOf(d.mem, 65, 80)} label="Memory" value={`${d.mem}%`} note="of installed" onClick={() => setTab("performance")} />
+        <StatCard icon="fa-ethernet" tone="info" label="Interfaces" value={d.iface || "—"} note="see Interfaces tab" onClick={() => setTab("interfaces")} />
+        <StatCard icon="fa-bell" tone={deviceAlerts.length ? "crit" : "ok"} label="Active alerts" value={deviceAlerts.length} note={`${deviceAlerts.filter(a => a.sev === "critical").length} critical`} onClick={() => setTab("alerts")} />
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 2, borderBottom: "2px solid var(--border, #e5e8eb)", marginBottom: 14, overflowX: "auto" }}>
+      <Tabs aria-label={`${d.id} sections`}>
         {TABS.map(([id, label, icon]) => (
-          <button key={id} onClick={() => setTab(id)}
-            style={{ border: "none", background: "transparent", padding: "9px 14px", fontSize: 12.5, fontWeight: tab === id ? 700 : 500, cursor: "pointer", color: tab === id ? "var(--fg, #16212e)" : "var(--fg-muted)", borderBottom: tab === id ? "2px solid var(--accent, #24ebaf)" : "2px solid transparent", marginBottom: -2, whiteSpace: "nowrap", fontFamily: "inherit" }}>
-            <i className={`fa-solid ${icon}`} style={{ marginRight: 6, fontSize: 11 }} />{label}
-            {id === "alerts" && deviceAlerts.length > 0 && <span style={{ marginLeft: 6, background: "var(--danger, #d32f2f)", color: "white", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>{deviceAlerts.length}</span>}
-          </button>
+          <Tab key={id} active={tab === id} onClick={() => setTab(id)}>
+            <Icon name={icon} /> {label}
+            {id === "alerts" && deviceAlerts.length > 0 && <> <Pill tone="crit">{deviceAlerts.length}</Pill></>}
+          </Tab>
         ))}
-      </div>
+      </Tabs>
 
       {/* ---------------- OVERVIEW ---------------- */}
       {tab === "overview" && (
-        <div className="sn-form-layout">
-          <div className="sn-form-main">
-            <FormSection id="identity" title="Device Summary">
-              <FormRow><Field label="Device name" value={<span className="mono"><b>{d.id}</b></span>} required /><Field label="Client / tenant" value="Fyers" /></FormRow>
-              <FormRow><Field label="Site" value={`${siteObj.name} (${d.site})`} /><Field label="Location / rack" value="Hall B · rack-c34 / U22" /></FormRow>
-              <FormRow><Field label="IP address" value={<span className="mono">{d.ip}</span>} /><Field label="Hostname" value={<span className="mono">{d.id.toLowerCase()}.mgmt.local</span>} /></FormRow>
-              <FormRow><Field label="Vendor" value={vendor} /><Field label="Model" value={d.model} /></FormRow>
-              <FormRow><Field label="Serial number" value={<span className="mono">{serial}</span>} /><Field label="Device type" value={k.label} /></FormRow>
-              <FormRow><Field label="OS / firmware" value={d.os} /><Field label="Monitoring source" value={<span className="mono">{d.agent}</span>} /></FormRow>
-              <FormRow><Field label="Health status" value={<span className={`sn-state-pill ${statusPill}`}><i className="fa-solid fa-circle" /> {statusLabel}</span>} /><Field label="Last seen" value={d.lastSeen} /></FormRow>
-            </FormSection>
-            <FormSection id="quick" title="Live Performance Snapshot">
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, padding: 12, background: "#fafbfc" }}>
-                <MetricCard label="CPU" value={d.cpu + "%"} sub={`load ${(d.cpu/25).toFixed(2)} · ${isNet ? "2 cores (mgmt)" : "16 cores"}`} data={series(d.cpu, 18)} color={d.cpu > 80 ? "var(--danger, #d32f2f)" : d.cpu > 65 ? "var(--warning)" : "var(--success)"} />
-                <MetricCard label="Memory" value={d.mem + "%"} sub={isNet ? "of 32 GB system" : "used 18.4 / 32 GB"} data={series(d.mem, 10)} color={d.mem > 80 ? "var(--danger, #d32f2f)" : "var(--success)"} />
-                <MetricCard label={isNet ? "Throughput" : "Disk"} value={isNet ? (d.throughput || "3.4 Gbps") : "62%"} sub={isNet ? "aggregate all ports" : "418 / 680 GB"} data={series(52, 22)} color="var(--info, #0ea5e9)" />
-                <MetricCard label={isNet ? "Sessions" : "Disk I/O"} value={isNet ? (d.sessions || "—") : "184 MB/s"} sub={isNet ? "concurrent" : "read 122 · write 62"} data={series(44, 26)} color="#8b5cf6" />
+        <div className={ui.split}>
+          <div className={ui.rail}>
+            <Panel title="Device Summary">
+              <dl className={ui.dl}>
+                <dt>Device name</dt><dd className={ui.mono}>{d.id}</dd>
+                <dt>Hostname</dt><dd className={ui.mono}>{d.hostname || "—"}</dd>
+                <dt>IP address</dt><dd className={ui.mono}>{d.ip || "—"}</dd>
+                <dt>Site</dt><dd>{siteObj.name ? `${siteObj.name} (${d.site})` : d.site}</dd>
+                <dt>Location / rack</dt><dd>{d.location || "—"}</dd>
+                <dt>Vendor</dt><dd>{vendor || "—"}</dd>
+                <dt>Model</dt><dd>{d.model || "—"}</dd>
+                <dt>Serial number</dt><dd className={ui.mono}>{d.serial_number || "—"}</dd>
+                <dt>Device type</dt><dd>{k.label || d.kind}</dd>
+                <dt>OS / firmware</dt><dd>{d.os || "—"}</dd>
+                <dt>Monitoring source</dt><dd className={ui.mono}>{d.agent || "—"}</dd>
+                <dt>Health status</dt><dd><Pill tone={statusTone}><PillDot />{statusLabel}</Pill></dd>
+                <dt>Last seen</dt><dd>{d.lastSeen || "—"}</dd>
+              </dl>
+            </Panel>
+            <Panel title="Current Performance">
+              <div className={cx(ui.grid, ui.cols[5])}>
+                <Metric label="CPU" value={`${d.cpu}%`} sub={<Bar pct={d.cpu} />} />
+                <Metric label="Memory" value={`${d.mem}%`} sub={<Bar pct={d.mem} />} />
+                {isNet && <Metric label="Throughput" value={d.throughput || "—"} sub="aggregate all ports" />}
+                {isNet && <Metric label="Sessions" value={d.sessions || "—"} sub="concurrent" />}
+                <Metric label="Uptime" value={d.uptime || "—"} sub="since last reboot" />
               </div>
-            </FormSection>
+            </Panel>
           </div>
-          <aside className="sn-form-side">
-            <div className="sn-side-card">
-              <div className="sn-side-head">Active Alerts <span className="sn-side-count">{deviceAlerts.length}</span></div>
-              <div className="sn-side-body">
-                {deviceAlerts.length === 0 && <div style={{ padding: 18, textAlign: "center", color: "var(--fg-muted)", fontSize: 12 }}>No active alerts</div>}
-                {deviceAlerts.map(a => (
-                  <div key={a.id} className="sn-related-row">
-                    <div><div className="sn-related-title">{a.title}</div><div className="sn-related-meta">{a.rule} · {a.since}</div></div>
-                    <span className={`sn-state-pill ${a.sev === "critical" ? "state-active" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {a.sev}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="sn-side-card">
-              <div className="sn-side-head">Linked CIs <span className="sn-side-count">4</span></div>
-              <div className="sn-side-body">
-                {[["ESX-BLR-01", "vSphere host"], ["ESX-BLR-02", "vSphere host"], ["BARE-BLR-DB-01", "Oracle primary"], ["SW-BLR-DIST-04", "Upstream"]].map(([id, role]) => (
-                  <div key={id} className="sn-related-row">
-                    <div><div className="sn-related-title mono">{id}</div><div className="sn-related-meta">{role}</div></div>
-                    <i className="fa-solid fa-chevron-right text-mute" style={{ fontSize: 11 }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
+          <div className={ui.rail}>
+            <Panel title={`Active Alerts (${deviceAlerts.length})`} action={deviceAlerts.length ? { label: "View all", onClick: () => setTab("alerts") } : undefined}>
+              {deviceAlerts.length ? (
+                <ul className={ui.activity}>
+                  {deviceAlerts.map(a => (
+                    <li key={a.id} className={ui.activityItem}>
+                      <Pill tone={sevTone(a.sev)}>{a.sev}</Pill>
+                      <span className={ui.activityText} title={a.title}>{a.title}<span className={ui.sub}>{a.rule} · {a.since}</span></span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty>No active alerts</Empty>
+              )}
+            </Panel>
+            <Panel title={`Linked CIs (${neighbors.length})`}>
+              {neighbors.length ? (
+                <ul className={ui.activity}>
+                  {neighbors.map(id => {
+                    const n = DEVICES.find(x => x.id === id);
+                    return (
+                      <li key={id} className={ui.activityItem}>
+                        <Icon icon={LinkIcon} className="text-fg-muted" />
+                        <span className={ui.activityText}>
+                          <TextButton className={monoLink} onClick={() => openDevice(id)}>{id}</TextButton>
+                          {n?.role && <span className={ui.sub}>{n.role}</span>}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <Empty>No topology links recorded for {d.id}.</Empty>
+              )}
+            </Panel>
+          </div>
         </div>
       )}
 
       {/* ---------------- AVAILABILITY ---------------- */}
       {tab === "availability" && (
-        <div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 14 }}>
-            <MetricCard label="Current status" value={statusLabel} sub={isDown ? "blackbox probe failing" : "blackbox probe OK · 200"} />
-            <MetricCard label="Uptime" value={d.uptime} sub="since last reboot" />
-            <MetricCard label="Ping latency" value={isDown ? "—" : "0.8 ms"} sub={isDown ? "timeout" : "p95 1.4 ms"} data={series(isDown ? 0 : 12, 8)} color="var(--info, #0ea5e9)" />
-            <MetricCard label="Packet loss" value={isDown ? "100%" : "0.0%"} sub="last 24h" />
-            <MetricCard label="SLA (30d)" value={isDown ? "99.42%" : "99.98%"} sub="target 99.9%" />
+        <>
+          <div className={cx(ui.grid, ui.cols.stats)}>
+            <StatCard icon="fa-heart-pulse" tone={statusTone} label="Current status" value={statusLabel} note={`last polled ${d.lastSeen}`} />
+            <StatCard icon="fa-clock" tone="info" label="Uptime" value={d.uptime || "—"} note="since last reboot" />
           </div>
-          <FormSection id="avail-tl" title="Availability Timeline · 90 days">
-            <div style={{ display: "flex", gap: 2, padding: 14, background: "#fafbfc" }}>
+          <SamplePanel title="Reachability" badge="blackbox probe">
+            <div className={cx(ui.grid, ui.cols[5])}>
+              <Metric label="Ping latency" value={isDown ? "—" : "0.8 ms"} sub={isDown ? "timeout" : "p95 1.4 ms"} data={series(isDown ? 0 : 12, 8)} color={C.cyan} />
+              <Metric label="Packet loss" value={isDown ? "100%" : "0.0%"} sub="last 24h" />
+              <Metric label="SLA (30d)" value={isDown ? "99.42%" : "99.98%"} sub="target 99.9%" />
+            </div>
+          </SamplePanel>
+          <SamplePanel title="Availability Timeline" badge="90 days">
+            <div className="flex gap-0.5 [&>span]:flex-1 [&>span]:h-[34px] [&>span]:rounded-[2px]">
               {Array.from({ length: 90 }, (_, i) => {
                 const bad = (seed + i) % 41 === 0 || (isDown && i > 87);
                 const warn = (seed + i) % 29 === 0;
-                return <div key={i} title={`Day ${90 - i}: ${bad ? "outage" : warn ? "degraded" : "100%"}`} style={{ flex: 1, height: 34, borderRadius: 1.5, background: bad ? "var(--danger, #d32f2f)" : warn ? "var(--warning)" : "var(--success)", opacity: bad || warn ? 1 : 0.75 }} />;
+                return <span key={i} title={`Day ${90 - i}: ${bad ? "outage" : warn ? "degraded" : "100%"}`} style={{ background: bad ? C.crit : warn ? C.warn : C.ok, opacity: bad || warn ? 1 : 0.75 }} />;
               })}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "0 14px 12px", fontSize: 11, color: "var(--fg-muted)" }}><span>90 days ago</span><span>Last reboot: {d.uptime} ago · reason: scheduled firmware upgrade</span><span>today</span></div>
-          </FormSection>
-        </div>
+            <div className="flex justify-between flex-wrap gap-1.5 text-xs text-fg-muted"><span>90 days ago</span><span>today</span></div>
+          </SamplePanel>
+        </>
       )}
 
       {/* ---------------- PERFORMANCE ---------------- */}
       {tab === "performance" && (
-        <div>
-          <FormSection id="perf-cpu" title="CPU">
-            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 0, background: "#fafbfc" }}>
-              <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}>
-                <Field label="Usage" value={<Bar pct={d.cpu} />} />
-                <Field label="Load average" value={<span className="mono">{(d.cpu/25).toFixed(2)} / {(d.cpu/22).toFixed(2)} / {(d.cpu/20).toFixed(2)}</span>} />
-                <Field label="Cores" value={isNet ? "2 (mgmt plane)" : "16 physical / 32 threads"} />
-                <Field label="Temperature" value="58°C" />
-              </div>
-              <div style={{ padding: 14 }}><div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>CPU % · last 4h</div><Spark data={series(d.cpu, 20)} h={110} color={d.cpu > 80 ? "var(--danger, #d32f2f)" : "var(--success)"} /></div>
+        <>
+          <SampleNote>Current CPU and memory come from the device record; the history charts, load, network and disk figures below are placeholders until the metrics endpoints are wired.</SampleNote>
+          <SamplePanel title="CPU">
+            <div className={chartRow()}>
+              <dl className={ui.dl}>
+                <dt>Usage</dt><dd><Bar pct={d.cpu} /></dd>
+                <dt>Load average</dt><dd className={ui.mono}>{(d.cpu / 25).toFixed(2)} / {(d.cpu / 22).toFixed(2)} / {(d.cpu / 20).toFixed(2)}</dd>
+                <dt>Cores</dt><dd>{isNet ? "2 (mgmt plane)" : "16 physical / 32 threads"}</dd>
+                <dt>Temperature</dt><dd>58°C</dd>
+              </dl>
+              <div><div className={chartLabel}>CPU % · last 4h</div><Spark data={series(d.cpu, 20)} h={110} color={d.cpu > 80 ? C.crit : C.ok} /></div>
             </div>
-          </FormSection>
-          <FormSection id="perf-mem" title="Memory">
-            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 0, background: "#fafbfc" }}>
-              <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}>
-                <Field label="Usage" value={<Bar pct={d.mem} />} />
-                <Field label="Total / used / free" value={<span className="mono">32 / {(32*d.mem/100).toFixed(1)} / {(32*(100-d.mem)/100).toFixed(1)} GB</span>} />
-                <Field label="Swap" value={<span className="mono">0.4 / 8 GB (5%)</span>} />
-              </div>
-              <div style={{ padding: 14 }}><div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>Memory % · last 4h</div><Spark data={series(d.mem, 8)} h={110} color={d.mem > 80 ? "var(--danger, #d32f2f)" : "var(--info, #0ea5e9)"} /></div>
+          </SamplePanel>
+          <SamplePanel title="Memory">
+            <div className={chartRow()}>
+              <dl className={ui.dl}>
+                <dt>Usage</dt><dd><Bar pct={d.mem} /></dd>
+                <dt>Total / used / free</dt><dd className={ui.mono}>32 / {(32 * d.mem / 100).toFixed(1)} / {(32 * (100 - d.mem) / 100).toFixed(1)} GB</dd>
+                <dt>Swap</dt><dd className={ui.mono}>0.4 / 8 GB (5%)</dd>
+              </dl>
+              <div><div className={chartLabel}>Memory % · last 4h</div><Spark data={series(d.mem, 8)} h={110} color={d.mem > 80 ? C.crit : C.cyan} /></div>
             </div>
-          </FormSection>
-          <FormSection id="perf-net" title="Network Throughput">
-            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 1fr", gap: 0, background: "#fafbfc" }}>
-              <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}>
-                <Field label="RX / TX" value={<span className="mono">1.84 / 1.52 Gbps</span>} />
-                <Field label="Packet rate" value={<span className="mono">412k / 388k pps</span>} />
-                <Field label="Error rate" value={<span style={{ color: getErrorRateColor(d.status === "critical" ? 2.4 : 0).fg, fontWeight: 700 }}>{d.status === "critical" ? "2.4%" : "0.0%"}</span>} />
-                <Field label="Drop rate" value={<span style={{ color: getErrorRateColor(d.status === "critical" ? 0.8 : 0).fg, fontWeight: 700 }}>{d.status === "critical" ? "0.8%" : "0.0%"}</span>} />
-              </div>
-              <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}><div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>RX Mbps · last 4h</div><Spark data={series(58, 24)} h={110} color={STATUS_COLORS.ok.line} /></div>
-              <div style={{ padding: 14 }}><div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>TX Mbps · last 4h</div><Spark data={series(46, 20)} h={110} color="#0ea5e9" /></div>
+          </SamplePanel>
+          <SamplePanel title="Network Throughput">
+            <div className={chartRow(true)}>
+              <dl className={ui.dl}>
+                <dt>RX / TX</dt><dd className={ui.mono}>1.84 / 1.52 Gbps</dd>
+                <dt>Packet rate</dt><dd className={ui.mono}>412k / 388k pps</dd>
+                <dt>Error rate</dt><dd className={d.status === "critical" ? cellCrit : cellOk}>{d.status === "critical" ? "2.4%" : "0.0%"}</dd>
+                <dt>Drop rate</dt><dd className={d.status === "critical" ? cellCrit : cellOk}>{d.status === "critical" ? "0.8%" : "0.0%"}</dd>
+              </dl>
+              <div><div className={chartLabel}>RX Mbps · last 4h</div><Spark data={series(58, 24)} h={110} color={C.ok} /></div>
+              <div><div className={chartLabel}>TX Mbps · last 4h</div><Spark data={series(46, 20)} h={110} color={C.cyan} /></div>
             </div>
-          </FormSection>
-          <FormSection id="perf-disk" title="Disk / Storage">
-            <table className="sn-list-table">
-              <thead><tr><th>Mount</th><th style={{width:100}}>Total</th><th style={{width:100}}>Used</th><th style={{width:100}}>Free</th><th style={{width:160}}>Usage</th><th style={{width:130}}>I/O R/W</th><th style={{width:90}}>Health</th></tr></thead>
-              <tbody>
-                {((isNet ? [["/flash", "8 GB", "3.1 GB", "4.9 GB", 39, "2 / 1 MB/s", "OK"], ["/logs", "4 GB", "2.8 GB", "1.2 GB", 70, "4 / 6 MB/s", "OK"]]
-                  : [["/", "120 GB", "74 GB", "46 GB", 62, "88 / 41 MB/s", "OK"], ["/data", "560 GB", "515 GB", "45 GB", 92, "122 / 62 MB/s", "WARN"], ["/backup", "1 TB", "412 GB", "612 GB", 41, "12 / 44 MB/s", "OK"]]
-                ) as [string, string, string, string, number, string, string][]).map((r, i) => (
-                  <tr key={i}>
-                    <td className="mono"><b>{r[0]}</b></td><td className="mono">{r[1]}</td><td className="mono">{r[2]}</td><td className="mono">{r[3]}</td>
-                    <td><Bar pct={r[4]} width={110} /></td><td className="mono">{r[5]}</td>
-                    <td><span className={`sn-state-pill ${r[6] === "OK" ? "svc-healthy" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {r[6]}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
+          </SamplePanel>
+          <SamplePanel title="Disk / Storage">
+            <Table>
+                <thead><tr><th scope="col">Mount</th><th scope="col">Total</th><th scope="col">Used</th><th scope="col">Free</th><th scope="col">Usage</th><th scope="col">I/O R/W</th><th scope="col">Health</th></tr></thead>
+                <tbody>
+                  {disks.map((r) => (
+                    <tr key={r[0]}>
+                      <td className={cellMono}>{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td>{r[3]}</td>
+                      <td><Bar pct={r[4]} /></td><td className={cellMono}>{r[5]}</td>
+                      <td><Pill tone={r[6] === "OK" ? "ok" : "warn"}>{r[6]}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+          </SamplePanel>
+        </>
       )}
 
       {/* ---------------- INTERFACES ---------------- */}
       {tab === "interfaces" && (
-        <FormSection id="ifaces" title="Network Interfaces" badge={`${ifVisible.length} shown`}>
-          <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: "1px solid var(--border, #e5e8eb)", alignItems: "center" }}>
-            <i className="fa-solid fa-magnifying-glass" style={{ color: "var(--fg-muted)", fontSize: 11 }} />
-            <input value={ifq} onChange={e => setIfq(e.target.value)} placeholder="Filter by port or description…" style={{ flex: 1, border: "none", outline: "none", fontSize: 12, background: "transparent" }} />
-            {[["all", "All"], ["down", "Down"], ["errors", "With errors"]].map(([id, l]) => (
-              <button key={id} className={`sn-btn${ifFilter === id ? " primary" : ""}`} style={{ padding: "3px 10px", fontSize: 11 }} onClick={() => setIfFilter(id)}>{l}</button>
-            ))}
+        <SamplePanel title="Network Interfaces" badge={`${ifVisible.length} shown`}>
+          <div className={ui.toolbar}>
+            <label htmlFor="if-search" className="sr-only">Filter interfaces</label>
+            <SearchBox className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id="if-search" type="search" value={ifq} onChange={e => setIfq(e.target.value)} placeholder="Filter by port or description…" />
+            <div className={seg} role="group" aria-label="Interface state">
+              {[["all", "All"], ["down", "Down"], ["errors", "With errors"]].map(([id, l]) => (
+                <button key={id} type="button" className={segBtn} aria-pressed={ifFilter === id} onClick={() => setIfFilter(id)}>{l}</button>
+              ))}
+            </div>
           </div>
-          <div style={{ overflowX: "auto" }}>
-            <table className="sn-list-table" style={{ minWidth: 1150 }}>
-              <thead><tr><th style={{width:70}}>Port</th><th>Description</th><th style={{width:130}}>MAC</th><th style={{width:60}}>Speed</th><th style={{width:60}}>MTU</th><th style={{width:110}}>Tx util</th><th style={{width:110}}>Rx util</th><th style={{width:80}}>Tx pkts/s</th><th style={{width:80}}>Rx pkts/s</th><th style={{width:60}}>Errs</th><th style={{width:60}}>Drops</th><th style={{width:60}}>CRC</th><th style={{width:80}}>Oper</th><th style={{width:70}}>Since</th></tr></thead>
-              <tbody>
-                {ifVisible.map((r, i) => {
-                  const isBad = r[15] === "down" || r[10] > 0 || r[14] > 0;
-                  return (
-                    <tr key={i} style={isBad ? { background: "rgba(211,47,47,.05)" } : undefined}>
-                      <td className="mono"><b>{r[0]}</b></td><td>{r[1]}</td><td className="mono" style={{ fontSize: 10.5 }}>{r[2]}</td><td className="mono">{r[3]}</td><td className="mono">{r[5]}</td>
-                      <td>{r[6] > 0 ? <Bar pct={r[6]} width={60} /> : <span className="text-mute mono">—</span>}</td>
-                      <td>{r[7] > 0 ? <Bar pct={r[7]} width={60} /> : <span className="text-mute mono">—</span>}</td>
-                      <td className="mono">{r[8]}</td><td className="mono">{r[9]}</td>
-                      <td className={`mono ${r[10] > 0 ? "tone-crit" : ""}`}><b>{r[10]}</b></td>
-                      <td className={`mono ${r[12] + r[13] > 0 ? "tone-warn" : ""}`}>{r[12] + r[13]}</td>
-                      <td className={`mono ${r[14] > 0 ? "tone-crit" : ""}`}><b>{r[14]}</b></td>
-                      <td><span className={`sn-state-pill ${r[15] === "up" ? "svc-healthy" : "state-active"}`}><i className="fa-solid fa-circle" /> {r[15] === "up" ? "Up" : "Down"}</span></td>
-                      <td className="mono" style={{ fontSize: 11 }}>{r[16]}</td>
+          {ifVisible.length ? (
+            <Table>
+                <thead><tr><th scope="col">Port</th><th scope="col">Description</th><th scope="col">MAC</th><th scope="col">Speed</th><th scope="col">MTU</th><th scope="col">Tx util</th><th scope="col">Rx util</th><th scope="col">Tx pkts/s</th><th scope="col">Rx pkts/s</th><th scope="col">Errs</th><th scope="col">Drops</th><th scope="col">CRC</th><th scope="col">Oper</th><th scope="col">Since</th></tr></thead>
+                <tbody>
+                  {ifVisible.map((r) => (
+                    <tr key={r[0]}>
+                      <td className={cellMono}>{r[0]}</td><td className={ui.cellWrap}>{r[1]}</td><td className={cellMono}>{r[2]}</td><td>{r[3]}</td><td>{r[5]}</td>
+                      <td>{r[6] > 0 ? <Bar pct={r[6]} /> : <span className="text-fg-muted">—</span>}</td>
+                      <td>{r[7] > 0 ? <Bar pct={r[7]} /> : <span className="text-fg-muted">—</span>}</td>
+                      <td className={cellMono}>{r[8]}</td><td className={cellMono}>{r[9]}</td>
+                      <td className={r[10] > 0 ? cellCrit : undefined}>{r[10]}</td>
+                      <td className={r[12] + r[13] > 0 ? cellWarn : undefined}>{r[12] + r[13]}</td>
+                      <td className={r[14] > 0 ? cellCrit : undefined}>{r[14]}</td>
+                      <td><Pill tone={r[15] === "up" ? "ok" : "crit"}><PillDot />{r[15] === "up" ? "Up" : "Down"}</Pill></td>
+                      <td>{r[16]}</td>
                     </tr>
-                  );
-                })}
-                {ifVisible.length === 0 && <tr><td colSpan={14} style={{ textAlign: "center", padding: 24, color: "var(--fg-muted)" }}>No interfaces match the filter</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </FormSection>
+                  ))}
+                </tbody>
+              </Table>
+          ) : (
+            <Empty>No interfaces match the filter</Empty>
+          )}
+        </SamplePanel>
       )}
 
       {/* ---------------- PORTS (switch port view) ---------------- */}
@@ -335,87 +444,92 @@ export default function InfraDeviceScreen() {
 
       {/* ---------------- HOSTED VMS ---------------- */}
       {tab === "vms" && (
-        <FormSection id="vms" title="Hosted VMs & Connectivity" badge={VMS.filter(v => v.host === d.id).length + " VMs"}>
-          <table className="sn-list-table">
-            <thead><tr><th>VM</th><th style={{width:120}}>IP</th><th style={{width:130}}>vNIC → vSwitch</th><th style={{width:130}}>Physical NIC</th><th style={{width:90}}>CPU</th><th style={{width:90}}>Memory</th><th style={{width:80}}>State</th><th>Path to WAN</th></tr></thead>
-            <tbody>
-              {VMS.filter(v => v.host === d.id).map(v => (
-                <tr key={v.id}>
-                  <td className="mono"><b>{v.id}</b><div style={{ fontSize: 10.5, color: "var(--fg-muted)" }}>{v.os} · {v.cpu} · {v.mem}</div></td>
-                  <td className="mono">{v.ip}</td>
-                  <td className="mono" style={{ fontSize: 11 }}>vNIC-0 → vSwitch0</td>
-                  <td className="mono" style={{ fontSize: 11 }}>vmnic0 · 25G</td>
-                  <td>{v.state === "running" ? <Bar pct={v.cpuUse} width={50} /> : <span className="text-mute">—</span>}</td>
-                  <td>{v.state === "running" ? <Bar pct={v.memUse} warn={75} crit={90} width={50} /> : <span className="text-mute">—</span>}</td>
-                  <td><span className={`sn-state-pill ${v.state === "running" ? "svc-healthy" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {v.state}</span></td>
-                  <td className="mono" style={{ fontSize: 10.5, color: "var(--fg-muted)" }}>{v.id} → {d.id} → SW-BLR-TOR-12 → SW-BLR-DIST-04 → SW-BLR-CORE-01 → FW-BLR-CORE-01 → WAN</td>
-                </tr>
-              ))}
-              {VMS.filter(v => v.host === d.id).length === 0 && <tr><td colSpan={8} style={{ textAlign: "center", padding: 24, color: "var(--fg-muted)" }}>No VMs hosted on this device</td></tr>}
-            </tbody>
-          </table>
-        </FormSection>
+        <Panel title={`Hosted VMs (${hostedVms.length})`}>
+          {hostedVms.length ? (
+            <Table>
+                <thead><tr><th scope="col">VM</th><th scope="col">IP</th><th scope="col">vCPU / RAM</th><th scope="col">CPU</th><th scope="col">Memory</th><th scope="col">State</th></tr></thead>
+                <tbody>
+                  {hostedVms.map(v => (
+                    <tr key={v.id}>
+                      <td><TextButton className={monoLink} onClick={() => setRoute("vm-detail", { vmId: v.id })}>{v.id}</TextButton><span className={ui.sub}>{v.os}</span></td>
+                      <td className={cellMono}>{v.ip}</td>
+                      <td className={cellMono}>{v.cpu} / {v.mem}</td>
+                      <td>{v.state === "running" ? <Bar pct={v.cpuUse} /> : <span className="text-fg-muted">—</span>}</td>
+                      <td>{v.state === "running" ? <Bar pct={v.memUse} warn={75} crit={90} /> : <span className="text-fg-muted">—</span>}</td>
+                      <td><Pill tone={v.state === "running" ? "ok" : "muted"}><PillDot />{v.state}</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+          ) : (
+            <Empty>No VMs hosted on this device</Empty>
+          )}
+        </Panel>
       )}
 
       {/* ---------------- HARDWARE ---------------- */}
       {tab === "hardware" && (
-        <FormSection id="hw" title="Hardware Health" badge={d.kind.includes("srv") ? "via iDRAC / IPMI" : "via SNMP entity MIB"}>
-          <table className="sn-list-table">
-            <thead><tr><th style={{width:140}}>Sensor</th><th style={{width:160}}>Type</th><th style={{width:100}}>Status</th><th>Reading</th></tr></thead>
-            <tbody>
-              {hwSensors.map((r, i) => (
-                <tr key={i} style={r[2] === "FAIL" ? { background: "rgba(211,47,47,.06)" } : r[2] === "WARN" ? { background: "rgba(255,152,0,.06)" } : undefined}>
-                  <td className="mono"><b>{r[0]}</b></td><td>{r[1]}</td>
-                  <td><span className={`sn-state-pill ${r[2] === "OK" ? "svc-healthy" : r[2] === "WARN" ? "state-mitigating" : r[2] === "FAIL" ? "state-active" : "state-neutral"}`}><i className="fa-solid fa-circle" /> {r[2]}</span></td>
-                  <td className="mono" style={{ fontSize: 12 }}>{r[3]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </FormSection>
+        <SamplePanel title="Hardware Health" badge={d.kind.includes("srv") ? "via iDRAC / IPMI" : "via SNMP entity MIB"}>
+          <Table>
+              <thead><tr><th scope="col">Sensor</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reading</th></tr></thead>
+              <tbody>
+                {hwSensors.map((r) => (
+                  <tr key={r[0]}>
+                    <td className={cellMono}>{r[0]}</td><td>{r[1]}</td>
+                    <td><Pill tone={sensorTone(r[2])}><PillDot />{r[2]}</Pill></td>
+                    <td className={cellMono}>{r[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+        </SamplePanel>
       )}
 
       {/* ---------------- ALERTS ---------------- */}
       {tab === "alerts" && (
-        <FormSection id="al" title="Alerts" badge={`${deviceAlerts.length} active`}>
-          {deviceAlerts.length === 0 && <div style={{ padding: 32, textAlign: "center", color: "var(--fg-muted)", fontSize: 12.5 }}><i className="fa-solid fa-circle-check" style={{ fontSize: 26, color: "var(--success)" }} /><div style={{ marginTop: 8 }}>No active alerts on this device</div></div>}
-          {deviceAlerts.length > 0 && (
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:90}}>Severity</th><th>Alert</th><th style={{width:200}}>Rule source</th><th style={{width:90}}>Since</th><th style={{width:110}}>Ack</th></tr></thead>
-              <tbody>
-                {deviceAlerts.map(a => (
-                  <tr key={a.id}>
-                    <td><span className={`sn-state-pill ${a.sev === "critical" ? "state-active" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {a.sev}</span></td>
-                    <td><b>{a.title}</b></td><td className="mono" style={{ fontSize: 11.5 }}>{a.rule}</td><td>{a.since}</td>
-                    <td><button className="sn-btn" style={{ padding: "2px 10px", fontSize: 11 }}>Acknowledge</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <Panel title={`Alerts (${deviceAlerts.length} active)`}>
+          {deviceAlerts.length ? (
+            <Table>
+                <thead><tr><th scope="col">Severity</th><th scope="col">Alert</th><th scope="col">Rule source</th><th scope="col">Since</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+                <tbody>
+                  {deviceAlerts.map(a => (
+                    <tr key={a.id}>
+                      <td><Pill tone={sevTone(a.sev)}><PillDot />{a.sev}</Pill></td>
+                      <td className={cx("font-medium", ui.cellWrap)}>{a.title}</td><td className={cellMono}>{a.rule}</td><td>{a.since}</td>
+                      <td><Button size="sm">Acknowledge</Button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+          ) : (
+            <Empty><Icon icon={CircleCheckIcon} className={toneText.ok} /> No active alerts on this device</Empty>
           )}
-        </FormSection>
+        </Panel>
       )}
 
       {/* ---------------- LOGS ---------------- */}
       {tab === "logs" && (
-        <FormSection id="lg" title="Device Logs" badge="syslog · auth · hardware · exporter">
-          <div style={{ background: "#0e1620", padding: "12px 0", fontFamily: "var(--font-mono)", fontSize: 11.5, borderRadius: "0 0 4px 4px" }}>
-            {logs.map((r, i) => (
-              <div key={i} style={{ display: "flex", gap: 12, padding: "4px 16px", color: "#c8d2dc" }}>
-                <span style={{ color: "#5b6b7c", flexShrink: 0 }}>{r[0]}</span>
-                <span style={{ color: "#7c94ab", width: 66, flexShrink: 0 }}>{r[1]}</span>
-                <span style={{ color: sevTone(r[2]), width: 40, flexShrink: 0, fontWeight: 600 }}>{r[2]}</span>
-                <span style={{ wordBreak: "break-word" }}>{r[3]}</span>
-              </div>
-            ))}
-          </div>
-        </FormSection>
+        <SamplePanel title="Device Logs" badge="syslog · auth · hardware · exporter">
+          <Table className="[&_td]:align-top">
+              <thead><tr><th scope="col">Time</th><th scope="col">Source</th><th scope="col">Level</th><th scope="col">Message</th></tr></thead>
+              <tbody>
+                {logs.map((r, i) => (
+                  <tr key={i}>
+                    <td className={cellMono}>{r[0]}</td>
+                    <td>{r[1]}</td>
+                    <td><Pill tone={r[2] === "crit" ? "crit" : r[2] === "warn" ? "warn" : "muted"}>{r[2]}</Pill></td>
+                    <td className={cx(ui.cellWrap, "font-mono text-xs")}>{r[3]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+        </SamplePanel>
       )}
-    </div>
+    </Page>
   );
 }
 
-// Switch port panel — per-port table with VLAN, connected endpoint; click a port for live graph + path
+// Switch port panel — per-port table with VLAN, connected endpoint; select a port for its graph + path
 export function SwitchPortPanel({ d, Spark, Bar }: { d: Device; Spark: (p: SparkProps) => JSX.Element; Bar: (p: BarProps) => JSX.Element }) {
   const [selPort, setSelPort] = React.useState<string | null>(null);
   const [pq, setPq] = React.useState("");
@@ -440,62 +554,69 @@ export function SwitchPortPanel({ d, Spark, Bar }: { d: Device; Spark: (p: Spark
     };
   }).filter(p => !pq || p.name.toLowerCase().includes(pq.toLowerCase()) || p.desc.toLowerCase().includes(pq.toLowerCase()) || p.vlan.includes(pq));
   const sp = selPort != null ? ports.find(p => p.name === selPort) : null;
+  const bad = (p: { err: number; oper: string }) => p.err > 0 || p.oper === "down";
 
   return (
-    <div>
-      <FormSection id="ports" title="Switch Ports" badge={`${ports.length} ports · SNMP IF-MIB`}>
-        <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: "1px solid var(--border, #e5e8eb)", alignItems: "center" }}>
-          <i className="fa-solid fa-magnifying-glass" style={{ color: "var(--fg-muted)", fontSize: 11 }} />
-          <input value={pq} onChange={e => setPq(e.target.value)} placeholder="Filter by port, description, VLAN…" style={{ flex: 1, border: "none", outline: "none", fontSize: 12, background: "transparent" }} />
+    <>
+      <Card as="section" className={ui.panel} aria-labelledby="ports-h">
+        <div className={ui.panelHead}>
+          <h2 id="ports-h" className={ui.panelTitle}>Switch Ports <span className={panelBadge}>· {ports.length} ports · SNMP IF-MIB</span></h2>
+          <Pill tone="muted">Sample data</Pill>
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table className="sn-list-table" style={{ minWidth: 1100 }}>
-            <thead><tr><th style={{width:76}}>Port</th><th>Description</th><th style={{width:120}}>Connected</th><th style={{width:100}}>IP</th><th style={{width:56}}>VLAN</th><th style={{width:56}}>Speed</th><th style={{width:100}}>RX/TX Mbps</th><th style={{width:110}}>Util</th><th style={{width:56}}>Errs</th><th style={{width:56}}>CRC</th><th style={{width:70}}>Oper</th><th style={{width:80}}>Last flap</th></tr></thead>
+        <div className={ui.toolbar}>
+          <label htmlFor="port-search" className="sr-only">Filter ports</label>
+          <SearchBox className="flex-[1_1_240px]" icon={<Icon icon={SearchIcon} />} id="port-search" type="search" value={pq} onChange={e => setPq(e.target.value)} placeholder="Filter by port, description, VLAN…" />
+        </div>
+        <Table>
+            <thead><tr><th scope="col">Port</th><th scope="col">Description</th><th scope="col">Connected</th><th scope="col">IP</th><th scope="col">VLAN</th><th scope="col">Speed</th><th scope="col">RX/TX Mbps</th><th scope="col">Util</th><th scope="col">Errs</th><th scope="col">CRC</th><th scope="col">Oper</th><th scope="col">Last flap</th></tr></thead>
             <tbody>
               {ports.map(p => {
-                const c = getInterfaceColor(p.oper, p.util, p.err);
                 const isSel = selPort === p.name;
                 return (
-                  <tr key={p.name} onClick={() => setSelPort(isSel ? null : p.name)} style={{ cursor: "pointer", background: isSel ? "#e0f2fe" : p.oper === "down" ? "rgba(239,68,68,.05)" : undefined }}>
-                    <td className="mono"><b>{p.name}</b></td><td>{p.desc}</td>
-                    <td className="mono" style={{ fontSize: 11 }}>{p.peer}</td>
-                    <td className="mono" style={{ fontSize: 11 }}>{p.peerIp}</td>
-                    <td className="mono">{p.vlan}</td><td className="mono">{p.speed}</td>
-                    <td className="mono" style={{ fontSize: 11 }}>{p.rx} / {p.tx}</td>
-                    <td>{p.oper === "up" ? <Bar pct={p.util} width={60} /> : <span className="text-mute mono">—</span>}</td>
-                    <td className="mono" style={{ color: getErrorRateColor(p.err).fg, fontWeight: p.rxe > 0 ? 700 : 400 }}>{p.rxe}</td>
-                    <td className="mono" style={{ color: p.crc > 0 ? STATUS_COLORS.crit.fg : undefined, fontWeight: p.crc > 0 ? 700 : 400 }}>{p.crc}</td>
-                    <td><span className={`sn-state-pill ${getStatusBadgeClass(p.oper === "up" ? "ok" : "down")}`}><i className="fa-solid fa-circle" /> {p.oper === "up" ? "Up" : "Down"}</span></td>
-                    <td className="mono" style={{ fontSize: 11 }}>{p.flap}</td>
+                  <tr key={p.name} className={isSel ? ui.rowSelected : undefined}>
+                    <td><TextButton className={monoLink} aria-pressed={isSel} onClick={() => setSelPort(isSel ? null : p.name)}>{p.name}</TextButton></td>
+                    <td className={ui.cellWrap}>{p.desc}</td>
+                    <td className={cellMono}>{p.peer}</td>
+                    <td className={cellMono}>{p.peerIp}</td>
+                    <td>{p.vlan}</td><td>{p.speed}</td>
+                    <td className={cellMono}>{p.rx} / {p.tx}</td>
+                    <td>{p.oper === "up" ? <Bar pct={p.util} /> : <span className="text-fg-muted">—</span>}</td>
+                    <td className={p.rxe > 0 ? (p.err > 1 ? cellCrit : cellWarn) : undefined}>{p.rxe}</td>
+                    <td className={p.crc > 0 ? cellCrit : undefined}>{p.crc}</td>
+                    <td><Pill tone={p.oper === "up" ? "ok" : "crit"}><PillDot />{p.oper === "up" ? "Up" : "Down"}</Pill></td>
+                    <td>{p.flap}</td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
-        </div>
-      </FormSection>
+          </Table>
+      </Card>
 
       {sp && (
-        <FormSection id="portdetail" title={`Port ${sp.name} — Live Detail`} badge={sp.oper === "up" ? "up · " + sp.speed : "down"}>
-          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 1fr", gap: 0, background: "#fafbfc" }}>
-            <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}>
-              <Field label="Connected endpoint" value={<span className="mono">{sp.peer}</span>} />
-              <Field label="Endpoint IP" value={<span className="mono">{sp.peerIp}</span>} />
-              <Field label="VLAN / duplex" value={`${sp.vlan} · ${sp.duplex}`} />
-              <Field label="Errors / drops / CRC" value={<span className="mono" style={{ color: getErrorRateColor(sp.err).fg }}>{sp.rxe} / {sp.drops} / {sp.crc}</span>} />
-              <Field label="Physical path" value={<span className="mono" style={{ fontSize: 10.5 }}>{sp.peer} → {d.id}:{sp.name} → SW-BLR-DIST-04 → CORE → FW → WAN</span>} />
+        <Card as="section" className={ui.panel} aria-labelledby="portdetail-h">
+          <div className={ui.panelHead}>
+            <h2 id="portdetail-h" className={ui.panelTitle}>Port {sp.name} <span className={panelBadge}>· {sp.oper === "up" ? "up · " + sp.speed : "down"}</span></h2>
+            <Pill tone="muted">Sample data</Pill>
+          </div>
+          <div className={chartRow(true)}>
+            <dl className={ui.dl}>
+              <dt>Connected endpoint</dt><dd className={ui.mono}>{sp.peer}</dd>
+              <dt>Endpoint IP</dt><dd className={ui.mono}>{sp.peerIp}</dd>
+              <dt>VLAN / duplex</dt><dd>{sp.vlan} · {sp.duplex}</dd>
+              <dt>Errors / drops / CRC</dt><dd className={bad(sp) ? cellCrit : undefined}>{sp.rxe} / {sp.drops} / {sp.crc}</dd>
+              <dt>Physical path</dt><dd className={ui.mono}>{sp.peer} → {d.id}:{sp.name} → SW-BLR-DIST-04 → CORE → FW → WAN</dd>
+            </dl>
+            <div>
+              <div className={chartLabel}>Traffic Mbps · last 4h</div>
+              <Spark data={series(sp.util, 22)} h={100} color={sp.oper === "down" ? C.crit : sp.util > 85 ? C.warn : C.ok} />
             </div>
-            <div style={{ padding: 14, borderRight: "1px solid var(--border, #e5e8eb)" }}>
-              <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>Traffic Mbps · last 4h</div>
-              <Spark data={series(sp.util, 22)} h={100} color={getInterfaceColor(sp.oper, sp.util, sp.err).line} />
-            </div>
-            <div style={{ padding: 14 }}>
-              <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 6 }}>Errors & drops trend · last 4h</div>
-              <Spark data={series(sp.err > 0 || sp.oper === "down" ? 34 : 2, sp.err > 0 || sp.oper === "down" ? 30 : 3)} h={100} color={sp.err > 0 || sp.oper === "down" ? STATUS_COLORS.crit.line : STATUS_COLORS.ok.line} />
+            <div>
+              <div className={chartLabel}>Errors &amp; drops trend · last 4h</div>
+              <Spark data={series(bad(sp) ? 34 : 2, bad(sp) ? 30 : 3)} h={100} color={bad(sp) ? C.crit : C.ok} />
             </div>
           </div>
-        </FormSection>
+        </Card>
       )}
-    </div>
+    </>
   );
 }

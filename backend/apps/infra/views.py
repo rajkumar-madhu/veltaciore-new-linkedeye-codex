@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.monitoring.loki import device_logs
-from apps.monitoring.prometheus import device_hardware, device_inventory, device_timeseries, vm_inventory, vm_timeseries
+from apps.monitoring.prometheus import device_hardware, device_inventory, device_timeseries, fleet_load, vm_inventory, vm_timeseries
 from apps.sites.models import Rack, Site
 from apps.tenants.mixins import TenantScopedQuerysetMixin
 from .models import (
@@ -68,6 +68,11 @@ class DeviceViewSet(TenantScopedQuerysetMixin, viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["id", "cpu", "mem", "status"]
 
     filterset_fields = ["site", "device_type", "status", "vendor", "lifecycle_state", "criticality_tier"]
+
+    @action(detail=False)
+    def load(self, request):
+        """GET /api/infra/devices/load/ — current CPU / memory % from Prometheus for the client's servers."""
+        return Response(fleet_load(self.filter_queryset(self.get_queryset())))
 
     @action(detail=True, methods=["post"])
     def transition(self, request, pk=None):

@@ -11,6 +11,10 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 
 app.conf.beat_schedule = {
+    "domain-checks": {
+        "task": "apps.domains.tasks.check_domains",
+        "schedule": 900.0,
+    },
     "snmp-poll": {
         "task": "apps.monitoring.tasks.poll_snmp_devices",
         "schedule": 60.0,

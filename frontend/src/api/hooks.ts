@@ -5,7 +5,7 @@
 // frontend remains fully demoable standalone. Screens read `data` and fall
 // back to their local constant when it is undefined.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
+import { apiDelete, apiGet, apiGetAllClients, apiGetAllPages, apiPost, apiPatch, unwrap, type Paginated } from "@/api/client";
 import { useUiStore } from "@/store/ui";
 import { PRESETS } from "@/store/timeRange";
 import type {
@@ -64,6 +64,28 @@ export function useDevices(siteId?: string, search?: string) {
   });
 }
 
+/** Every device of the client (all pages), for fleet-wide views such as the heatmap. */
+export function useAllDevices() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["devices-all", tenant],
+    queryFn: () => apiGetAllPages<Device>("/infra/devices/"),
+    refetchInterval: 30_000,
+  });
+}
+
+/** Every APM service of the client (all pages). */
+export function useAllServices() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["services-all", tenant],
+    queryFn: () => apiGetAllPages<Service>("/services/"),
+    refetchInterval: 30_000,
+  });
+}
+
 export function useDevice(deviceId?: string) {
   return useQuery({
     ...quiet,
@@ -114,7 +136,7 @@ export function useInfraAlerts() {
   return useQuery({
     ...quiet,
     queryKey: ["infra-alerts", tenant],
-    queryFn: () => apiGet<Paginated<InfraAlert> | InfraAlert[]>("/infra/alerts/").then(unwrap),
+    queryFn: () => apiGetAllPages<InfraAlert>("/infra/alerts/"),
     refetchInterval: 30_000,
   });
 }
@@ -479,6 +501,8 @@ export interface MetricSeries {
 }
 
 export interface MetricsResponse {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   family: string | null;
   /** "prometheus" = real data; "unavailable" / "unsupported" = no data, see message */
   source: "prometheus" | "unavailable" | "unsupported";
@@ -573,6 +597,8 @@ export function useDeviceRelationships(deviceId?: string) {
 export interface DeviceProcess { name: string; cpu: number; mem_bytes: number | null; threads: number | null }
 
 export interface DeviceInventory {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   family: string | null;
   source: "prometheus" | "unavailable" | "unsupported";
   message?: string;
@@ -607,6 +633,8 @@ export interface BmcController {
 }
 
 export interface DeviceHardware {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "prometheus" | "unavailable" | "none";
   message?: string;
   start: string;
@@ -630,6 +658,8 @@ export function useDeviceHardware(deviceId: string | undefined, preset: string, 
 export interface LogEntry { ts: string; level: "critical" | "error" | "warning" | "info" | "debug"; source: string; event_id?: string | number | null; message: string }
 
 export interface DeviceLogs {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "loki" | "unavailable";
   message?: string;
   query: string;
@@ -650,6 +680,8 @@ export function useDeviceLogs(deviceId: string | undefined, preset: string, from
 // ── VM inventory: VMware Tools, snapshots, guest disks, datastore ──────────
 
 export interface VmInventory {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
   source: "prometheus" | "unavailable";
   message?: string;
   found?: boolean;
@@ -674,3 +706,148 @@ export function useVmInventory(vmId?: string) {
     refetchInterval: 60_000,
   });
 }
+
+// ── Cross-client rollup (admins; read without a client header) ────────────
+
+export interface ClientSummary {
+  id: string; name: string; code: string; color: string; plan: string;
+  tickets_total: number; tickets_open: number; sla_met_pct: number | null; sla_breached: number;
+  incidents_active: number; sev1: number; sev2: number;
+  changes_open: number; changes_implementing: number;
+  devices_total: number; devices_down: number; devices_warn: number; devices_online_pct: number | null;
+  alerts_open: number; alerts_critical: number;
+}
+
+export interface CrossClientSummary {
+  clients: ClientSummary[];
+  totals: Omit<ClientSummary, "id" | "name" | "code" | "color" | "plan" | "sla_met_pct">;
+}
+
+export function useCrossClientSummary() {
+  return useQuery({
+    ...quiet,
+    queryKey: ["cross-client-summary"],
+    queryFn: () => apiGetAllClients<CrossClientSummary>("/tenants-summary/"),
+    refetchInterval: 60_000,
+  });
+}
+
+// ── Fleet load: live CPU / memory per server from Prometheus ───────────────
+
+export interface FleetLoad {
+  /** generated sample values (dev, no PROMETHEUS_URL / LOKI_URL) — not measurements */
+  sample?: boolean;
+  source: "prometheus" | "unavailable";
+  message?: string;
+  devices: { id: string; cpu: number | null; mem: number | null }[];
+}
+
+export function useDeviceLoad() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["device-load", tenant],
+    queryFn: () => apiGet<FleetLoad>("/infra/devices/load/"),
+    refetchInterval: 30_000,
+  });
+}
+
+// ── Domains (DNS names) and business domains (heatmap) ─────────────────────
+
+export interface DomainPort {
+  id?: number;
+  name: string;
+  type: string;
+  port: number;
+  /** null until the first check */
+  up?: boolean | null;
+  response_ms?: number | null;
+  last_checked?: string | null;
+}
+
+export interface MonitoredDomain {
+  id: number;
+  name: string;
+  type: string;
+  site: string;
+  description: string;
+  active: boolean;
+  check_ssl: boolean;
+  ssl_port: number;
+  dns_status: "Unknown" | "Resolved" | "Error";
+  resolved_ips: string[];
+  ssl_status: "Unknown" | "Valid" | "Expiring" | "Expired" | "Error" | "Off";
+  ssl_expiry: string | null;
+  ssl_issuer: string;
+  check_error: string;
+  last_checked: string | null;
+  created_at: string;
+  updated_at: string;
+  services: DomainPort[];
+  /** shared row (no client): read-only unless the all-clients view is selected */
+  shared: boolean;
+}
+
+export type DomainInput = Pick<MonitoredDomain, "name" | "type" | "site" | "description" | "active" | "check_ssl" | "ssl_port"> & {
+  services: Pick<DomainPort, "name" | "type" | "port">[];
+};
+
+export function useDomains() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["domains", tenant],
+    queryFn: () => apiGetAllPages<MonitoredDomain>("/infra/domains/"),
+    refetchInterval: 60_000,
+  });
+}
+
+function useDomainMutation<A>(fn: (a: A) => Promise<unknown>) {
+  const qc = useQueryClient();
+  const tenant = useTenantId();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["domains", tenant] }) });
+}
+
+export const useSaveDomain = () =>
+  useDomainMutation(({ id, body }: { id?: number; body: Partial<DomainInput> }) =>
+    id ? apiPatch<MonitoredDomain>(`/infra/domains/${id}/`, body) : apiPost<MonitoredDomain>("/infra/domains/", body));
+export const useDeleteDomain = () => useDomainMutation((id: number) => apiDelete(`/infra/domains/${id}/`));
+export const useCheckDomain = () => useDomainMutation((id: number) => apiPost<MonitoredDomain>(`/infra/domains/${id}/check/`, {}));
+
+export interface ServiceDomain {
+  id: number;
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  order: number;
+  /** APM service names */
+  services: string[];
+  /** device ids */
+  devices: string[];
+  /** every device of these kinds belongs to the domain too */
+  device_kinds: string[];
+  shared: boolean;
+}
+
+export type ServiceDomainInput = Omit<ServiceDomain, "id" | "key" | "shared">;
+
+export function useServiceDomains() {
+  const tenant = useTenantId();
+  return useQuery({
+    ...quiet,
+    queryKey: ["service-domains", tenant],
+    queryFn: () => apiGetAllPages<ServiceDomain>("/infra/service-domains/"),
+  });
+}
+
+function useServiceDomainMutation<A>(fn: (a: A) => Promise<unknown>) {
+  const qc = useQueryClient();
+  const tenant = useTenantId();
+  return useMutation({ mutationFn: fn, onSuccess: () => qc.invalidateQueries({ queryKey: ["service-domains", tenant] }) });
+}
+
+export const useSaveServiceDomain = () =>
+  useServiceDomainMutation(({ id, body }: { id?: number; body: Partial<ServiceDomainInput> }) =>
+    id ? apiPatch<ServiceDomain>(`/infra/service-domains/${id}/`, body) : apiPost<ServiceDomain>("/infra/service-domains/", body));
+export const useDeleteServiceDomain = () => useServiceDomainMutation((id: number) => apiDelete(`/infra/service-domains/${id}/`));

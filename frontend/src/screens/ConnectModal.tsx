@@ -5,6 +5,62 @@
 import React from "react";
 import type { Integration } from "@/lib/types";
 
+import { Icon } from "@/components/Icon";
+import { cx } from "@/components/ui";
+import { ActivityIcon, CheckIcon, LoaderCircleIcon, LockIcon, PlugIcon, PlugZapIcon, SlidersHorizontalIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+// Modal shell, form rows, automation cards and success pipeline
+// (were the prototype le-modal-* / le-field / le-auto-* / le-pipe-* / sn-btn classes).
+const m = {
+  backdrop: "fixed inset-0 bg-[rgba(10,20,51,0.5)] backdrop-blur-[3px] z-[1200] grid place-items-center py-10 px-5 overflow-y-auto",
+  modal: "bg-bg-raised rounded-[12px] max-w-full shadow-pop border border-line overflow-hidden flex flex-col max-h-[calc(100vh-80px)] animate-[modalpop_0.16s_cubic-bezier(.2,.8,.3,1)]",
+  head: "flex items-center gap-3 py-4 px-4.5 border-b border-line",
+  icon: "w-[38px] h-[38px] rounded-[9px] grid place-items-center text-[17px] shrink-0",
+  titles: "flex-1 min-w-0",
+  title: "text-[15.5px] font-bold text-fg leading-[1.25] whitespace-nowrap overflow-hidden text-ellipsis",
+  subtitle: "text-xs text-fg-subtle mt-0.5",
+  close: "w-[30px] h-[30px] rounded-[7px] border border-line bg-bg-raised text-fg-subtle cursor-pointer grid place-items-center shrink-0 hover:bg-bg-muted hover:text-fg",
+  body: "p-4.5 overflow-y-auto",
+  foot: "flex items-center justify-end gap-2 py-[13px] px-4.5 border-t border-line bg-bg-muted flex-wrap",
+};
+const field = "mb-3.5 last:mb-0";
+const fieldLabel = "block text-[11.5px] font-semibold text-fg-muted mb-[5px]";
+const inputClass = (mono?: boolean) =>
+  cx(
+    "w-full py-2 px-2.5 border border-line-strong rounded-[7px] bg-bg-raised [outline:none] focus:border-brand-500 focus:shadow-[0_0_0_3px_var(--blue-50)]",
+    mono ? "font-mono text-xs tabular-nums" : "font-sans text-sm",
+  );
+const snBtn = (primary?: boolean) =>
+  cx(
+    "inline-flex items-center gap-[5px] py-[5px] px-3 border text-xs font-medium rounded-[3px] cursor-pointer whitespace-nowrap [transition:all_.12s]",
+    primary
+      ? "![background:var(--brand-grad)] !border-transparent !text-white hover:brightness-[1.07] disabled:opacity-50 disabled:cursor-not-allowed"
+      : "bg-white border-[#d2d6dc] text-[#424952] hover:bg-[#f4f6f9] hover:border-[#6b7785] hover:text-black",
+  );
+const auto = {
+  card: (on: boolean) =>
+    cx("flex gap-[11px] items-start p-3 border rounded-[9px] cursor-pointer [transition:border-color_.12s,background_.12s]", on ? "border-brand-500 bg-brand-50" : "border-line"),
+  icon: (on: boolean) => cx("w-8 h-8 rounded grid place-items-center text-base shrink-0", on ? "bg-brand-600 text-white" : "bg-bg-muted text-fg-subtle"),
+  text: "flex-1 min-w-0",
+  textTitle: "text-sm text-fg block",
+  textDesc: "text-[11.5px] text-fg-subtle leading-[1.45] block mt-0.5",
+  switch: (on: boolean) =>
+    cx(
+      "w-[38px] h-[22px] rounded-[11px] relative shrink-0 mt-[3px] [transition:background_.14s]",
+      "after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-[18px] after:h-[18px] after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(0,0,0,.2)] after:[transition:transform_.14s]",
+      on ? "bg-brand-600 after:translate-x-4" : "bg-line-strong",
+    ),
+};
+const pipe = {
+  row: "flex items-center gap-[11px] py-[11px] px-[13px] border border-line rounded-[9px] bg-bg-raised",
+  dot: "inline-block w-[9px] h-[9px] rounded-full shrink-0",
+  live: "bg-success shadow-[0_0_0_0_rgba(16,185,129,.5)] animate-[livepulse_1.6s_infinite]",
+  ic: "w-[30px] h-[30px] rounded-[7px] grid place-items-center text-sm shrink-0",
+  body: "flex-1 min-w-0",
+  bodyTitle: "text-[12.5px] text-fg block",
+  bodySub: "text-2xs text-fg-subtle",
+  mono: "font-mono text-2xs text-fg-subtle whitespace-nowrap tabular-nums",
+};
+
 export interface CredField {
   key: string;
   label: string;
@@ -172,44 +228,44 @@ export function ConnectModal({
   const set = (k: string, v: string) => setVals(s => ({ ...s, [k]: v }));
 
   return (
-    <div className="le-modal-backdrop" onClick={() => phase !== "connecting" && onClose()}>
-      <div className="le-modal wide" onClick={e => e.stopPropagation()}>
-        <div className="le-modal-head">
-          <div className="le-modal-icon" style={{ color, background: color + "18" }}><i className={integ.icon} /></div>
-          <div className="le-modal-titles">
-            <h3>{phase === "done" ? `${integ.name} connected` : `Connect ${integ.name}`}</h3>
-            <p>{integ.category} · {phase === "done" ? "live · syncing automatically" : schema.blurb}</p>
+    <div className={m.backdrop} onClick={() => phase !== "connecting" && onClose()}>
+      <div className={cx(m.modal, "w-[720px]")} onClick={e => e.stopPropagation()}>
+        <div className={m.head}>
+          <div className={m.icon} style={{ color, background: color + "18" }}><Icon className={integ.icon} /></div>
+          <div className={m.titles}>
+            <h3 className={m.title}>{phase === "done" ? `${integ.name} connected` : `Connect ${integ.name}`}</h3>
+            <p className={m.subtitle}>{integ.category} · {phase === "done" ? "live · syncing automatically" : schema.blurb}</p>
           </div>
-          {phase !== "connecting" && <button className="le-modal-x" onClick={onClose} aria-label="Close"><i className="fa-solid fa-xmark" /></button>}
+          {phase !== "connecting" && <button className={m.close} onClick={onClose} aria-label="Close"><Icon icon={XIcon} /></button>}
         </div>
 
-        <div className="le-modal-body">
+        <div className={m.body}>
           {phase === "done" ? (
-            <div className="le-connect-success">
-              <div className="le-connect-check"><i className="fa-solid fa-check" /></div>
-              <h4>You're live</h4>
-              <p>Credentials verified. {integ.name} is now wired into Argus-LinkedEye and working automatically.</p>
-              <div className="le-pipe">
-                <div className="le-pipe-row">
-                  <span className="dot" style={{ background: "var(--success)" }} />
-                  <span className="ic" style={{ background: "var(--success-bg)", color: "var(--success)" }}><i className="fa-solid fa-plug-circle-check" /></span>
-                  <div className="body"><b>Connection verified</b><span>TCP · TLS · API auth 200 OK</span></div>
-                  <span className="mono">12ms</span>
+            <div className="text-center pt-2 px-1.5 pb-1">
+              <div className="w-14 h-14 rounded-full bg-success-bg text-success grid place-items-center text-5xl mx-auto mb-3.5"><Icon icon={CheckIcon} /></div>
+              <h4 className="text-lg font-bold text-fg mb-[5px]">You're live</h4>
+              <p className="text-[12.5px] text-fg-subtle mb-4">Credentials verified. {integ.name} is now wired into Argus-LinkedEye and working automatically.</p>
+              <div className="flex flex-col gap-2 text-left">
+                <div className={pipe.row}>
+                  <span className={pipe.dot} style={{ background: "var(--success)" }} />
+                  <span className={pipe.ic} style={{ background: "var(--success-bg)", color: "var(--success)" }}><Icon icon={PlugZapIcon} /></span>
+                  <div className={pipe.body}><b className={pipe.bodyTitle}>Connection verified</b><span className={pipe.bodySub}>TCP · TLS · API auth 200 OK</span></div>
+                  <span className={pipe.mono}>12ms</span>
                 </div>
                 {autoMetrics && (
-                  <div className="le-pipe-row">
-                    <span className="dot live" />
-                    <span className="ic" style={{ background: "var(--blue-50)", color: "var(--blue-600)" }}><i className="fa-solid fa-wave-square" /></span>
-                    <div className="body"><b>{copy.metrics.title}</b><span>flowing now · {ingestStat(integ)}</span></div>
-                    <span className="mono">live</span>
+                  <div className={pipe.row}>
+                    <span className={cx(pipe.dot, pipe.live)} />
+                    <span className={pipe.ic} style={{ background: "var(--blue-50)", color: "var(--blue-600)" }}><Icon icon={ActivityIcon} /></span>
+                    <div className={pipe.body}><b className={pipe.bodyTitle}>{copy.metrics.title}</b><span className={pipe.bodySub}>flowing now · {ingestStat(integ)}</span></div>
+                    <span className={pipe.mono}>live</span>
                   </div>
                 )}
                 {autoIncidents && (
-                  <div className="le-pipe-row">
-                    <span className="dot live" />
-                    <span className="ic" style={{ background: "#fef2f2", color: "var(--critical)" }}><i className="fa-solid fa-triangle-exclamation" /></span>
-                    <div className="body"><b>Alert→incident automation armed</b><span>watching {ruleStat(integ)} · auto-dedupe + correlation on</span></div>
-                    <span className="mono">live</span>
+                  <div className={pipe.row}>
+                    <span className={cx(pipe.dot, pipe.live)} />
+                    <span className={pipe.ic} style={{ background: "#fef2f2", color: "var(--critical)" }}><Icon icon={TriangleAlertIcon} /></span>
+                    <div className={pipe.body}><b className={pipe.bodyTitle}>Alert→incident automation armed</b><span className={pipe.bodySub}>watching {ruleStat(integ)} · auto-dedupe + correlation on</span></div>
+                    <span className={pipe.mono}>live</span>
                   </div>
                 )}
               </div>
@@ -217,35 +273,35 @@ export function ConnectModal({
           ) : (
             <>
               {schema.fields.map(f => (
-                <div className="le-field" key={f.key}>
-                  <label>{f.label}{f.req && <span className="req">*</span>}</label>
+                <div className={field} key={f.key}>
+                  <label className={fieldLabel}>{f.label}{f.req && <span className="text-critical ml-0.5">*</span>}</label>
                   {f.select ? (
-                    <select className="le-input" value={vals[f.key]} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"}>
+                    <select className={inputClass(false)} value={vals[f.key]} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"}>
                       {f.select.map(o => <option key={o}>{o}</option>)}
                     </select>
                   ) : f.secret ? (
-                    <div className="le-input-group">
-                      <input className={`le-input ${f.mono ? "mono" : ""}`} type={reveal[f.key] ? "text" : "password"} value={vals[f.key]} placeholder={f.ph} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"} />
-                      <button className="sn-btn" type="button" onClick={() => setReveal(r => ({ ...r, [f.key]: !r[f.key] }))} title={reveal[f.key] ? "Hide" : "Show"}><i className={`fa-solid ${reveal[f.key] ? "fa-eye-slash" : "fa-eye"}`} /></button>
+                    <div className="flex gap-1.5">
+                      <input className={cx(inputClass(f.mono), "flex-1")} type={reveal[f.key] ? "text" : "password"} value={vals[f.key]} placeholder={f.ph} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"} />
+                      <button className={snBtn()} type="button" onClick={() => setReveal(r => ({ ...r, [f.key]: !r[f.key] }))} title={reveal[f.key] ? "Hide" : "Show"}><Icon className={`fa-solid ${reveal[f.key] ? "fa-eye-slash" : "fa-eye"}`} /></button>
                     </div>
                   ) : (
-                    <input className={`le-input ${f.mono ? "mono" : ""}`} value={vals[f.key]} placeholder={f.ph} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"} />
+                    <input className={inputClass(f.mono)} value={vals[f.key]} placeholder={f.ph} onChange={e => set(f.key, e.target.value)} disabled={phase === "connecting"} />
                   )}
                 </div>
               ))}
 
-              <div className="le-field" style={{ marginTop: 18 }}>
-                <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--fg-subtle)" }}>On connect — runs automatically</label>
-                <div className="le-auto">
-                  <div className={`le-auto-card ${autoMetrics ? "on" : ""}`} onClick={() => phase !== "connecting" && setAutoMetrics(v => !v)}>
-                    <span className="le-auto-ic"><i className="fa-solid fa-wave-square" /></span>
-                    <span className="le-auto-txt"><b>{copy.metrics.title}</b><span>{copy.metrics.desc}</span></span>
-                    <span className="le-switch" />
+              <div className={field} style={{ marginTop: 18 }}>
+                <label className={fieldLabel} style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", color: "var(--fg-subtle)" }}>On connect — runs automatically</label>
+                <div className="flex flex-col gap-[9px] mt-1 mb-0.5">
+                  <div className={auto.card(autoMetrics)} onClick={() => phase !== "connecting" && setAutoMetrics(v => !v)}>
+                    <span className={auto.icon(autoMetrics)}><Icon icon={ActivityIcon} /></span>
+                    <span className={auto.text}><b className={auto.textTitle}>{copy.metrics.title}</b><span className={auto.textDesc}>{copy.metrics.desc}</span></span>
+                    <span className={auto.switch(autoMetrics)} />
                   </div>
-                  <div className={`le-auto-card ${autoIncidents ? "on" : ""}`} onClick={() => phase !== "connecting" && setAutoIncidents(v => !v)}>
-                    <span className="le-auto-ic"><i className="fa-solid fa-triangle-exclamation" /></span>
-                    <span className="le-auto-txt"><b>{copy.incidents.title}</b><span>{copy.incidents.desc}</span></span>
-                    <span className="le-switch" />
+                  <div className={auto.card(autoIncidents)} onClick={() => phase !== "connecting" && setAutoIncidents(v => !v)}>
+                    <span className={auto.icon(autoIncidents)}><Icon icon={TriangleAlertIcon} /></span>
+                    <span className={auto.text}><b className={auto.textTitle}>{copy.incidents.title}</b><span className={auto.textDesc}>{copy.incidents.desc}</span></span>
+                    <span className={auto.switch(autoIncidents)} />
                   </div>
                 </div>
               </div>
@@ -253,23 +309,23 @@ export function ConnectModal({
           )}
         </div>
 
-        <div className="le-modal-foot">
+        <div className={m.foot}>
           {phase === "done" ? (
             <>
-              <span className="spacer" />
-              <button className="sn-btn" onClick={onClose}>Done</button>
-              <button className="sn-btn primary" onClick={() => onConnected && onConnected(integ)}><i className="fa-solid fa-sliders" /> Configure integration</button>
+              <span className="flex-1 mr-auto" />
+              <button className={snBtn()} onClick={onClose}>Done</button>
+              <button className={snBtn(true)} onClick={() => onConnected && onConnected(integ)}><Icon icon={SlidersHorizontalIcon} /> Configure integration</button>
             </>
           ) : (
             <>
-              <span className="spacer" style={{ fontSize: 11.5, color: "var(--fg-subtle)", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <i className="fa-solid fa-lock" /> Credentials are encrypted at rest · stored in Vault
+              <span className="flex-1 mr-auto" style={{ fontSize: 11.5, color: "var(--fg-subtle)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icon icon={LockIcon} /> Credentials are encrypted at rest · stored in Vault
               </span>
-              <button className="sn-btn" onClick={onClose} disabled={phase === "connecting"}>Cancel</button>
-              <button className="sn-btn primary" onClick={connect} disabled={missing || phase === "connecting"}>
+              <button className={snBtn()} onClick={onClose} disabled={phase === "connecting"}>Cancel</button>
+              <button className={snBtn(true)} onClick={connect} disabled={missing || phase === "connecting"}>
                 {phase === "connecting"
-                  ? <><i className="fa-solid fa-circle-notch fa-spin" /> Connecting…</>
-                  : <><i className="fa-solid fa-plug" /> Connect &amp; start sync</>}
+                  ? <><Icon icon={LoaderCircleIcon} spin /> Connecting…</>
+                  : <><Icon icon={PlugIcon} /> Connect &amp; start sync</>}
               </button>
             </>
           )}

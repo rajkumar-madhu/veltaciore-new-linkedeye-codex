@@ -1,179 +1,237 @@
-// Reports & SLA in ServiceNow form-style.
-// Ported from screens/reports.jsx.
-import React from "react";
-import { Kpi, FormSection, Field, Sev } from "@/components/primitives";
-import { useProblems, useSlas } from "@/api/hooks";
-import { PROBLEMS, SLAS } from "@/data/itsm";
+// Reports & SLA — LinkedEye layouts. ReportsScreen: problem / incident
+// summaries derived from the loaded problems and incidents, plus a sample
+// list of scheduled reports. SLAScreen: SLA inventory with compliance bars and
+// breach summary, all derived from the loaded SLA definitions.
+import { useNav } from "@/hooks/useNav";
+import { useIncidents, useProblems, useSlas } from "@/api/hooks";
+import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+
+import { buttonClass, cx, toneText, ui } from "@/components/ui";
+import { sd } from "@/components/RecordList";
+import { Icon } from "@/components/Icon";
+import { ChevronRightIcon, FileOutputIcon, MailIcon, PlusIcon } from "lucide-react";
+const SEV_TONE: Record<number, Tone> = { 1: "crit", 2: "warn", 3: "info", 4: "muted" };
+const problemTone = (s: string): Tone => (s === "Resolved" ? "ok" : s === "Known error" ? "purple" : "warn");
+const complianceColor = (c: number) => (c > 95 ? "#16a34a" : c > 90 ? "#f5a524" : "#e5383b");
+
+const SAMPLE_SCHEDULED: [string, string, string][] = [
+  ["Weekly ops digest", "Mon 09:00", "exec@"],
+  ["Monthly SLO review", "1st of mo", "sre-leads@"],
+  ["CAB pre-read", "Thu 16:00", "cab@"],
+  ["QBR", "Quarterly", "leadership@"],
+];
 
 export default function ReportsScreen() {
+  const { setRoute } = useNav();
   const { data } = useProblems();
   const problems = data ?? [];
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+  const { data: incData } = useIncidents();
+  const incidents = incData ?? [];
+
+  const open = problems.filter((p) => p.status !== "Resolved").length;
+  const known = problems.filter((p) => p.status === "Known error").length;
+  const linked = problems.reduce((s, p) => s + p.linked, 0);
+  const top = [...problems].sort((a, b) => b.linked - a.linked).slice(0, 5);
+  const bySev = [1, 2, 3, 4].map((n) => ({ n, count: incidents.filter((i) => i.sev === n).length }));
+  const sevMax = Math.max(1, ...bySev.map((s) => s.count));
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
+        <Icon icon={ChevronRightIcon} />
         <span>Reports &amp; Analytics</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">REPORTS</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> 18 saved</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-clock" /> 4 scheduled</span>
+      </nav>
+
+      <div className={ui.head}>
+        <div>
+          <h1 className={ui.h1}>Reports &amp; Analytics</h1>
+          <p className={ui.headSub}>Problem and incident trends across the organisation</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Reports &amp; Analytics</h1>
-            <div className="sn-form-sub">Last refresh 2m ago · monthly window · org-wide</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-file-export" /> Export</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New Report</button>
-          </div>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={FileOutputIcon} /> Export</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={PlusIcon} /> New Report</button>
         </div>
       </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="MTTR p50" v="24m" s="-18% MoM" tone="ok" />
-        <Kpi l="MTTD p50" v="2.4m" s="AI correlation" tone="ok" />
-        <Kpi l="Change success" v="96.4%" s="+2.1% MoM" tone="ok" />
-        <Kpi l="Alert fatigue" v="12/responder" s="-38%" tone="ok" />
-        <Kpi l="Saved reports" v="18" s="active" tone="neutral" />
-        <Kpi l="Scheduled" v="4" s="auto-delivery" tone="neutral" />
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-bug" tone="warn" label="Open problems" value={fmt(open)} note={`${fmt(problems.length)} problems in total`} />
+        <StatCard icon="fa-book" tone="purple" label="Known errors" value={fmt(known)} note="workaround documented" />
+        <StatCard icon="fa-link" tone="info" label="Linked incidents" value={fmt(linked)} note="tied to a problem record" />
+        <StatCard icon="fa-ticket" tone="crit" label="Incidents" value={fmt(incidents.length)} note={`${bySev[0].count} Sev 1`} />
       </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="top" title="Top Problems by Linked Incidents" collapsed={collapsed.top} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Problem</th><th style={{width:130}}>Linked</th><th style={{width:130}}>Time lost</th><th style={{width:130}}>Revenue impact</th><th style={{width:140}}>State</th></tr></thead>
-              <tbody>
-                {problems.slice(0,5).map((p, i) => (
-                  <tr key={p.id}>
-                    <td><b>{p.title}</b><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>{p.id}</div></td>
-                    <td className="mono"><b>{p.linked}</b> incidents</td>
-                    <td className="mono">{[18.2,24.6,8.1,12.4,6.8][i]}h</td>
-                    <td className="mono">${[112,82,18,34,9][i]}k</td>
-                    <td><span className={`sn-state-pill ${p.status==="Resolved"?"svc-healthy":p.status==="Known error"?"state-investigating":"state-mitigating"}`}><i className="fa-solid fa-circle" /> {p.status}</span></td>
-                  </tr>
+
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <Panel title="Top Problems by Linked Incidents">
+            {top.length ? (
+              <div className={ui.tableWrap}>
+                <table className={ui.table}>
+                  <thead>
+                    <tr><th scope="col">Problem</th><th scope="col">Linked</th><th scope="col">Impact</th><th scope="col">State</th></tr>
+                  </thead>
+                  <tbody>
+                    {top.map((p) => (
+                      <tr key={p.id}>
+                        <td className={ui.cellWrap}><span className="font-medium">{p.title}</span><div className={cx(ui.sub, ui.mono)}>{p.id}</div></td>
+                        <td className={sd.cellMono}><b>{p.linked}</b> incidents</td>
+                        <td>{p.impact}</td>
+                        <td><Pill tone={problemTone(p.status)}><PillDot />{p.status}</Pill></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <Empty>No problem records yet.</Empty>
+            )}
+          </Panel>
+
+          <Panel title="Incident Volume by Severity">
+            {incidents.length ? (
+              <ul className={ui.bars}>
+                {bySev.map(({ n, count }) => (
+                  <li key={n} className={ui.barItem}>
+                    <span className={ui.barLabel}><Pill tone={SEV_TONE[n]}>Sev {n}</Pill></span>
+                    <span className={ui.barTrack}><span className={ui.barFill} style={{ width: `${(count / sevMax) * 100}%`, background: n === 1 ? "#e5383b" : n === 2 ? "#f5a524" : n === 3 ? "#2f6bff" : "#98a2b3" }} /></span>
+                    <span className={ui.barValue}>{count}</span>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </FormSection>
-          <FormSection id="incidents" title="Incident Volume by Severity" badge="30d" collapsed={collapsed.incidents} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th style={{width:90}}>Severity</th><th>Count</th><th style={{width:140}}>Δ vs last</th><th style={{width:140}}>Avg MTTR</th></tr></thead>
-              <tbody>
-                {([
-                  ["Sev 1", 8, "+2", "42m"],
-                  ["Sev 2", 24, "-3", "1h 12m"],
-                  ["Sev 3", 84, "+12", "4h 8m"],
-                  ["Sev 4", 142, "+18", "12h"],
-                ] as [string, number, string, string][]).map((r, i) => (
-                  <tr key={i}>
-                    <td><Sev n={i+1} /></td>
-                    <td className="mono"><b>{r[1]}</b></td>
-                    <td className={`mono ${r[2].startsWith("+")?"tone-crit":"tone-ok"}`}><b>{r[2]}</b></td>
-                    <td className="mono">{r[3]}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
+              </ul>
+            ) : (
+              <Empty>No incidents loaded.</Empty>
+            )}
+          </Panel>
         </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Scheduled Reports <span className="sn-side-count">4</span></div>
-            <div className="sn-side-body">
-              {[["Weekly ops digest","Mon 09:00","exec@"],["Monthly SLO review","1st of mo","sre-leads@"],["CAB pre-read","Thu 16:00","cab@"],["QBR","Quarterly","leadership@"]].map(([n,w,r],i) => (
-                <div key={i} className="sn-related-row">
-                  <div><div className="sn-related-title">{n}</div><div className="sn-related-meta">{w} · {r}</div></div>
-                  <i className="fa-solid fa-envelope text-mute" style={{ fontSize: 11 }} />
-                </div>
-              ))}
+
+        <div className={ui.rail}>
+          <section className={cx(ui.card, ui.panel)} aria-labelledby="rep-sched-h">
+            <div className={ui.panelHead}>
+              <h2 id="rep-sched-h" className={ui.panelTitle}>Scheduled Reports</h2>
+              <Pill tone="muted">Sample data</Pill>
             </div>
-          </div>
-        </aside>
+            <ul className={ui.activity}>
+              {SAMPLE_SCHEDULED.map(([n, w, r]) => (
+                <li key={n} className={ui.activityItem}>
+                  <Icon icon={MailIcon} className="text-fg-muted" />
+                  <span className={ui.activityText}>{n} <span className="text-fg-muted text-xs">· {w} · {r}</span></span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
       </div>
     </div>
   );
 }
 
 export function SLAScreen() {
+  const { setRoute } = useNav();
   const { data } = useSlas();
   const slas = data ?? [];
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+
+  const breaches = slas.reduce((s, x) => s + x.breach, 0);
+  const avg = slas.length ? slas.reduce((s, x) => s + x.compliance, 0) / slas.length : 0;
+  const atRisk = slas.filter((x) => x.compliance <= 95).length;
+  const sorted = [...slas].sort((a, b) => b.compliance - a.compliance);
+  const best = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  const causes = [...slas].sort((a, b) => b.breach - a.breach).slice(0, 5);
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Service Level Management</a><span className="sn-bc-sep">›</span>
+    <div className={ui.page}>
+      <nav className={ui.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={ui.link} onClick={() => setRoute("dashboard")}>Home</button>
+        <Icon icon={ChevronRightIcon} />
+        <span>Service Level Management</span>
+        <Icon icon={ChevronRightIcon} />
         <span>SLA Definitions</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">SLA</span>
-          <span className="sn-pill prio-1"><i className="fa-solid fa-circle" /> 3 breaches</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> 94.6% avg compliance</span>
+      </nav>
+
+      <div className={ui.head}>
+        <div>
+          <h1 className={ui.h1}>SLA Definitions</h1>
+          <p className={ui.headSub}>{slas.length} SLAs enforced · monthly window · all priorities</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>SLA Definitions</h1>
-            <div className="sn-form-sub">{slas.length} SLAs enforced · monthly window · all priorities</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-file-export" /> Export</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New SLA</button>
-          </div>
+        <div className={ui.headActions}>
+          <button type="button" className={buttonClass()}><Icon icon={FileOutputIcon} /> Export</button>
+          <button type="button" className={buttonClass("primary")}><Icon icon={PlusIcon} /> New SLA</button>
         </div>
       </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Total SLAs" v={slas.length} s="enforced" tone="neutral" />
-        <Kpi l="Avg compliance" v="94.6%" s="this month" tone="ok" />
-        <Kpi l="Breaches" v={slas.reduce((s,x) => s + x.breach, 0)} s="this month" tone="warn" />
-        <Kpi l="At risk" v="2" s="trending breach" tone="warn" />
-        <Kpi l="Best" v="Sev 3 resolution" s="99.0%" tone="ok" />
-        <Kpi l="Worst" v="Sev 1 resolution" s="88.6%" tone="crit" />
+
+      <div className={cx(ui.grid, ui.cols[5])}>
+        <StatCard icon="fa-file-contract" tone="info" label="Total SLAs" value={fmt(slas.length)} note="enforced" />
+        <StatCard icon="fa-gauge-high" tone={avg > 95 ? "ok" : "warn"} label="Avg compliance" value={slas.length ? `${avg.toFixed(1)}%` : "—"} note="mean across SLAs" />
+        <StatCard icon="fa-triangle-exclamation" tone="crit" label="Breaches" value={fmt(breaches)} note="this window" />
+        <StatCard icon="fa-arrow-trend-down" tone="warn" label="At risk" value={fmt(atRisk)} note="compliance 95% or below" />
+        <StatCard icon="fa-arrows-up-down" tone="muted" label="Best / worst" value={best ? `${best.compliance}%` : "—"} note={best && worst ? `${best.name} · worst ${worst.name} ${worst.compliance}%` : "no SLAs"} />
       </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="slas" title="SLA Inventory" badge={`${slas.length} definitions`} collapsed={collapsed.slas} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>SLA</th><th style={{width:110}}>Target</th><th style={{width:110}}>Window</th><th style={{width:180}}>Compliance · 30d</th><th style={{width:100}}>Breaches</th><th style={{width:110}}>State</th></tr></thead>
-              <tbody>
-                {slas.map(s => (
-                  <tr key={s.id}>
-                    <td><a className="sn-link"><b>{s.name}</b></a><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>{s.id}</div></td>
-                    <td className="mono">{s.target}</td>
-                    <td className="text-mute">{s.window}</td>
-                    <td>
-                      <div className="row row-8">
-                        <div className="bar-track" style={{ width: 100 }}>
-                          <div className="bar-fill" style={{ width: s.compliance + "%", background: s.compliance > 95 ? "var(--success)" : s.compliance > 90 ? "var(--warning)" : "var(--critical)" }} />
-                        </div>
-                        <span className={`mono ${s.compliance > 95 ? "tone-ok" : s.compliance > 90 ? "tone-warn" : "tone-crit"}`} style={{ fontSize: 12 }}><b>{s.compliance}%</b></span>
-                      </div>
-                    </td>
-                    <td>{s.breach > 0 ? <span className="sn-state-pill state-active"><i className="fa-solid fa-circle" /> {s.breach}</span> : <span className="text-mute mono">0</span>}</td>
-                    <td><span className="sn-state-pill svc-healthy"><i className="fa-solid fa-circle" /> Enforced</span></td>
+
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby="sla-h">
+          <div className={ui.panelHead}>
+            <h2 id="sla-h" className={ui.panelTitle}>SLA Inventory</h2>
+            <span className="text-fg-muted text-xs">{slas.length} definitions</span>
+          </div>
+          {slas.length ? (
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
+                <thead>
+                  <tr>
+                    <th scope="col">SLA</th>
+                    <th scope="col">Target</th>
+                    <th scope="col">Window</th>
+                    <th scope="col">Compliance · 30d</th>
+                    <th scope="col">Breaches</th>
+                    <th scope="col">State</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Breach Causes</div>
-            <div className="sn-side-body">
-              <Field label="Sev 1 resolution" value={<span className="tone-crit"><b>4</b> breaches</span>} />
-              <Field label="Sev 1 response" value={<span className="tone-warn"><b>2</b> breaches</span>} />
-              <Field label="Problem RCA" value={<span className="tone-warn"><b>1</b> breach</span>} />
-              <Field label="Change approval" value={<span className="tone-ok">0 breaches</span>} />
+                </thead>
+                <tbody>
+                  {slas.map((s) => (
+                    <tr key={s.id}>
+                      <td><span className="font-medium">{s.name}</span><div className={cx(ui.sub, ui.mono)}>{s.id}</div></td>
+                      <td className={sd.cellMono}>{s.target}</td>
+                      <td>{s.window}</td>
+                      <td>
+                        <div className="flex items-center gap-2 min-w-[150px]">
+                          <span className="flex-[1_1_60px] h-2 rounded-[5px] bg-bg-muted overflow-hidden"><span className="block h-2 rounded-[5px]" style={{ width: `${s.compliance}%`, background: complianceColor(s.compliance) }} /></span>
+                          {/* the meter's value style outranked the ld-text-* colour: only the weight shows */}
+                          <span className="font-mono text-xs font-semibold text-fg whitespace-nowrap [font-feature-settings:'cv02','cv03','cv04','cv11','ss01']">{s.compliance}%</span>
+                        </div>
+                      </td>
+                      <td>{s.breach > 0 ? <Pill tone="crit">{s.breach}</Pill> : <span className={cx("text-fg-muted", ui.mono)}>0</span>}</td>
+                      <td><Pill tone="ok"><PillDot />Enforced</Pill></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </aside>
+          ) : (
+            <Empty>No SLA definitions yet.</Empty>
+          )}
+        </section>
+
+        <div className={ui.rail}>
+          <Panel title="Breaches by SLA">
+            {causes.length ? (
+              <ul className={ui.activity}>
+                {causes.map((s) => (
+                  <li key={s.id} className={ui.activityItem}>
+                    <span className={ui.activityText}>{s.name}</span>
+                    <span className={s.breach > 2 ? toneText.crit : s.breach > 0 ? toneText.warn : toneText.ok}>
+                      {s.breach} {s.breach === 1 ? "breach" : "breaches"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>No SLAs loaded.</Empty>
+            )}
+          </Panel>
+        </div>
       </div>
     </div>
   );
 }
+

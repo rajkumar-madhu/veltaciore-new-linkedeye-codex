@@ -4,6 +4,7 @@ import React from "react";
 import { useUiStore } from "@/store/ui";
 import { useChangeRecords, useUpdateChange } from "@/api/hooks";
 import { RecordListScreen } from "@/components/RecordList";
+import { Pill } from "@/components/ld";
 import type { Tone } from "@/components/ld";
 
 const NEXT_STATE: Record<string, string> = {
@@ -26,7 +27,7 @@ const CHANGE_TABS = [
 const RISK_COLUMN = {
   header: "Risk",
   render: (r: { risk?: string }) =>
-    r.risk ? <span className={`ld-pill ld-${RISK_TONE[r.risk] ?? "muted"}`}>{r.risk}</span> : <span className="ld-muted">—</span>,
+    r.risk ? <Pill tone={RISK_TONE[r.risk] ?? "muted"}>{r.risk}</Pill> : <span className="text-fg-muted">—</span>,
 };
 
 const STATE_TONE: Record<string, Tone> = {

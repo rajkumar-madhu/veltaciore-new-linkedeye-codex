@@ -1,170 +1,193 @@
 // Event intelligence: alert grouping & noise reduction
 // Datadog / PagerDuty concept: raw alerts collapsed into incidents, grouping rules, suppression.
-// Ported from screens/alert-grouping.jsx.
+// There is no grouping API yet, so the page shows a labelled sample; every
+// summary figure is derived from the sample rows below.
 import React from "react";
 import { useNav } from "@/hooks/useNav";
-import { Sparkline, FormSection, Field } from "@/components/primitives";
+import { Empty, PALETTE, Panel, Pill, StatCard, fmt } from "@/components/ld";
+import { Button, Card, Crumbs, Page, PageHead, Table, TextButton, cx, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
+import { Sparkline } from "@/components/MetricCharts";
+
+import { Icon } from "@/components/Icon";
+import { FlaskConicalIcon, HistoryIcon, PlusIcon } from "lucide-react";
+type Strategy = "Intelligent" | "Content" | "Time";
+
+const GROUPS: { title: string; count: number; svc: string; strat: Strategy; status: "open" | "ack" | "suppressed"; age: string; spark: number[] }[] = [
+  { title: "Stripe connection pool exhaustion", count: 14, svc: "payments-api", strat: "Intelligent", status: "open", age: "6m", spark: [2, 3, 5, 8, 11, 13, 14] },
+  { title: "k8s node memory pressure — pool-3", count: 9, svc: "platform", strat: "Content", status: "open", age: "18m", spark: [1, 2, 2, 4, 6, 7, 9] },
+  { title: "Elevated p99 latency · checkout flow", count: 6, svc: "web-frontend", strat: "Time", status: "ack", age: "31m", spark: [1, 1, 3, 4, 5, 6, 6] },
+  { title: "TLS cert expiry warnings (batch)", count: 23, svc: "edge-proxy", strat: "Content", status: "suppressed", age: "2h", spark: [4, 8, 12, 16, 19, 22, 23] },
+  { title: "Disk usage > 80% · db-replica-02", count: 4, svc: "database", strat: "Intelligent", status: "open", age: "44m", spark: [1, 1, 2, 2, 3, 3, 4] },
+];
+
+const STRAT: Record<Strategy, { tone: Tone; icon: string; color: string }> = {
+  Intelligent: { tone: "purple", icon: "fa-wand-magic-sparkles", color: "#7c4dff" },
+  Content: { tone: "info", icon: "fa-align-left", color: "#2f6bff" },
+  Time: { tone: "muted", icon: "fa-clock", color: "#0ea5e9" },
+};
+const STATUS: Record<string, { tone: Tone; icon: string; label: string }> = {
+  open: { tone: "crit", icon: "fa-fire", label: "Open" },
+  ack: { tone: "warn", icon: "fa-user-check", label: "Acknowledged" },
+  suppressed: { tone: "muted", icon: "fa-bell-slash", label: "Suppressed" },
+};
+
+const RULES: { name: string; strat: Strategy; window: string; on: boolean }[] = [
+  { name: "Collapse by service + alert name", strat: "Content", window: "5 min", on: true },
+  { name: "Intelligent correlation (ML)", strat: "Intelligent", window: "rolling", on: true },
+  { name: "Flapping detector — auto-resolve", strat: "Time", window: "10 min", on: true },
+  { name: "Deploy-window mute · production", strat: "Time", window: "during deploys", on: false },
+];
+
+const NOISY = [
+  { src: "prometheus-alertmanager", n: 1840 },
+  { src: "datadog-monitors", n: 1120 },
+  { src: "cloudwatch", n: 690 },
+  { src: "blackbox-probes", n: 410 },
+  { src: "custom-webhooks", n: 320 },
+];
+
+/** Mono text in a table cell keeps the cell's 13px (the old mono class lost to it). */
+const cellMono = "font-mono font-semibold";
+/** Two side-by-side figure boxes. */
+const pair = "grid grid-cols-2 gap-2.5 [&>div]:px-2 [&>div]:py-2.5 [&>div]:rounded [&>div]:bg-bg-muted [&>div]:text-center [&>div]:text-xs [&>div]:text-fg-muted [&_b]:block [&_b]:text-[20px] [&_b]:font-extrabold [&_b]:text-fg";
 
 export default function AlertGroupingScreen() {
   const { setRoute } = useNav();
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
 
-  const GROUPS = [
-    { title: "Stripe connection pool exhaustion", count: 14, svc: "payments-api", strat: "Intelligent", status: "open", age: "6m", spark: [2,3,5,8,11,13,14] },
-    { title: "k8s node memory pressure — pool-3", count: 9, svc: "platform", strat: "Content", status: "open", age: "18m", spark: [1,2,2,4,6,7,9] },
-    { title: "Elevated p99 latency · checkout flow", count: 6, svc: "web-frontend", strat: "Time", status: "ack", age: "31m", spark: [1,1,3,4,5,6,6] },
-    { title: "TLS cert expiry warnings (batch)", count: 23, svc: "edge-proxy", strat: "Content", status: "suppressed", age: "2h", spark: [4,8,12,16,19,22,23] },
-    { title: "Disk usage > 80% · db-replica-02", count: 4, svc: "database", strat: "Intelligent", status: "open", age: "44m", spark: [1,1,2,2,3,3,4] },
-  ];
-  const stratMeta: Record<string, { color: string; ic: string }> = { Intelligent: { color: "#7c3aed", ic: "fa-wand-magic-sparkles" }, Content: { color: "#2563eb", ic: "fa-align-left" }, Time: { color: "#0891b2", ic: "fa-clock" } };
-  const statusMeta: Record<string, { cls: string; ic: string; label: string }> = {
-    open: { cls: "state-active", ic: "fa-fire", label: "Open" },
-    ack: { cls: "state-progress", ic: "fa-user-check", label: "Acknowledged" },
-    suppressed: { cls: "state-neutral", ic: "fa-bell-slash", label: "Suppressed" },
-  };
-
-  const RULES = [
-    { name: "Collapse by service + alert name", strat: "Content", window: "5 min", on: true, matched: "1,204 / 24h" },
-    { name: "Intelligent correlation (ML)", strat: "Intelligent", window: "rolling", on: true, matched: "842 / 24h" },
-    { name: "Flapping detector — auto-resolve", strat: "Time", window: "10 min", on: true, matched: "318 / 24h" },
-    { name: "Deploy-window mute · production", strat: "Time", window: "during deploys", on: false, matched: "0 / 24h" },
-  ];
-
-  const NOISY = [
-    { src: "prometheus-alertmanager", n: 1840, pct: 42 },
-    { src: "datadog-monitors", n: 1120, pct: 26 },
-    { src: "cloudwatch", n: 690, pct: 16 },
-    { src: "blackbox-probes", n: 410, pct: 9 },
-    { src: "custom-webhooks", n: 320, pct: 7 },
-  ];
+  const raw = GROUPS.reduce((s, g) => s + g.count, 0);
+  const reduction = raw ? Math.round((1 - GROUPS.length / raw) * 100) : 0;
+  const suppressed = GROUPS.filter((g) => g.status === "suppressed");
+  const open = GROUPS.filter((g) => g.status === "open").length;
+  const activeRules = RULES.filter((r) => r.on).length;
+  const noisyMax = NOISY[0]?.n ?? 1;
 
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link" onClick={() => setRoute("alerts")}>Observe</a><span className="sn-bc-sep">›</span>
-        <span>Alert grouping</span>
-      </div>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Alerts", onClick: () => setRoute("alerts") }, { label: "Alert grouping" }]} />
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">EVENT-INTEL</span>
-          <span className="sn-pill svc-healthy"><i className="fa-solid fa-wand-magic-sparkles" /> Intelligent grouping on</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-layer-group" /> 4 rules active</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-arrow-trend-down" /> 91% noise reduced</span>
+      <PageHead
+        title="Alert Grouping & Noise Reduction"
+        subtitle="Raw alerts collapsed into actionable incidents by correlation and grouping rules"
+        actions={<>
+          <Button><Icon icon={FlaskConicalIcon} /> Simulate</Button>
+          <Button><Icon icon={HistoryIcon} /> History</Button>
+          <Button variant="primary"><Icon icon={PlusIcon} /> New rule</Button>
+        </>}
+      />
+
+      <Card className={ui.notice} role="note">
+        <Icon icon={FlaskConicalIcon} />
+        <div>
+          <b>Sample data</b>
+          <p className="text-fg-muted text-xs">Alert grouping is not connected to an event source yet. The groups, rules and sources below are illustrative; summary figures are computed from them.</p>
         </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Alert Grouping &amp; Noise Reduction</h1>
-            <div className="sn-form-sub">4,360 raw alerts collapsed into 42 actionable incidents in the last 24h · ML correlation + rules</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-flask" /> Simulate</button>
-            <button className="sn-btn"><i className="fa-solid fa-clock-rotate-left" /> History</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-plus" /> New rule</button>
-          </div>
-        </div>
+      </Card>
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-bell" tone="info" label="Raw alerts" value={fmt(raw)} note="before grouping" />
+        <StatCard icon="fa-layer-group" tone="ok" label="After grouping" value={fmt(GROUPS.length)} note={`${reduction}% noise reduced`} />
+        <StatCard icon="fa-bell-slash" tone="warn" label="Suppressed" value={fmt(suppressed.length)} note={`${fmt(suppressed.reduce((s, g) => s + g.count, 0))} raw alerts muted`} />
+        <StatCard icon="fa-fire" tone="crit" label="Open after dedup" value={fmt(open)} note="need triage" />
       </div>
 
-      <div className="sn-kpi-strip">
-        <div className="sn-kpi tone-neutral"><div className="sn-kpi-l">Raw alerts (24h)</div><div className="sn-kpi-row"><div className="sn-kpi-v">4,360</div><div className="sn-kpi-spark"><Sparkline data={[120,180,160,240,300,280,360]} color="#6b7785" w={68} h={28} /></div></div><div className="sn-kpi-s">before grouping</div></div>
-        <div className="sn-kpi tone-ok"><div className="sn-kpi-l">After grouping</div><div className="sn-kpi-row"><div className="sn-kpi-v">42</div><div className="sn-kpi-spark"><Sparkline data={[6,5,7,6,8,7,6]} color="#059669" w={68} h={28} /></div></div><div className="sn-kpi-s">actionable</div></div>
-        <div className="sn-kpi tone-ok"><div className="sn-kpi-l">Noise reduced</div><div className="sn-kpi-v">91%</div><div className="sn-kpi-s">+4% vs last week</div></div>
-        <div className="sn-kpi tone-ok"><div className="sn-kpi-l">Auto-resolved</div><div className="sn-kpi-v">318</div><div className="sn-kpi-s">flapping closed</div></div>
-        <div className="sn-kpi tone-warn"><div className="sn-kpi-l">Suppressed</div><div className="sn-kpi-v">23</div><div className="sn-kpi-s">maintenance window</div></div>
-        <div className="sn-kpi tone-crit"><div className="sn-kpi-l">Open after dedup</div><div className="sn-kpi-v">11</div><div className="sn-kpi-s">need triage</div></div>
-      </div>
+      <div className={ui.split}>
+        <div className={ui.rail}>
+          <Panel title={`Grouped alerts · ${GROUPS.length} groups from ${raw} raw`}>
+            <Table>
+                <thead>
+                  <tr>
+                    <th scope="col">Group</th>
+                    <th scope="col">Service</th>
+                    <th scope="col">Strategy</th>
+                    <th scope="col">Trend</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Age</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {GROUPS.map((g) => {
+                    const sm = STRAT[g.strat], st = STATUS[g.status];
+                    return (
+                      <tr key={g.title}>
+                        <td className={ui.cellWrap}>
+                          <TextButton onClick={() => setRoute("incident-detail")}>{g.title}</TextButton>
+                          <span className={ui.sub}>{g.count} alerts collapsed → 1 incident</span>
+                        </td>
+                        <td className={cellMono}>{g.svc}</td>
+                        <td><Pill tone={sm.tone}><Icon className={`fa-solid ${sm.icon}`} /> {g.strat}</Pill></td>
+                        <td><Sparkline points={g.spark.map((v, i) => [i, v])} color={sm.color} label={`${g.title} alert count`} /></td>
+                        <td><Pill tone={st.tone}><Icon className={`fa-solid ${st.icon}`} /> {st.label}</Pill></td>
+                        <td>{g.age}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+          </Panel>
 
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="groups" title="Grouped alerts" badge={`${GROUPS.length} groups · 56 raw`} collapsed={collapsed.groups} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Group</th><th style={{ width: 130 }}>Service</th><th style={{ width: 130 }}>Strategy</th><th style={{ width: 90 }}>Trend</th><th style={{ width: 140 }}>Status</th><th style={{ width: 70 }}>Age</th></tr></thead>
-              <tbody>
-                {GROUPS.map((g, i) => {
-                  const sm = stratMeta[g.strat], st = statusMeta[g.status];
-                  return (
-                    <tr key={i} onClick={() => setRoute("incident-detail")} style={{ cursor: "pointer" }}>
-                      <td>
-                        <div className="ag-group-cell">
-                          <span className="ag-count">{g.count}</span>
-                          <div>
-                            <div className="ag-title"><b>{g.title}</b></div>
-                            <div className="ag-sub text-mute">{g.count} alerts collapsed → 1 incident</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="mono text-mute">{g.svc}</td>
-                      <td><span className="ag-strat" style={{ color: sm.color, background: sm.color + "16" }}><i className={`fa-solid ${sm.ic}`} /> {g.strat}</span></td>
-                      <td><Sparkline data={g.spark} color={sm.color} w={56} h={22} /></td>
-                      <td><span className={`sn-state-pill ${st.cls}`}><i className={`fa-solid ${st.ic}`} /> {st.label}</span></td>
-                      <td className="mono text-mute">{g.age}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </FormSection>
-
-          <FormSection id="rules" title="Grouping rules" badge={`${RULES.filter(r => r.on).length} of ${RULES.length} active`} collapsed={collapsed.rules} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Rule</th><th style={{ width: 130 }}>Strategy</th><th style={{ width: 130 }}>Window</th><th style={{ width: 130 }}>Matched</th><th style={{ width: 90 }}>Enabled</th></tr></thead>
-              <tbody>
-                {RULES.map((r, i) => {
-                  const sm = stratMeta[r.strat];
-                  return (
-                    <tr key={i}>
-                      <td><b>{r.name}</b></td>
-                      <td><span className="ag-strat" style={{ color: sm.color, background: sm.color + "16" }}><i className={`fa-solid ${sm.ic}`} /> {r.strat}</span></td>
-                      <td className="mono text-mute">{r.window}</td>
-                      <td className="mono text-mute">{r.matched}</td>
-                      <td><span className={`ag-switch${r.on ? " on" : ""}`}><span className="ag-knob" /></span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </FormSection>
+          <Panel title={`Grouping rules · ${activeRules} of ${RULES.length} active`}>
+            <Table>
+                <thead>
+                  <tr><th scope="col">Rule</th><th scope="col">Strategy</th><th scope="col">Window</th><th scope="col">Enabled</th></tr>
+                </thead>
+                <tbody>
+                  {RULES.map((r) => {
+                    const sm = STRAT[r.strat];
+                    return (
+                      <tr key={r.name}>
+                        <td className={cx("font-medium", ui.cellWrap)}>{r.name}</td>
+                        <td><Pill tone={sm.tone}><Icon className={`fa-solid ${sm.icon}`} /> {r.strat}</Pill></td>
+                        <td>{r.window}</td>
+                        <td><Pill tone={r.on ? "ok" : "muted"}>{r.on ? "On" : "Off"}</Pill></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+          </Panel>
         </div>
 
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Noise reduction</div>
-            <div className="sn-side-body" style={{ textAlign: "center", padding: "18px 14px" }}>
-              <div className="ag-bigpct">91%</div>
-              <div className="text-mute" style={{ fontSize: 12, marginBottom: 12 }}>of raw alerts auto-handled</div>
-              <div className="ag-bar"><div className="ag-bar-fill" style={{ width: "91%" }} /></div>
-              <div className="ag-legend">
-                <span><b>4,360</b> raw</span>
-                <span><b>42</b> shown</span>
-              </div>
+        <div className={ui.rail}>
+          <Panel title="Noise reduction">
+            <div className="text-[36px] font-extrabold tracking-[-0.02em] text-fg text-center">{reduction}%</div>
+            <p className="text-fg-muted text-xs text-center">of raw alerts folded into a group</p>
+            <span className={ui.barTrack} role="img" aria-label={`${reduction}% noise reduced`}>
+              <span className={ui.barFill} style={{ width: `${reduction}%`, background: "#16a34a" }} />
+            </span>
+            <div className={pair}>
+              <div><b>{fmt(raw)}</b>raw</div>
+              <div><b>{fmt(GROUPS.length)}</b>shown</div>
             </div>
-          </div>
+          </Panel>
 
-          <div className="sn-side-card">
-            <div className="sn-side-head">Top noisy sources</div>
-            <div className="sn-side-body" style={{ padding: "6px 14px 12px" }}>
-              {NOISY.map(n => (
-                <div key={n.src} className="ag-noisy-row">
-                  <div className="ag-noisy-head"><span className="mono">{n.src}</span><span className="text-mute">{n.n.toLocaleString()}</span></div>
-                  <div className="ag-noisy-bar"><div className="ag-noisy-fill" style={{ width: n.pct + "%" }} /></div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Panel title="Top noisy sources">
+            {NOISY.length ? (
+              <ul className={ui.bars}>
+                {NOISY.map((n, i) => (
+                  <li key={n.src} className={ui.barItemWide}>
+                    <span className={cx(ui.barLabel, ui.mono)} title={n.src}>{n.src}</span>
+                    <span className={ui.barTrack}>
+                      <span className={ui.barFill} style={{ width: `${(n.n / noisyMax) * 100}%`, background: PALETTE[i % PALETTE.length] }} />
+                    </span>
+                    <span className={cx(ui.barValue, "min-w-16")}>{fmt(n.n)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Empty>No sources.</Empty>
+            )}
+          </Panel>
 
-          <div className="sn-side-card">
-            <div className="sn-side-head">Intelligent grouping</div>
-            <div className="sn-side-body">
-              <Field label="Model" value={<span className="mono">correlation-v3</span>} />
-              <Field label="Confidence" value={<span className="tone-ok"><b>94.1%</b> precision</span>} />
-              <Field label="Trained on" value="180d of incident history" />
-              <Field label="Last retrain" value="3 days ago" />
-            </div>
-          </div>
-        </aside>
+          <Panel title="Intelligent grouping">
+            <dl className={ui.dl}>
+              <dt>Model</dt><dd className={ui.mono}>correlation-v3</dd>
+              <dt>Trained on</dt><dd>180 days of incident history</dd>
+              <dt>Rules using it</dt><dd>{RULES.filter((r) => r.strat === "Intelligent" && r.on).length}</dd>
+            </dl>
+          </Panel>
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }

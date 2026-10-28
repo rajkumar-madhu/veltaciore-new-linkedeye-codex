@@ -4,21 +4,77 @@
 // cert expiry). Targets come from url.yaml / telnet.yaml (nextalpha PROD).
 // Results feed Redis (BOD_* keys) → RabbitMQ (bod_update) → notify service.
 import React from "react";
-import { Kpi, FormSection } from "@/components/primitives";
 import { useBodChecks } from "@/api/hooks";
 import type { BodCheck } from "@/lib/types";
-import { StatusPill, type PillTone } from "@/components/StatusPill";
+import { useNav } from "@/hooks/useNav";
+import { Panel, Pill, StatCard, fmt } from "@/components/ld";
+import type { Tone } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, cx, ui } from "@/components/ui";
 
+import { Icon } from "@/components/Icon";
+import { ChevronDownIcon, CircleCheckIcon, CircleXIcon, MailIcon, RefreshCwIcon, TriangleAlertIcon, UnplugIcon } from "lucide-react";
+// Table cells keep the cell size (13px); the old mono class only set 12px outside tables.
+const monoCell = "font-mono font-semibold";
+// In table cells the old muted / status-text classes lost to the cell colour, so
+// a cell stays fg in light mode; the status tone shows only in dark mode.
+const CELL_TONE: Record<Tone, string> = {
+  crit: "font-semibold dark:text-tone-crit", warn: "font-semibold dark:text-tone-warn", ok: "font-semibold dark:text-tone-ok",
+  info: "", purple: "", muted: "",
+};
 // status model (from the checkers): 0 unreachable / SSL-critical (red),
 // 1 HTTP-4xx / SSL-warn (amber), 2 OK (green), 3 timeout (grey-red).
 type St = 0 | 1 | 2 | 3;
-const ST_PILL: Record<St, { tone: PillTone; label: string; icon: string }> = {
+const ST_PILL: Record<St, { tone: Tone; label: string; icon: string }> = {
   0: { tone: "crit", label: "Down", icon: "fa-circle-xmark" },
   1: { tone: "warn", label: "Warn", icon: "fa-triangle-exclamation" },
   2: { tone: "ok", label: "OK", icon: "fa-circle-check" },
   3: { tone: "muted", label: "Timeout", icon: "fa-clock" },
 };
-const pill = (s: St) => <StatusPill {...ST_PILL[s]} />;
+const pill = (s: St) => (
+  <Pill tone={ST_PILL[s].tone}><Icon name={ST_PILL[s].icon} /> {ST_PILL[s].label}</Pill>
+);
+const rowTone = (s: St) => (s === 0 || s === 3 ? "[&>td]:bg-critical-bg" : s === 1 ? "[&>td]:bg-warning-bg" : undefined);
+const daysLevel = (days: number | null, warn: number, crit: number): Tone =>
+  days == null ? "muted" : days < crit ? "crit" : days < warn ? "warn" : "ok";
+/** Inside the mini stat boxes the tone only showed in dark mode (the box's own
+ * dd colour won in light mode); kept that way. */
+const DARK_INK: Record<Tone, string> = {
+  crit: "dark:text-tone-crit", warn: "dark:text-tone-warn", ok: "dark:text-tone-ok", info: "", purple: "", muted: "",
+};
+
+// Collapsible section header button; the chevron turns when collapsed.
+const toggleClass = cx(
+  "inline-flex items-center gap-2 border-0 bg-transparent p-0 text-lg font-semibold text-fg cursor-pointer text-left",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
+  "[&_.ld-icon]:text-2xs [&_.ld-icon]:text-fg-muted [&_.ld-icon]:[transition:transform_.15s] [&[aria-expanded=false]_.ld-icon]:-rotate-90",
+);
+// Pipeline step icon: the old tile rule was overridden by the node's span rule
+// (block, mono 11.5px, muted ink; tone ink in dark mode).
+const flowTile = "block flex-none w-7 h-7 rounded-[8px] bg-tone-info-soft text-fg-muted dark:text-tone-info font-mono text-[11.5px] [overflow-wrap:anywhere]";
+// Mini stat row (until expiry / expires / thresholds)
+const mini = "grid grid-cols-[repeat(auto-fit,minmax(90px,1fr))] gap-2 m-0";
+const miniBox = "px-2.5 py-2 rounded-sm bg-bg-muted min-w-0";
+const miniDt = "text-[11.5px] text-fg-muted";
+const miniDd = "mt-0.5 mb-0 text-lg font-bold text-fg tabular-nums";
+
+/** Panel with a collapse toggle (keeps the old FormSection collapse behaviour). */
+function Section({ id, title, badge, collapsed, onToggle, children }: {
+  id: string; title: string; badge: string; collapsed?: boolean; onToggle: (id: string) => void; children: React.ReactNode;
+}) {
+  return (
+    <section className={cx(ui.card, ui.panel)} aria-labelledby={`bod-${id}-h`}>
+      <div className={ui.panelHead}>
+        <h2 id={`bod-${id}-h`} className={ui.panelTitle}>
+          <button type="button" className={toggleClass} aria-expanded={!collapsed} aria-controls={`bod-${id}-body`} onClick={() => onToggle(id)}>
+            <Icon icon={ChevronDownIcon} /> {title}
+          </button>
+        </h2>
+        <Pill tone="muted">{badge}</Pill>
+      </div>
+      <div id={`bod-${id}-body`} hidden={collapsed}>{children}</div>
+    </section>
+  );
+}
 
 interface UrlCheck { url: string; code: number; sslDate: string; sslDays: number | null; status: St; err?: string; }
 // Targets from url.yaml (nextalpha PROD). SSL thresholds: warn 45d, critical 10d.
@@ -56,12 +112,14 @@ const SEED_TELNET: TelnetCheck[] = [
 const SEED_K8S = { component: "kube-apiserver", expiry: "Sep 08 2026", days: 47, status: 2 as St };
 
 export default function BodChecksScreen() {
+  const { setRoute } = useNav();
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const toggle = (id: string) => setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   // Live /infra/bod-checks/ (a flat BodCheck[]), reshaped by kind. Falls back
   // to the local seed when the backend is unreachable so the screen still renders.
   const rows: BodCheck[] = useBodChecks().data ?? [];
+  const live = rows.length > 0;
   const URLS: UrlCheck[] = rows.length
     ? rows.filter((r) => r.kind === "url").map((r) => ({ url: r.target, code: r.code ?? 0, sslDate: r.ssl_expiry || "NA", sslDays: r.ssl_days, status: r.status, err: r.note || undefined }))
     : SEED_URLS;
@@ -77,119 +135,109 @@ export default function BodChecksScreen() {
   const red = all.filter((s) => s === 0 || s === 3).length;
   const bodReady = red === 0;
 
+  const flow: [string, string, string][] = [
+    ["fa-list-check", "Checks", "url + telnet + k8s"],
+    ["fa-database", "Redis", "nextalpha:BOD_URLChecker-…"],
+    ["fa-envelope-open-text", "RabbitMQ", "le_refresh · bod_update"],
+    ["fa-bell", "Notify", "172.16.0.65:5003 · email"],
+  ];
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Trading Ops</a><span className="sn-bc-sep">›</span>
-        <span>BOD Checks</span>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "BOD / EOD" }, { label: "BOD Checks" }]} />
+
+      <PageHead
+        title="Beginning-of-Day Checks"
+        subtitle="URL, telnet and Kubernetes-SSL readiness for nextalpha-le-PROD · results go to Redis → RabbitMQ → notify"
+        actions={
+          <>
+            {bodReady
+              ? <Pill tone="ok"><Icon icon={CircleCheckIcon} /> BOD ready</Pill>
+              : <Pill tone="crit"><Icon icon={CircleXIcon} /> BOD not ready · {red} down</Pill>}
+            {amber > 0 && <Pill tone="warn"><Icon icon={TriangleAlertIcon} /> {amber} warning</Pill>}
+            <Button disabled title="Not wired to the checker service yet"><Icon icon={RefreshCwIcon} /> Re-run BOD</Button>
+            <Button disabled title="Not wired to the notify service yet"><Icon icon={MailIcon} /> Send summary</Button>
+          </>
+        }
+      />
+
+      {!live && (
+        <div className={cx(ui.card, "flex items-start gap-3 px-4 py-3 border-l-4 border-l-warning text-sm text-fg leading-[1.5] [&_b]:text-fg [&>.ld-icon]:mt-[3px] [&>.ld-icon]:text-md [&>.ld-icon]:flex-none [&>.ld-icon]:text-warning")} role="status">
+          <Icon icon={UnplugIcon} />
+          <p><b>No results from /infra/bod-checks/.</b> Showing the reference target list from url.yaml / telnet.yaml with its last recorded results, not a live run.</p>
+        </div>
+      )}
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-list-check" tone="info" label="Checks" value={fmt(all.length)} note={`${URLS.length} URL · ${TELNET.length} telnet · 1 k8s`} />
+        <StatCard icon="fa-circle-check" tone="ok" label="Healthy" value={fmt(green)} note="status 2 · reachable" />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="Warning" value={fmt(amber)} note="4xx or SSL < 45d" />
+        <StatCard icon="fa-circle-xmark" tone="crit" label="Down / timeout" value={fmt(red)} note="status 0 / 3" />
       </div>
 
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">BOD · nextalpha-le-PROD</span>
-          {bodReady
-            ? <span className="sn-pill svc-healthy"><i className="fa-solid fa-circle-check" /> BOD ready</span>
-            : <span className="sn-pill prio-1"><i className="fa-solid fa-circle-xmark" /> BOD not ready · {red} down</span>}
-          {amber > 0 && <span className="sn-pill state-progress"><i className="fa-solid fa-triangle-exclamation" /> {amber} warning</span>}
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Beginning-of-Day Checks</h1>
-            <div className="sn-form-sub">URL · telnet · k8s-SSL readiness · site nextalpha · executed 06:15 IST · pushes to Redis → RabbitMQ → notify</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-rotate" /> Re-run BOD</button>
-            <button className="sn-btn"><i className="fa-solid fa-envelope" /> Send summary</button>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="sn-kpi-strip">
-          <Kpi l="Checks" v={all.length} s="21 URL · 1 telnet · 1 k8s" tone="neutral" />
-          <Kpi l="Healthy" v={green} s="status 2 · reachable" tone="ok" />
-          <Kpi l="Warning" v={amber} s="4xx or SSL < 45d" tone="warn" />
-          <Kpi l="Down / timeout" v={red} s="status 0 / 3" tone="crit" />
-        </div>
-      </div>
-
-      {/* BOD pipeline strip */}
-      <div style={{ padding: "16px 24px 0" }}>
-        <div className="card" style={{ background: "white", border: "1px solid #e5e8eb", borderRadius: 6, padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12.5 }}>
-          {[
-            ["fa-list-check", "Checks", "url + telnet + k8s"],
-            ["fa-database", "Redis", "nextalpha:BOD_URLChecker-…"],
-            ["fa-rabbit", "RabbitMQ", "le_refresh · bod_update"],
-            ["fa-bell", "Notify", "172.16.0.65:5003 · email"],
-          ].map(([ic, k, v], i, arr) => (
-            <React.Fragment key={k}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 28, height: 28, borderRadius: 6, background: "var(--accent)", color: "white", display: "grid", placeItems: "center" }}><i className={`fa-solid ${ic}`} /></span>
-                <div><b style={{ color: "#0f1c3f" }}>{k}</b><div className="mono" style={{ fontSize: 10.5, color: "#8a94a3" }}>{v}</div></div>
+      <Panel title="BOD pipeline">
+        {/* An arrow between pipeline steps (hidden on phones, where the steps stack). */}
+        <ol className="list-none flex flex-wrap items-stretch gap-2.5 [&>li+li]:before:content-['→'] [&>li+li]:before:font-semibold [&>li+li]:before:text-sm [&>li+li]:before:self-center [&>li+li]:before:text-fg-faint max-sm:[&>li+li]:before:hidden" aria-label="BOD result pipeline">
+          {flow.map(([ic, k, v]) => (
+            <li key={k} className="flex items-center gap-2.5 max-sm:flex-[1_1_100%]">
+              <div className="flex items-center gap-2.5 px-3 py-2 border border-line rounded bg-bg-muted min-w-0 max-sm:flex-1">
+                <span className={flowTile} aria-hidden="true"><Icon name={ic} /></span>
+                <div><b className="block text-sm text-fg">{k}</b><span className="block text-[11.5px] text-fg-muted font-mono [overflow-wrap:anywhere]">{v}</span></div>
               </div>
-              {i < arr.length - 1 && <i className="fa-solid fa-arrow-right" style={{ color: "#c0c7d0" }} />}
-            </React.Fragment>
+            </li>
           ))}
-        </div>
-      </div>
+        </ol>
+      </Panel>
 
-      <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-        {/* URL checks */}
-        <FormSection id="url" title="URL checks" badge={`${URLS.length} endpoints`} collapsed={collapsed.url} onToggle={toggle}>
-          <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-            <thead>
-              <tr><th>URL</th><th style={{ width: 90 }}>CODE</th><th style={{ width: 140 }}>SSL EXPIRY</th><th style={{ width: 100 }}>DAYS LEFT</th><th style={{ width: 110 }}>STATUS</th></tr>
-            </thead>
+      <Section id="url" title="URL checks" badge={`${URLS.length} endpoints`} collapsed={collapsed.url} onToggle={toggle}>
+        <Table>
+          <thead>
+            <tr><th scope="col">URL</th><th scope="col">Code</th><th scope="col">SSL expiry</th><th scope="col">Days left</th><th scope="col">Status</th></tr>
+          </thead>
+          <tbody>
+            {URLS.map((u) => (
+              <tr key={u.url} className={rowTone(u.status)}>
+                <td className={monoCell}>{u.url}</td>
+                <td className={cx(monoCell, u.code === 200 && CELL_TONE.ok)}>{u.code || "—"}</td>
+                <td className={monoCell}>{u.sslDate}</td>
+                <td className={cx(monoCell, CELL_TONE[daysLevel(u.sslDays, 45, 10)])}>{u.sslDays == null ? (u.err ?? "—") : `${u.sslDays}d`}</td>
+                <td>{pill(u.status)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Section>
+
+      <div className={cx(ui.grid, ui.cols[2])}>
+        <Section id="tel" title="Telnet / port checks" badge="reachability" collapsed={collapsed.tel} onToggle={toggle}>
+          <Table>
+            <thead><tr><th scope="col">Host</th><th scope="col">Port</th><th scope="col">Remark</th><th scope="col">Status</th></tr></thead>
             <tbody>
-              {URLS.map((u) => (
-                <tr key={u.url} style={{ background: u.status === 0 || u.status === 3 ? "#fef2f2" : u.status === 1 ? "#fffbeb" : undefined }}>
-                  <td className="mono" style={{ color: "#0f1c3f", fontSize: 11.5 }}>{u.url}</td>
-                  <td className="mono" style={{ color: u.code === 200 ? "#059669" : "#8a94a3" }}>{u.code || "—"}</td>
-                  <td className="mono" style={{ color: "#475467", fontSize: 11.5 }}>{u.sslDate}</td>
-                  <td className="mono" style={{ fontWeight: 700, color: u.sslDays == null ? "#8a94a3" : u.sslDays < 10 ? "#dc2626" : u.sslDays < 45 ? "#b45309" : "#059669" }}>
-                    {u.sslDays == null ? (u.err ?? "—") : `${u.sslDays}d`}
-                  </td>
-                  <td>{pill(u.status)}</td>
+              {TELNET.map((t) => (
+                <tr key={`${t.host}:${t.port}`} className={rowTone(t.status)}>
+                  <td className={monoCell}>{t.host}</td>
+                  <td className={monoCell}>{t.port}</td>
+                  <td>{t.remark}</td>
+                  <td>{pill(t.status)}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </FormSection>
+          </Table>
+        </Section>
 
-        {/* Telnet + K8s */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <FormSection id="tel" title="Telnet / port checks" badge="reachability" collapsed={collapsed.tel} onToggle={toggle}>
-            <table className="sn-list-table" style={{ fontSize: 12.5 }}>
-              <thead><tr><th>HOST</th><th style={{ width: 60 }}>PORT</th><th>REMARK</th><th style={{ width: 100 }}>STATUS</th></tr></thead>
-              <tbody>
-                {TELNET.map((t) => (
-                  <tr key={`${t.host}:${t.port}`}>
-                    <td className="mono" style={{ color: "#0f1c3f" }}>{t.host}</td>
-                    <td className="mono" style={{ color: "#475467" }}>{t.port}</td>
-                    <td style={{ color: "#475467" }}>{t.remark}</td>
-                    <td>{pill(t.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-
-          <FormSection id="k8s" title="Kubernetes SSL" badge="apiserver cert" collapsed={collapsed.k8s} onToggle={toggle}>
-            <div style={{ padding: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span className="mono" style={{ fontWeight: 700, color: "#0f1c3f" }}>{K8S.component}</span>
-                {pill(K8S.status)}
-              </div>
-              <div style={{ display: "flex", gap: 20 }}>
-                <div><div style={{ fontSize: 20, fontWeight: 800, color: K8S.days < 15 ? "#dc2626" : K8S.days < 30 ? "#b45309" : "#059669" }}>{K8S.days}d</div><div style={{ fontSize: 11, color: "#8a94a3" }}>until expiry</div></div>
-                <div><div style={{ fontSize: 14, fontWeight: 600, color: "#475467", marginTop: 4 }} className="mono">{K8S.expiry}</div><div style={{ fontSize: 11, color: "#8a94a3" }}>warn 30d · crit 15d</div></div>
-              </div>
-              <div style={{ fontSize: 11, color: "#8a94a3", marginTop: 10 }}>kubeadm certs check-expiration · apiserver</div>
-            </div>
-          </FormSection>
-        </div>
+        <Section id="k8s" title="Kubernetes SSL" badge="apiserver cert" collapsed={collapsed.k8s} onToggle={toggle}>
+          <div className={ui.panelHead}>
+            <span className={ui.mono}>{K8S.component}</span>
+            {pill(K8S.status)}
+          </div>
+          <dl className={mini}>
+            <div className={miniBox}><dt className={miniDt}>Until expiry</dt><dd className={cx(miniDd, DARK_INK[daysLevel(K8S.days, 30, 15)])}>{K8S.days}d</dd></div>
+            <div className={miniBox}><dt className={miniDt}>Expires</dt><dd className={cx(miniDd, "font-mono")}>{K8S.expiry}</dd></div>
+            <div className={miniBox}><dt className={miniDt}>Thresholds</dt><dd className={miniDd}>warn 30d · crit 15d</dd></div>
+          </dl>
+          <p className="text-xs text-fg-muted">kubeadm certs check-expiration · apiserver</p>
+        </Section>
       </div>
-    </div>
+    </Page>
   );
 }

@@ -32,6 +32,8 @@ from datetime import datetime, timedelta, timezone
 import requests
 from django.conf import settings
 
+from . import sample
+
 
 class PrometheusUnavailable(RuntimeError):
     """Prometheus is not configured or did not answer."""
@@ -178,6 +180,15 @@ NETWORK_KINDS = {"switch", "router", "firewall", "loadbal", "ups", "generic"}
 DEFAULT_PORTS = {"node": 9100, "windows": 9182}
 
 
+# One series per exporter family, used to check that a device is scraped.
+KEY_METRIC = {
+    "node": "node_cpu_seconds_total",
+    "windows": "windows_cpu_time_total",
+    "snmp": "sysUpTime",
+    "vmware-host": "vmware_host_cpu_usage",
+}
+
+
 def family_for_device(device) -> str | None:
     agent = (device.agent or device.exporter_type or "").lower()
     kind = device.device_type
@@ -287,6 +298,12 @@ def rate_window(step: int) -> str:
 # ── Query ───────────────────────────────────────────────────────────────────
 def _api(path: str, params: dict) -> list[dict]:
     """GET a Prometheus HTTP API path; returns data.result or raises PrometheusUnavailable."""
+    data = api_data(path, params)
+    return data.get("result", []) if isinstance(data, dict) else []
+
+
+def api_data(path: str, params: dict | None = None):
+    """GET a Prometheus HTTP API path; returns the response's `data` or raises PrometheusUnavailable."""
     base = getattr(settings, "PROMETHEUS_URL", "")
     if not base:
         raise PrometheusUnavailable("PROMETHEUS_URL is not configured.")
@@ -307,7 +324,7 @@ def _api(path: str, params: dict) -> list[dict]:
         raise PrometheusUnavailable(f"Prometheus query failed: {exc}") from exc
     if body.get("status") != "success":
         raise PrometheusUnavailable(body.get("error", "Prometheus returned an error."))
-    return body.get("data", {}).get("result", [])
+    return body.get("data", {})
 
 
 def _num(val) -> float | None:
@@ -376,12 +393,17 @@ def device_timeseries(device, *, start=None, end=None, step=None, metrics=None) 
         return {"family": None, "source": "unsupported", "series": [], "step": t_step,
                 "start": t_start.isoformat(), "end": t_end.isoformat(),
                 "message": f"No metric catalog for device type '{device.device_type}' / agent '{device.agent}'."}
+    if sample.prometheus_sample_mode():
+        return sample.timeseries(CATALOG[family], family, device.id, t_start, t_end, t_step, metrics, record=device)
     sel, vmsel = device_selector(device, family)
     return timeseries_response(CATALOG[family], sel, vmsel, family, t_start, t_end, t_step, metrics)
 
 
 def vm_timeseries(vm, *, start=None, end=None, step=None, metrics=None) -> dict:
     t_start, t_end, t_step = resolve_window(start, end, step)
+    if sample.prometheus_sample_mode():
+        return sample.timeseries(VMWARE_VM, "vmware-vm", vm.id, t_start, t_end, t_step, metrics,
+                                 record=type("R", (), {"cpu": vm.cpu_use, "mem": vm.mem_use})())
     sel = vm_selector(vm)
     return timeseries_response(VMWARE_VM, sel, sel, "vmware-vm", t_start, t_end, t_step, metrics)
 
@@ -446,9 +468,11 @@ def device_inventory(device, *, top: int = 10) -> dict:
         return {"family": family, "source": "unsupported",
                 "message": "Processes, services and filesystems are collected for Linux and Windows servers.",
                 "processes": [], "services": None, "filesystems": []}
+    n = max(1, min(int(top), MAX_PROCESSES))
+    if sample.prometheus_sample_mode():
+        return sample.inventory(device, family, n)
     q = INVENTORY[family]
     sel, _ = device_selector(device, family)
-    n = max(1, min(int(top), MAX_PROCESSES))
     try:
         label = q["proc_label"]
         cpu = _query(q["proc_cpu"].format(sel=sel, n=n))
@@ -510,6 +534,8 @@ def device_hardware(device, *, start=None, end=None, step=None) -> dict:
     if not bmcs:
         return {**base, "source": "none", "controllers": [],
                 "message": "No iDRAC / iLO is linked to this device."}
+    if sample.prometheus_sample_mode():
+        return sample.hardware(bmcs, t_start, t_end, t_step, REDFISH)
     controllers = []
     try:
         for b in bmcs:
@@ -537,6 +563,8 @@ def device_hardware(device, *, start=None, end=None, step=None) -> dict:
 # pryorda/vmware_exporter: VM series carry vm_name, host_name, ds_name,
 # cluster_name and dc_name labels; datastore series are keyed by ds_name.
 def vm_inventory(vm) -> dict:
+    if sample.prometheus_sample_mode():
+        return sample.vm_inventory(vm)
     sel = vm_selector(vm)
     tenant = _tenant_labels(vm.tenant_id)
     try:
@@ -590,3 +618,62 @@ def vm_inventory(vm) -> dict:
         "disks": disks,
         "datastore": datastore,
     }
+
+
+# ── Fleet load: current CPU / memory for many devices in two queries per family
+FLEET = {
+    "node": (
+        '100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{{mode="idle"{t}}}[5m])))',
+        '100 * (1 - sum by (instance) (node_memory_MemAvailable_bytes{{{t0}}}) / sum by (instance) (node_memory_MemTotal_bytes{{{t0}}}))',
+    ),
+    "windows": (
+        '100 - 100 * avg by (instance) (rate(windows_cpu_time_total{{mode="idle"{t}}}[5m]))',
+        '100 * (1 - sum by (instance) (windows_memory_available_bytes{{{t0}}}) / sum by (instance) (windows_cs_physical_memory_bytes{{{t0}}}))',
+    ),
+}
+
+
+def _host(instance: str) -> str:
+    """'10.1.2.3:9100' → '10.1.2.3' (also handles [v6]:port)."""
+    if instance.startswith("["):
+        return instance[1:].split("]")[0]
+    return instance.rsplit(":", 1)[0] if instance.count(":") == 1 else instance
+
+
+def fleet_load(devices) -> dict:
+    """Current CPU / memory % for node / windows devices, matched by IP.
+
+    Devices with custom metrics_labels are matched by their `instance` label
+    when it is set; others by IP. Families without a fleet query (SNMP,
+    VMware) are left out — the caller keeps their inventory values.
+    """
+    if sample.prometheus_sample_mode():
+        return sample.fleet_load(devices, family_for_device)
+    if not getattr(settings, "PROMETHEUS_URL", ""):
+        return {"source": "unavailable", "message": "PROMETHEUS_URL is not configured.", "devices": []}
+    by_family: dict[str, dict[str, list]] = {}
+    for d in devices:
+        family = family_for_device(d)
+        if family not in FLEET:
+            continue
+        key = str((d.metrics_labels or {}).get("instance") or d.ip_address or "")
+        if key:
+            by_family.setdefault(family, {}).setdefault(_host(key), []).append(d)
+    out = []
+    try:
+        for family, index in by_family.items():
+            cpu_q, mem_q = FLEET[family]
+            label = getattr(settings, "PROMETHEUS_TENANT_LABEL", "")
+            tenants = {d.tenant_id for ds in index.values() for d in ds if d.tenant_id}
+            # Restrict to the caller's clients when series carry a tenant label.
+            tsel = f'{label}=~"{"|".join(re.escape(t) for t in sorted(tenants))}"' if label and tenants else ""
+            fmt_args = {"t": f",{tsel}" if tsel else "", "t0": tsel}
+            cpu = {_host(m.get("instance", "")): v for m, v in _query(cpu_q.format(**fmt_args))}
+            mem = {_host(m.get("instance", "")): v for m, v in _query(mem_q.format(**fmt_args))}
+            for host, ds in index.items():
+                if host in cpu or host in mem:
+                    for d in ds:
+                        out.append({"id": d.id, "cpu": cpu.get(host), "mem": mem.get(host)})
+    except PrometheusUnavailable as exc:
+        return {"source": "unavailable", "message": str(exc), "devices": []}
+    return {"source": "prometheus", "devices": out}

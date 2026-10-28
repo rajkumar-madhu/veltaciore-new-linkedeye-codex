@@ -1,113 +1,148 @@
-// Usage & quotas in ServiceNow form-style
-// Ported from screens/admin-usage.jsx.
-import React from "react";
+// Usage & quotas — LinkedEye layout: client summary cards derived from the
+// client list, then per-client quota meters and quota alerts. No usage
+// metering endpoint exists yet, so the quota figures are sample data and are
+// labelled as such.
+import { useNav } from "@/hooks/useNav";
 import { useTenants } from "@/api/hooks";
-import { TENANTS } from "@/data/core";
-import { Kpi, FormSection, Field } from "@/components/primitives";
 import { colorFor } from "@/components/Shell";
+import { Empty, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, cx, ui } from "@/components/ui";
 
-export default function AdminUsageScreen() {
-  const { data } = useTenants();
-  const tenants = data ?? [];
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+import { Icon } from "@/components/Icon";
+import { BellIcon, FileOutputIcon } from "lucide-react";
+// identity cell and quota meter (were ld-admin-* classes)
+const who = "flex items-center gap-2.5 min-w-0";
+const codeTile = "flex-none w-7 h-7 rounded grid place-items-center text-[10.5px] font-bold text-white bg-fg-subtle";
+const meter = "flex items-center gap-2 min-w-[150px]";
+const meterTrack = "flex-[1_1_60px] h-2 rounded-[5px] bg-bg-muted overflow-hidden";
+const meterFill = "block h-2 rounded-[5px]";
+const meterValue = "font-mono text-xs text-fg whitespace-nowrap";
+const headTags = "inline-flex items-center gap-1.5 flex-wrap";
+
+// Sample quota utilisation by client position (no metering API yet).
+const SAMPLE_EVENTS = [72, 84, 112, 48, 22, 66];
+const SAMPLE_STORAGE = [38, 52, 78, 30, 12, 44];
+const SAMPLE_API = [45, 62, 81, 34, 20, 55];
+const SAMPLE_PAGES = [40, 28, 72, 22, 10, 48];
+const SAMPLE_PAGES_SENT = [120, 84, 216, 66, 30, 144];
+
+const SAMPLE_ALERTS: [string, string, "warn" | "crit"][] = [
+  ["IndMoney", "Events ingested at 93% of cap", "warn"],
+  ["IndMoney", "Storage at 78% · projected breach in 9d", "warn"],
+  ["BetaFront", "API rate limit hit 12× in 24h", "crit"],
+];
+
+const meterColor = (pct: number) => (pct > 85 ? "#e5383b" : pct > 70 ? "#f5a524" : "var(--accent)");
+
+function QuotaCell({ pct, label }: { pct: number; label: string }) {
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Super-admin</a><span className="sn-bc-sep">›</span>
-        <span>Usage &amp; Quotas</span>
-      </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">USAGE</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> 87M / 100M events</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-database" /> 4.2 / 10 TB storage</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Usage &amp; Quotas</h1>
-            <div className="sn-form-sub">Event ingest, storage, API consumption by business unit · monthly window</div>
-          </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-bell" /> Quota Alerts</button>
-            <button className="sn-btn primary"><i className="fa-solid fa-file-export" /> Export</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Events" v="87M" s="of 100M · 87%" tone="warn" />
-        <Kpi l="Storage" v="4.2 TB" s="of 10 TB · 42%" tone="ok" />
-        <Kpi l="API calls" v="24M" s="+22% vs last" tone="neutral" />
-        <Kpi l="Pages sent" v="1,204" s="-12% (noise)" tone="ok" />
-        <Kpi l="Active alerts" v="3" s="quota warnings" tone="warn" />
-        <Kpi l="At risk" v="1" s="IndMoney" tone="crit" />
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="quotas" title="Per-Tenant Quotas" badge="monthly" collapsed={collapsed.quotas} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Tenant</th><th style={{width:160}}>Events / mo</th><th style={{width:160}}>Storage</th><th style={{width:130}}>API / day</th><th style={{width:130}}>Pages / mo</th></tr></thead>
-              <tbody>
-                {tenants.map((t, i) => {
-                  const ev = [72,84,112,48,22,66][i] || 50;
-                  const st = [38,52,78,30,12,44][i] || 30;
-                  const api = [45,62,81,34,20,55][i];
-                  const pg = [40,28,72,22,10,48][i];
-                  return (
-                    <tr key={t.id}>
-                      <td><div className="row row-8"><div style={{ width: 24, height: 24, borderRadius: 3, background: colorFor(t.color), color: "#fff", fontWeight: 700, fontSize: 10, display: "grid", placeItems: "center" }}>{t.code}</div><b>{t.name}</b></div></td>
-                      <td><QuotaCell pct={ev} label={`${ev}M / ${ev < 80 ? 100 : 120}M`} /></td>
-                      <td><QuotaCell pct={st} label={`${(st/10).toFixed(1)} / ${st > 60 ? 2 : 1} TB`} /></td>
-                      <td><QuotaCell pct={api} label={`${api}%`} /></td>
-                      <td><QuotaCell pct={pg} label={`${[120,84,216,66,30,144][i]} / ${t.plan === "Enterprise" ? 500 : 300}`} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </FormSection>
-
-          <FormSection id="alerts" title="Quota Alerts" badge="3 active" collapsed={collapsed.alerts} onToggle={toggle}>
-            <table className="sn-list-table">
-              <tbody>
-                {[
-                  ["IndMoney","Events ingested at 93% of cap","warn"],
-                  ["IndMoney","Storage at 78% · projected breach in 9d","warn"],
-                  ["BetaFront","API rate limit hit 12× in 24h","crit"],
-                ].map(([t, msg, kind], i) => (
-                  <tr key={i}>
-                    <td style={{ width: 200 }}><b>{t}</b></td>
-                    <td>{msg}</td>
-                    <td style={{ width: 110 }}><span className={`sn-state-pill ${kind === "crit" ? "state-active" : "state-mitigating"}`}><i className="fa-solid fa-circle" /> {kind === "crit" ? "critical" : "warning"}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </FormSection>
-        </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Org-wide Totals</div>
-            <div className="sn-side-body">
-              <Field label="Events / mo" value={<span><b>87M</b> / 100M</span>} />
-              <Field label="Storage" value={<span><b>4.2</b> / 10 TB</span>} />
-              <Field label="API calls / mo" value="24M" />
-              <Field label="Pages / mo" value="1,204" />
-              <Field label="Avg per tenant" value="14.5M events" />
-            </div>
-          </div>
-        </aside>
-      </div>
+    <div className={meter}>
+      <span className={meterTrack} role="img" aria-label={`${Math.min(pct, 100)}% used`}>
+        <span className={meterFill} style={{ width: `${Math.min(pct, 100)}%`, background: meterColor(pct) }} />
+      </span>
+      <span className={meterValue}>{label}</span>
     </div>
   );
 }
 
-function QuotaCell({ pct, label }: { pct: number; label: string }) {
+export default function AdminUsageScreen() {
+  const { setRoute } = useNav();
+  const { data } = useTenants();
+  const tenants = data ?? [];
+
+  const users = tenants.reduce((s, t) => s + t.users, 0);
+  const incidents = tenants.reduce((s, t) => s + t.incidents, 0);
+  const sev1 = tenants.reduce((s, t) => s + t.sev1, 0);
+  const enterprise = tenants.filter((t) => t.plan === "Enterprise").length;
+
   return (
-    <div className="row row-8">
-      <div className="bar-track" style={{ width: 60 }}><div className="bar-fill" style={{ width: pct + "%", background: pct > 85 ? "var(--critical)" : pct > 70 ? "var(--warning)" : "var(--accent)" }} /></div>
-      <span className="mono" style={{ fontSize: 11 }}>{label}</span>
-    </div>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Super-admin" }, { label: "Usage & Quotas" }]} />
+
+      <PageHead
+        title="Usage & Quotas"
+        subtitle="Event ingest, storage and API consumption by client · monthly window"
+        actions={
+          <>
+            <Button><Icon icon={BellIcon} /> Quota Alerts</Button>
+            <Button variant="primary"><Icon icon={FileOutputIcon} /> Export</Button>
+          </>
+        }
+      />
+
+      <div className={cx(ui.grid, ui.cols.stats)}>
+        <StatCard icon="fa-building" tone="info" label="Clients" value={fmt(tenants.length)} note={`${enterprise} on Enterprise`} />
+        <StatCard icon="fa-users" tone="purple" label="Client users" value={fmt(users)} note="across all clients" />
+        <StatCard icon="fa-ticket" tone="warn" label="Open incidents" value={fmt(incidents)} note="across all clients" />
+        <StatCard icon="fa-fire" tone="crit" label="Sev 1" value={fmt(sev1)} note="open Sev 1 incidents" />
+      </div>
+
+      <section className={cx(ui.card, ui.panel)} aria-labelledby="usage-quota-h">
+        <div className={ui.panelHead}>
+          <h2 className={ui.panelTitle} id="usage-quota-h">Per-Client Quotas</h2>
+          <span className={headTags}><Pill tone="muted">Sample data</Pill><span className="text-fg-muted text-xs">monthly</span></span>
+        </div>
+        {tenants.length ? (
+          <Table>
+              <thead>
+                <tr>
+                  <th scope="col">Client</th>
+                  <th scope="col">Events / mo</th>
+                  <th scope="col">Storage</th>
+                  <th scope="col">API / day</th>
+                  <th scope="col">Pages / mo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tenants.map((t, i) => {
+                  const ev = SAMPLE_EVENTS[i] || 50;
+                  const st = SAMPLE_STORAGE[i] || 30;
+                  const api = SAMPLE_API[i] ?? 0;
+                  const pg = SAMPLE_PAGES[i] ?? 0;
+                  return (
+                    <tr key={t.id}>
+                      <td>
+                        <div className={who}>
+                          <span className={codeTile} style={{ background: colorFor(t.color) }} aria-hidden="true">{t.code}</span>
+                          <span className="font-medium">{t.name}</span>
+                        </div>
+                      </td>
+                      <td><QuotaCell pct={ev} label={`${ev}M / ${ev < 80 ? 100 : 120}M`} /></td>
+                      <td><QuotaCell pct={st} label={`${(st / 10).toFixed(1)} / ${st > 60 ? 2 : 1} TB`} /></td>
+                      <td><QuotaCell pct={api} label={`${api}%`} /></td>
+                      <td><QuotaCell pct={pg} label={`${SAMPLE_PAGES_SENT[i] ?? 0} / ${t.plan === "Enterprise" ? 500 : 300}`} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+        ) : (
+          <Empty>No clients provisioned yet.</Empty>
+        )}
+      </section>
+
+      <section className={cx(ui.card, ui.panel)} aria-labelledby="usage-alerts-h">
+        <div className={ui.panelHead}>
+          <h2 className={ui.panelTitle} id="usage-alerts-h">Quota Alerts</h2>
+          <Pill tone="muted">Sample data</Pill>
+        </div>
+        <Table>
+            <thead>
+              <tr><th scope="col">Client</th><th scope="col">Alert</th><th scope="col">Severity</th></tr>
+            </thead>
+            <tbody>
+              {SAMPLE_ALERTS.map(([t, msg, kind], i) => (
+                <tr key={i}>
+                  <td className="font-medium">{t}</td>
+                  <td className={ui.cellWrap}>{msg}</td>
+                  <td><Pill tone={kind}><PillDot />{kind === "crit" ? "Critical" : "Warning"}</Pill></td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+      </section>
+
+      <p className="text-fg-muted text-xs">Usage metering is not connected to the backend yet — quota figures and alerts are sample data.</p>
+    </Page>
   );
 }

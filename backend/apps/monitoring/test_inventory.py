@@ -67,7 +67,7 @@ class InventoryTests(SimpleTestCase):
         out = prom.device_inventory(FakeDevice(device_type="switch", agent="snmp"))
         self.assertEqual(out["source"], "unsupported")
 
-    @override_settings(PROMETHEUS_URL="")
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         out = prom.device_inventory(FakeDevice())
         self.assertEqual(out["source"], "unavailable")
@@ -84,7 +84,7 @@ class LokiTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             loki.stream_selector(FakeDevice())
 
-    @override_settings(LOKI_URL="")
+    @override_settings(LOKI_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         self.assertEqual(loki.device_logs(FakeDevice())["source"], "unavailable")
 
@@ -151,7 +151,7 @@ class HardwareApiTests(TestCase):
             res = self.client.get(f"/api/infra/devices/{self.server.pk}/inventory/", {"top": "x"},
                                   HTTP_X_TENANT_ID=self.server.tenant_id)
         self.assertEqual(res.status_code, 400)
-        with override_settings(LOKI_URL=""):
+        with override_settings(LOKI_URL="", METRICS_SAMPLE_DATA=False):
             res = self.client.get(f"/api/infra/devices/{self.server.pk}/logs/", HTTP_X_TENANT_ID=self.server.tenant_id)
         self.assertEqual(res.json()["source"], "unavailable")
 
@@ -198,6 +198,42 @@ class VmInventoryTests(SimpleTestCase):
             out = prom.vm_inventory(FakeVm())
         self.assertEqual((out["source"], out["found"]), ("prometheus", False))
 
-    @override_settings(PROMETHEUS_URL="")
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
     def test_unconfigured(self):
         self.assertEqual(prom.vm_inventory(FakeVm())["source"], "unavailable")
+
+
+@override_settings(PROMETHEUS_URL=PROM)
+class FleetLoadTests(SimpleTestCase):
+    def test_matches_instances_to_devices_by_ip(self):
+        a = FakeDevice(id="SRV-A", ip="10.0.0.1", device_type="linux-srv", agent="node-exporter")
+        b = FakeDevice(id="WIN-B", ip="10.0.0.2", device_type="win-srv", agent="win-exporter")
+        sw = FakeDevice(id="SW-C", ip="10.0.0.3", device_type="switch", agent="snmp")
+
+        def get(url, params, **kw):
+            q = params["query"]
+            if "node_cpu" in q:
+                return _vector([({"instance": "10.0.0.1:9100"}, 41.5)])
+            if "node_memory" in q:
+                return _vector([({"instance": "10.0.0.1:9100"}, 63.0)])
+            if "windows_cpu" in q:
+                return _vector([({"instance": "10.0.0.2:9182"}, 12.0)])
+            if "windows_memory" in q:
+                return _vector([])
+            raise AssertionError(q)
+
+        with mock.patch("apps.monitoring.prometheus.requests.get", side_effect=get):
+            out = prom.fleet_load([a, b, sw])
+        self.assertEqual(out["source"], "prometheus")
+        self.assertEqual(sorted(out["devices"], key=lambda d: d["id"]),
+                         [{"id": "SRV-A", "cpu": 41.5, "mem": 63.0}, {"id": "WIN-B", "cpu": 12.0, "mem": None}])
+
+    @override_settings(PROMETHEUS_TENANT_LABEL="tenant")
+    def test_tenant_label_limits_series(self):
+        with mock.patch("apps.monitoring.prometheus.requests.get", return_value=_vector([])) as get:
+            prom.fleet_load([FakeDevice(ip="10.0.0.1")])
+        self.assertIn('tenant=~"fyers"', get.call_args_list[0].kwargs["params"]["query"])
+
+    @override_settings(PROMETHEUS_URL="", METRICS_SAMPLE_DATA=False)
+    def test_unconfigured(self):
+        self.assertEqual(prom.fleet_load([FakeDevice()])["source"], "unavailable")

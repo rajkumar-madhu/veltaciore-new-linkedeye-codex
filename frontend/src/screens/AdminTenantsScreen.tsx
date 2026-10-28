@@ -1,92 +1,128 @@
-// Super-admin Tenants in ServiceNow form-style
-// Ported from screens/admin-tenants.jsx.
-import React from "react";
+// Super-admin Clients ("tenants" in code) — LinkedEye layout: client summary
+// cards, the client inventory table and an organisation rail. Selecting a
+// client switches the acting client and opens its dashboard.
 import { useNav } from "@/hooks/useNav";
 import { useUiStore } from "@/store/ui";
 import { useTenants } from "@/api/hooks";
-import { ORG, TENANTS } from "@/data/core";
-import { Kpi, FormSection, Field } from "@/components/primitives";
+import { ORG } from "@/data/core";
 import { colorFor } from "@/components/Shell";
+import { Empty, Panel, Pill, PillDot, StatCard, fmt } from "@/components/ld";
+import { Button, Crumbs, Page, PageHead, Table, TextButton, cx, ui } from "@/components/ui";
+import type { Tone } from "@/components/ld";
+import type { Tenant } from "@/lib/types";
+
+import { Icon } from "@/components/Icon";
+import { ArrowRightIcon, FileOutputIcon, PlusIcon } from "lucide-react";
+// identity cell (code tile + name / sub line)
+const who = "flex items-center gap-2.5 min-w-0";
+const whoBody = "flex flex-col items-start gap-px min-w-0";
+const codeTile = "flex-none w-7 h-7 rounded grid place-items-center text-[10.5px] font-bold text-white bg-fg-subtle";
+// mono table cell: the cell keeps its 13px size
+const monoCell = "font-mono font-semibold";
+
+const healthTone = (h: number): Tone => (h > 95 ? "ok" : h > 85 ? "warn" : "crit");
 
 export default function AdminTenantsScreen() {
   const { setRoute } = useNav();
   const setTenant = useUiStore((s) => s.setTenant);
   const { data } = useTenants();
   const tenants = data ?? [];
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const toggle = (id: string) => setCollapsed(c => ({ ...c, [id]: !c[id] }));
+
+  const open = (t: Tenant) => { setTenant(t); setRoute("dashboard"); };
+
+  const healthy = tenants.filter((t) => t.health > 95).length;
+  const atRisk = tenants.filter((t) => t.health <= 90).length;
+  const enterprise = tenants.filter((t) => t.plan === "Enterprise").length;
+  const spend = tenants.reduce((s, t) => s + t.spend, 0);
+  const seatPct = ORG.seatsTotal ? Math.round((ORG.seatsUsed / ORG.seatsTotal) * 100) : 0;
+
   return (
-    <div className="page page-fade sn-dash">
-      <div className="sn-breadcrumb">
-        <a className="sn-link">Home</a><span className="sn-bc-sep">›</span>
-        <a className="sn-link">Super-admin</a><span className="sn-bc-sep">›</span>
-        <span>Tenants</span>
+    <Page>
+      <Crumbs items={[{ label: "Home", onClick: () => setRoute("dashboard") }, { label: "Super-admin" }, { label: "Clients" }]} />
+
+      <PageHead
+        title="Client Management"
+        subtitle={<>All clients under {ORG.name} · {fmt(ORG.seatsUsed)} of {fmt(ORG.seatsTotal)} seats used</>}
+        actions={
+          <>
+            <Button><Icon icon={FileOutputIcon} /> Export CSV</Button>
+            <Button variant="primary" onClick={() => setRoute("onboarding")}><Icon icon={PlusIcon} /> Provision Client</Button>
+          </>
+        }
+      />
+
+      {/* six-up row; the stat cards keep their full size, as in the reference */}
+      <div className={cx(ui.grid, ui.cols[6])}>
+        <StatCard icon="fa-building" tone="info" label="Total clients" value={fmt(tenants.length)} note="provisioned" />
+        <StatCard icon="fa-users" tone="purple" label="Seats used" value={fmt(ORG.seatsUsed)} note={`${seatPct}% of ${fmt(ORG.seatsTotal)}`} />
+        <StatCard icon="fa-heart-pulse" tone="ok" label="Healthy" value={fmt(healthy)} note="health above 95%" />
+        <StatCard icon="fa-triangle-exclamation" tone="warn" label="At risk" value={fmt(atRisk)} note="health 90% or below" />
+        <StatCard icon="fa-gem" tone="muted" label="Enterprise" value={fmt(enterprise)} note="plan tier" />
+        <StatCard icon="fa-wallet" tone="info" label="Total spend" value={`$${(spend / 1000).toFixed(0)}k`} note="per month, all clients" />
       </div>
-      <div className="sn-form-header">
-        <div className="sn-form-title-row">
-          <span className="sn-rec-number">TENANTS</span>
-          <span className="sn-pill state-progress"><i className="fa-solid fa-spinner fa-spin" /> {tenants.length} active</span>
-          <span className="sn-pill state-neutral"><i className="fa-solid fa-building" /> {ORG.name}</span>
-        </div>
-        <div className="sn-form-title-meta">
-          <div>
-            <h1>Tenant Management</h1>
-            <div className="sn-form-sub">All workspaces under {ORG.name} · {ORG.seatsUsed.toLocaleString()} seats used / {ORG.seatsTotal.toLocaleString()} total</div>
+
+      <div className={ui.split}>
+        <section className={cx(ui.card, ui.panel)} aria-labelledby="clients-h">
+          <div className={ui.panelHead}>
+            <h2 id="clients-h" className={ui.panelTitle}>Client Inventory</h2>
+            <span className="text-fg-muted text-xs">{fmt(tenants.length)} clients</span>
           </div>
-          <div className="sn-form-actions">
-            <button className="sn-btn"><i className="fa-solid fa-file-export" /> Export CSV</button>
-            <button className="sn-btn primary" onClick={() => setRoute("onboarding")}><i className="fa-solid fa-plus" /> Provision Tenant</button>
-          </div>
-        </div>
-      </div>
-      <div className="sn-kpi-strip">
-        <Kpi l="Total tenants" v={tenants.length} s="+2 this quarter" tone="neutral" />
-        <Kpi l="Seats used" v={ORG.seatsUsed.toLocaleString()} s={`${Math.round(ORG.seatsUsed/ORG.seatsTotal*100)}% utilization`} tone="neutral" />
-        <Kpi l="Healthy" v={tenants.filter(t => t.health > 95).length} s="above 95%" tone="ok" />
-        <Kpi l="At risk" v={tenants.filter(t => t.health <= 90).length} s="needs attention" tone="warn" />
-        <Kpi l="Enterprise" v={tenants.filter(t => t.plan === "Enterprise").length} s="plan tier" tone="neutral" />
-        <Kpi l="Total spend" v={`$${(tenants.reduce((s,t)=>s+t.spend,0)/1000).toFixed(0)}k`} s="per month" tone="neutral" />
-      </div>
-      <div className="sn-form-layout">
-        <div className="sn-form-main">
-          <FormSection id="list" title="Tenant Inventory" badge={`${tenants.length} active`} collapsed={collapsed.list} onToggle={toggle}>
-            <table className="sn-list-table">
-              <thead><tr><th>Tenant</th><th style={{width:120}}>Plan</th><th style={{width:90}}>Users</th><th style={{width:110}}>Health</th><th style={{width:110}}>Incidents</th><th style={{width:110}}>Region</th><th style={{width:120}}>Created</th></tr></thead>
+          {tenants.length ? (
+            <Table>
+              <thead>
+                <tr>
+                  <th scope="col">Client</th>
+                  <th scope="col">Plan</th>
+                  <th scope="col">Users</th>
+                  <th scope="col">Health</th>
+                  <th scope="col">Incidents</th>
+                  <th scope="col"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
               <tbody>
-                {tenants.map(t => (
-                  <tr key={t.id} onClick={() => { setTenant(t); setRoute("dashboard"); }} style={{ cursor: "pointer" }}>
+                {tenants.map((t) => (
+                  <tr key={t.id}>
                     <td>
-                      <div className="row row-8">
-                        <div style={{ width: 24, height: 24, borderRadius: 3, background: colorFor(t.color), color: "#fff", fontWeight: 700, fontSize: 10, display: "grid", placeItems: "center" }}>{t.code}</div>
-                        <div><a className="sn-link"><b>{t.name}</b></a><div className="text-mute mono" style={{ fontSize: 11, marginTop: 2 }}>{t.id}.linkedeye.in</div></div>
+                      <div className={who}>
+                        <span className={codeTile} style={{ background: colorFor(t.color) }} aria-hidden="true">{t.code}</span>
+                        <span className={whoBody}>
+                          <TextButton className="font-medium" onClick={() => open(t)}>{t.name}</TextButton>
+                          <span className={cx(ui.sub, ui.mono)}>{t.id}.linkedeye.in</span>
+                        </span>
                       </div>
                     </td>
-                    <td><span className="sn-state-pill state-neutral"><i className="fa-solid fa-circle" /> {t.plan}</span></td>
-                    <td className="mono">{t.users}</td>
-                    <td><span className={`sn-state-pill ${t.health > 95 ? "svc-healthy" : t.health > 85 ? "state-mitigating" : "state-active"}`}><i className="fa-solid fa-circle" /> {t.health}%</span></td>
-                    <td className="mono">{t.incidents}{t.sev1 > 0 && <span style={{ marginLeft: 6 }} className="sn-state-pill state-active"><i className="fa-solid fa-circle" /> {t.sev1} S1</span>}</td>
-                    <td className="mono text-mute">us-east-1</td>
-                    <td className="text-mute" style={{ fontSize: 11.5 }}>Mar 12, 2024</td>
+                    <td><Pill tone="muted">{t.plan}</Pill></td>
+                    <td className={monoCell}>{fmt(t.users)}</td>
+                    <td><Pill tone={healthTone(t.health)}><PillDot />{t.health}%</Pill></td>
+                    <td className={monoCell}>
+                      {t.incidents} {t.sev1 > 0 && <Pill tone="crit">{t.sev1} S1</Pill>}
+                    </td>
+                    <td>
+                      <Button size="sm" onClick={() => open(t)} aria-label={`Open ${t.name} dashboard`}>
+                        Open <Icon icon={ArrowRightIcon} />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </FormSection>
+            </Table>
+          ) : (
+            <Empty>No clients provisioned yet. Use Provision Client to add the first one.</Empty>
+          )}
+        </section>
+
+        <div className={ui.rail}>
+          <Panel title="Organisation">
+            <dl className={ui.dl}>
+              <dt>Parent</dt><dd className="font-medium">{ORG.name}</dd>
+              <dt>Plan</dt><dd>{ORG.plan}</dd>
+              <dt>Clients</dt><dd>{fmt(tenants.length)}</dd>
+              <dt>Client users</dt><dd>{fmt(tenants.reduce((s, t) => s + t.users, 0))}</dd>
+              <dt>Seats used</dt><dd>{fmt(ORG.seatsUsed)} / {fmt(ORG.seatsTotal)}</dd>
+            </dl>
+          </Panel>
         </div>
-        <aside className="sn-form-side">
-          <div className="sn-side-card">
-            <div className="sn-side-head">Org Tree</div>
-            <div className="sn-side-body">
-              <Field label="Parent" value={<b>{ORG.name}</b>} />
-              <Field label="Plan" value={ORG.plan} />
-              <Field label="Tenants" value={tenants.length} />
-              <Field label="Total users" value={ORG.seatsUsed.toLocaleString()} />
-              <Field label="Default region" value="us-east-1" />
-              <Field label="SSO" value="Okta · inherited" />
-            </div>
-          </div>
-        </aside>
       </div>
-    </div>
+    </Page>
   );
 }
